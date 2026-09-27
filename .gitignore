@@ -1,0 +1,14 @@
+# Go build and test artifacts
+*.exe
+*.test
+*.out
+vendor/
+bin/
+
+# Local editor and operating-system files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
