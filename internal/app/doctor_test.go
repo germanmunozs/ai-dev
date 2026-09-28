@@ -43,7 +43,10 @@ func TestRunFormatAndUsageContract(t *testing.T) {
 		{"default text", []string{"doctor"}, 0, "Overall: Ready", false},
 		{"explicit text", []string{"doctor", "--format", "text"}, 0, "Overall: Ready", false},
 		{"json", []string{"doctor", "--format", "json"}, 0, `"overall":"ready"`, false},
+		{"agents text", []string{"agents"}, 0, "claude-code", false},
+		{"agents json", []string{"agents", "--format", "json"}, 0, `"agents"`, false},
 		{"unknown flag", []string{"doctor", "--unknown"}, 2, "Usage:", true},
+		{"agents unknown flag", []string{"agents", "--unknown"}, 2, "Usage:", true},
 		{"invalid format", []string{"doctor", "--format", "yaml"}, 2, "Usage:", true},
 		{"positional", []string{"doctor", "extra"}, 2, "Usage:", true},
 		{"missing subcommand", nil, 2, "Usage:", true},
@@ -53,7 +56,7 @@ func TestRunFormatAndUsageContract(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			exec := readyExecutor()
 			var stdout, stderr bytes.Buffer
-			code := Run(context.Background(), tt.args, exec, readyFS(), &stdout, &stderr)
+			code := Run(context.Background(), tt.args, exec, nil, readyFS(), bytes.NewReader(nil), &stdout, &stderr)
 			if code != tt.wantCode {
 				t.Fatalf("code = %d, want %d; stderr=%q", code, tt.wantCode, stderr.String())
 			}
@@ -76,7 +79,7 @@ func TestRunExitCodeIsFormatIndependent(t *testing.T) {
 		exec := readyExecutor()
 		exec.stdout = "false"
 		var stdout, stderr bytes.Buffer
-		if code := Run(context.Background(), []string{"doctor", "--format", format}, exec, readyFS(), &stdout, &stderr); code != 1 {
+		if code := Run(context.Background(), []string{"doctor", "--format", format}, exec, nil, readyFS(), bytes.NewReader(nil), &stdout, &stderr); code != 1 {
 			t.Errorf("format %s code = %d, want 1", format, code)
 		}
 	}
@@ -141,7 +144,7 @@ func TestRunDoctorReadyIsDeterministicAndOrdered(t *testing.T) {
 func TestRunReadyTextExitZero(t *testing.T) {
 	exec := &fakeExecutor{stdout: "true", paths: map[string]string{"git": "git", "specify": "specify", "claude": "claude", "codex": "codex"}}
 	var stdout, stderr bytes.Buffer
-	code := Run(context.Background(), []string{"doctor"}, exec, readyFS(), &stdout, &stderr)
+	code := Run(context.Background(), []string{"doctor"}, exec, nil, readyFS(), bytes.NewReader(nil), &stdout, &stderr)
 	if code != 0 || stderr.Len() != 0 || stdout.Len() == 0 {
 		t.Fatalf("Run = code %d, stdout %q, stderr %q", code, stdout.String(), stderr.String())
 	}
@@ -182,7 +185,7 @@ func TestRunDoctorEachSingleFailureIsIsolatedAndExitOne(t *testing.T) {
 				}
 			}
 			var stdout, stderr bytes.Buffer
-			if code := Run(context.Background(), []string{"doctor"}, exec, root, &stdout, &stderr); code != 1 {
+			if code := Run(context.Background(), []string{"doctor"}, exec, nil, root, bytes.NewReader(nil), &stdout, &stderr); code != 1 {
 				t.Fatalf("exit = %d, want 1", code)
 			}
 		})

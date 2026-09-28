@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 
 	"ai-dev/internal/checks"
 	"ai-dev/internal/doctor"
@@ -31,10 +32,25 @@ func RunDoctor(ctx context.Context, executor system.Executor, root fs.FS) doctor
 }
 
 // Run executes the CLI application and returns its process exit code.
-func Run(ctx context.Context, args []string, executor system.Executor, root fs.FS, stdout, stderr io.Writer) int {
+
+func Run(ctx context.Context, args []string, executor system.Executor, launcher system.Launcher, root fs.FS, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent> [options]")
+		return 2
+	}
+	if args[0] == "agents" {
+		return RunAgentsList(args[1:], executor, stdout, stderr)
+	}
+	if args[0] == "agent" {
+		if len(args) < 2 || args[1] != "run" {
+			fmt.Fprintln(stderr, "Usage: ai-dev agent run [--format text|json] <agent-id> [instruction]")
+			return 2
+		}
+		return RunAgentRun(ctx, args[2:], executor, launcher, stdin, readerIsInteractive(stdin), "", stdout, stderr)
+	}
 	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev doctor [--format text|json]") }
-	if len(args) == 0 || args[0] != "doctor" {
-		usage()
+	if args[0] != "doctor" {
+		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent> [options]")
 		return 2
 	}
 	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)
@@ -59,4 +75,15 @@ func Run(ctx context.Context, args []string, executor system.Executor, root fs.F
 		return 0
 	}
 	return 1
+}
+
+func readerIsInteractive(reader io.Reader) bool {
+	file, ok := reader.(interface {
+		Stat() (os.FileInfo, error)
+	})
+	if !ok {
+		return false
+	}
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
