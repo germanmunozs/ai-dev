@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 
+	"ai-dev/internal/agent"
 	"ai-dev/internal/checks"
 	"ai-dev/internal/doctor"
 	"ai-dev/internal/report"
@@ -42,11 +43,15 @@ func Run(ctx context.Context, args []string, executor system.Executor, launcher 
 		return RunAgentsList(args[1:], executor, stdout, stderr)
 	}
 	if args[0] == "agent" {
-		if len(args) < 2 || args[1] != "run" {
-			fmt.Fprintln(stderr, "Usage: ai-dev agent run [--format text|json] <agent-id> [instruction]")
-			return 2
+		if len(args) >= 2 && args[1] == "run" {
+			return RunAgentRun(ctx, args[2:], executor, launcher, stdin, readerIsInteractive(stdin), "", stdout, stderr)
 		}
-		return RunAgentRun(ctx, args[2:], executor, launcher, stdin, readerIsInteractive(stdin), "", stdout, stderr)
+		if len(args) >= 2 && args[1] == "select" {
+			registry := agent.NewRegistry(executor)
+			return RunAgentSelect(args[2:], registry, stdout, stderr)
+		}
+		fmt.Fprintln(stderr, "Usage: ai-dev agent <run|select> [options]")
+		return 2
 	}
 	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev doctor [--format text|json]") }
 	if args[0] != "doctor" {
