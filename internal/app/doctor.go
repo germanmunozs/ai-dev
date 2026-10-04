@@ -36,7 +36,7 @@ func RunDoctor(ctx context.Context, executor system.Executor, root fs.FS) doctor
 
 func Run(ctx context.Context, args []string, executor system.Executor, launcher system.Launcher, root fs.FS, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent> [options]")
+		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow> [options]")
 		return 2
 	}
 	if args[0] == "agents" {
@@ -53,9 +53,19 @@ func Run(ctx context.Context, args []string, executor system.Executor, launcher 
 		fmt.Fprintln(stderr, "Usage: ai-dev agent <run|select> [options]")
 		return 2
 	}
+	if args[0] == "workflow" {
+		if len(args) >= 2 && args[1] == "state" {
+			return RunWorkflowState(args[2:], root, stdout, stderr)
+		}
+		if len(args) >= 2 && args[1] == "transition" {
+			return RunWorkflowTransition(args[2:], root, stdout, stderr)
+		}
+		fmt.Fprintln(stderr, "Usage: ai-dev workflow <state|transition> [options]")
+		return 2
+	}
 	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev doctor [--format text|json]") }
 	if args[0] != "doctor" {
-		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent> [options]")
+		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow> [options]")
 		return 2
 	}
 	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)
