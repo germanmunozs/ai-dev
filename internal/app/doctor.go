@@ -54,6 +54,9 @@ func Run(ctx context.Context, args []string, executor system.Executor, launcher 
 		return 2
 	}
 	if args[0] == "workflow" {
+		if len(args) >= 2 && args[1] == "next" {
+			return RunWorkflowNext(args[2:], root, stdout, stderr)
+		}
 		if len(args) >= 2 && args[1] == "state" {
 			return RunWorkflowState(args[2:], root, stdout, stderr)
 		}

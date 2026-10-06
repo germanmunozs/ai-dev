@@ -21,18 +21,29 @@ func validFeatureID(featureID string) bool {
 	return featureID != "." && fs.ValidPath(featureID) && !strings.Contains(featureID, "/")
 }
 
+// FeatureDir returns the slash-separated path of featureID's spec-kit
+// feature directory relative to root, and whether featureID is structurally
+// valid. It validates before constructing the path and performs no I/O.
+func FeatureDir(featureID string) (dir string, ok bool) {
+	if !validFeatureID(featureID) {
+		return "", false
+	}
+	return path.Join("specs", featureID), true
+}
+
 // FeatureExists reports whether featureID resolves to a feature root
 // recognizes as existing: a real, non-symlink specs/<featureID> directory
 // (FR-008). The raw value is validated before path.Join.
 func FeatureExists(root fs.FS, featureID string) bool {
-	if !validFeatureID(featureID) {
+	dir, ok := FeatureDir(featureID)
+	if !ok {
 		return false
 	}
 	lstatRoot, ok := root.(fs.ReadLinkFS)
 	if !ok {
 		return false // no safe no-follow inspection is available
 	}
-	info, err := lstatRoot.Lstat(path.Join("specs", featureID))
+	info, err := lstatRoot.Lstat(dir)
 	return err == nil && info.IsDir() && info.Mode()&fs.ModeSymlink == 0
 }
 
@@ -41,14 +52,15 @@ func FeatureExists(root fs.FS, featureID string) bool {
 // have already confirmed FeatureExists. It never writes, creates, deletes,
 // or renames anything.
 func ResolveRecord(root fs.FS, featureID string) (state State, invalid bool) {
-	if !validFeatureID(featureID) {
+	dir, ok := FeatureDir(featureID)
+	if !ok {
 		return "", true // defensive: callers normally stop at FeatureExists
 	}
 	lstatRoot, ok := root.(fs.ReadLinkFS)
 	if !ok {
 		return "", true // do not fall back to link-following Stat behavior
 	}
-	recordPath := path.Join("specs", featureID, RecordFileName)
+	recordPath := path.Join(dir, RecordFileName)
 	info, err := lstatRoot.Lstat(recordPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return Draft, false // FR-005: record absent -> initial state
