@@ -12,6 +12,7 @@ import (
 	"ai-dev/internal/agent"
 	"ai-dev/internal/checks"
 	"ai-dev/internal/doctor"
+	"ai-dev/internal/gate"
 	"ai-dev/internal/report"
 	"ai-dev/internal/system"
 )
@@ -35,6 +36,11 @@ func RunDoctor(ctx context.Context, executor system.Executor, root fs.FS) doctor
 // Run executes the CLI application and returns its process exit code.
 
 func Run(ctx context.Context, args []string, executor system.Executor, launcher system.Launcher, root fs.FS, stdin io.Reader, stdout, stderr io.Writer) int {
+	return RunWithGateStore(ctx, args, executor, launcher, root, nil, stdin, stdout, stderr)
+}
+
+// RunWithGateStore executes the CLI application with the Human Gate store.
+func RunWithGateStore(ctx context.Context, args []string, executor system.Executor, launcher system.Launcher, root fs.FS, store gate.Store, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow> [options]")
 		return 2
@@ -54,6 +60,20 @@ func Run(ctx context.Context, args []string, executor system.Executor, launcher 
 		return 2
 	}
 	if args[0] == "workflow" {
+		if len(args) >= 2 && args[1] == "approve" {
+			if store == nil {
+				fmt.Fprintln(stderr, "ai-dev: internal error: human gate store unavailable")
+				return 2
+			}
+			return RunWorkflowGate(gate.Approval, args[2:], root, store, stdout, stderr)
+		}
+		if len(args) >= 2 && args[1] == "abandon" {
+			if store == nil {
+				fmt.Fprintln(stderr, "ai-dev: internal error: human gate store unavailable")
+				return 2
+			}
+			return RunWorkflowGate(gate.Abandonment, args[2:], root, store, stdout, stderr)
+		}
 		if len(args) >= 2 && args[1] == "next" {
 			return RunWorkflowNext(args[2:], root, stdout, stderr)
 		}

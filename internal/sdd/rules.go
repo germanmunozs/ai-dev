@@ -64,3 +64,9 @@ func missingArtifacts(root fs.FS, featureID string, state workflow.State) []stri
 	}
 	return missing
 }
+
+// MissingArtifacts reports required artifacts absent from featureID's
+// feature directory under Feature 005's exact presence rule and order.
+func MissingArtifacts(root fs.FS, featureID string, state workflow.State) []string {
+	return missingArtifacts(root, featureID, state)
+}
