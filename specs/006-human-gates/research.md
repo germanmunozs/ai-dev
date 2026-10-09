@@ -477,3 +477,10 @@ the Human Implementation Gate remains `NO APROBADO`.
 The `595b861b…` identity belongs to the accepted snapshot before the later documentation changes
 that record the human acceptance and post-acceptance audit corrections. Go production code and
 tests remain identical to that snapshot; the current documentation differs.
+
+**Later Human Implementation Gate decision (2026-10-08; prior history preserved):** the responsible
+human for Feature 006 approved the implementation for the supported macOS/Linux scope after review
+of the formal criteria and the previously accepted H-3/D-2 evidence. **Human Implementation Gate:
+`APPROVED — macOS/Linux scope`.** H-7 remains `PENDING — DEFERRED`; native Windows behavior remains
+unvalidated, no complete multiplatform validation is claimed, and FR-037/SC-014 retain their full
+fail-closed guarantees. This decision does not approve H-7 or authorize merge or release.

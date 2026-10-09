@@ -99,6 +99,17 @@
   Implementation Gate remains `NO APROBADO`; no merge, PR, release, or other Human Gate is approved
   by inference.
 
+### Session 2026-10-08 (Human Implementation Gate approval)
+
+- **Authority record: human decision.** After reviewing the formal gate criteria and the previously
+  accepted H-3/D-2 evidence, the responsible human for Feature 006 explicitly approved the
+  implementation for the supported macOS/Linux scope.
+- **Human Implementation Gate: `APPROVED — macOS/Linux scope`.** H-7 remains
+  `PENDING — DEFERRED`, native Windows behavior remains unvalidated, and no complete
+  multiplatform validation is claimed. FR-037 and SC-014 retain their full fail-closed contracts
+  for Windows and every other unsupported platform. This approval does not approve H-7 and does
+  not by itself authorize a PR, merge, release, or another Human Gate.
+
 ## Responsibility Boundary *(context for all requirements)*
 
 A **Human Gate** is the point at which ai-dev requires an explicit human acceptance decision before

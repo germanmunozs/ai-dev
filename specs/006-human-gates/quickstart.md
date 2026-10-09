@@ -106,6 +106,12 @@ recorded the acceptance and later audit corrections. Go production code and test
 to that snapshot; the current documentation differs.
 This acceptance does not validate Windows or approve the Human Implementation Gate.
 
+In a separate later human decision on 2026-10-08, the responsible human for Feature 006 approved
+the implementation for the supported macOS/Linux scope: **Human Implementation Gate:
+`APPROVED — macOS/Linux scope`**. H-7 remains `PENDING — DEFERRED`; native Windows behavior remains
+unvalidated, no complete multiplatform validation is claimed, and FR-037/SC-014 remain unchanged.
+The decision does not approve H-7 or authorize merge or release.
+
 ## 2. Manual walk-through in a scratch repository
 
 Run these commands from a scratch copy so that the real `specs/` directory is never touched:

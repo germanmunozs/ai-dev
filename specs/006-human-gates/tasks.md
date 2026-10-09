@@ -1187,8 +1187,14 @@ required Linux gate, and the final manual acceptance.
   T052 remains accepted; D-1, D-2, and these complementary-evidence statuses do not change its
   status.
 
-  **Human Implementation Gate: NO APROBADO.** Completing T052 records only the Human Manual
-  Acceptance task and does not approve any Human Gate.
+  **Human Implementation Gate: `APPROVED — macOS/Linux scope` (human decision, 2026-10-08).**
+  After reviewing the formal gate criteria and the previously accepted H-3/D-2 evidence, the
+  responsible human for Feature 006 explicitly approved the implementation for the supported
+  macOS/Linux scope. H-7 remains `PENDING — DEFERRED`; native Windows behavior remains unvalidated,
+  no complete multiplatform validation is claimed, and FR-037/SC-014 retain their full fail-closed
+  contracts. This later decision preserves the history above: completing T052 did not itself
+  approve a Human Gate. It does not approve H-7 or authorize a PR, merge, release, or another Human
+  Gate.
 
 ---
 
@@ -1330,8 +1336,10 @@ the authority invariant.
 
 Foundational → US1 → US2 → US3 → US4 → US5 → Polish. T051 and T052 are complete. Platform-audit
 D-2 and the renewed H-3 macOS/Linux evidence were human-accepted on 2026-10-08. This does not
-authorize merge or approve the Human Implementation Gate; H-7 remains deferred and non-blocking
-for the macOS/Linux-only scope.
+by itself authorize merge or approve the Human Implementation Gate. In a separate later human
+decision on 2026-10-08, the Human Implementation Gate became `APPROVED — macOS/Linux scope`.
+H-7 remains `PENDING — DEFERRED`, native Windows behavior remains unvalidated, and merge remains
+separately unauthorized.
 
 ## Notes
 

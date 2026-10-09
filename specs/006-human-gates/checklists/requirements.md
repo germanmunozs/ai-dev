@@ -131,3 +131,10 @@
   before the documentation changes that recorded the human decision and the later audit
   corrections. Go production code and tests remain identical to that snapshot; the current
   documentation differs. This clarification changes no checklist marker or historical decision.
+- **Later Human Implementation Gate decision (2026-10-08; checklist history preserved):** after
+  review of the formal criteria and the previously accepted H-3/D-2 evidence, the responsible human
+  for Feature 006 approved the implementation for the supported macOS/Linux scope. **Human
+  Implementation Gate: `APPROVED — macOS/Linux scope`.** H-7 remains `PENDING — DEFERRED`, native
+  Windows behavior remains unvalidated, and no complete multiplatform validation is claimed.
+  FR-037/SC-014 remain unchanged and fail closed on unsupported platforms. This decision changes no
+  checklist marker, does not approve H-7, and does not authorize merge or release.

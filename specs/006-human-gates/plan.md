@@ -490,6 +490,14 @@ changes that record the acceptance and subsequent audit corrections. Go producti
 remain identical to that snapshot; the current documentation differs. Attaching the renewed D-2
 package (and the historical H-3 package) to the PR remains PENDING until a PR exists.
 
+**Later Human Implementation Gate decision (2026-10-08; prior history preserved):** the responsible
+human for Feature 006 explicitly approved the implementation for the supported macOS/Linux scope.
+**Human Implementation Gate: `APPROVED — macOS/Linux scope`.** The previously accepted H-3/D-2
+evidence supports this limited scope. H-7 remains `PENDING — DEFERRED`, native Windows behavior is
+not validated, and no complete multiplatform validation is claimed. FR-037 and SC-014 remain
+unchanged and continue to require fail-closed behavior on every unsupported platform. This approval
+does not approve H-7 or authorize a PR, merge, release, or another Human Gate.
+
 ## Constitution Check (post-design)
 
 | Principle | Status | Note |
