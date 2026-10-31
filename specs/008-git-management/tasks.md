@@ -23,12 +23,14 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 **Purpose**: Establish package boundaries and reusable test fixtures without changing Features 001–006.
 
-- [ ] T001 Create package skeletons and package documentation for `internal/gitmanager/`, `internal/gitprocess/`, `internal/gitstore/`, and `internal/conventionalcommit/` following the import DAG in `specs/008-git-management/plan.md`
-- [ ] T002 Define consumer-side `GitRunner`, `GitStore`, `Filesystem`, `Clock`, `RandomSource`, and `Reporter` ports in `internal/gitmanager/ports.go` before fakes, adapters, or composition (P-01)
-- [ ] T003 Add structural import-boundary tests that permit only `internal/gitprocess` to import `os/exec` and prohibit `internal/gitmanager` from importing `internal/gitprocess` or `internal/gitstore` in `internal/gitmanager/boundary_test.go`
-- [ ] T004 Add shared inert hostile-Git sentinels and repository fixture builders without real credentials in `internal/gitmanager/testdata/` and `internal/gitmanager/testhelpers_test.go`
-- [ ] T005 Add deterministic fault-injection implementations of the T002 ports in `internal/gitmanager/fakes_test.go`
-- [ ] T006 Add Feature 008 dependency composition interfaces while preserving existing `app.Run` and `app.RunWithGateStore` behavior in `internal/app/gitmanagement.go` and `internal/app/gitmanagement_test.go`
+- [x] T001 Create package skeletons and package documentation for `internal/gitmanager/`, `internal/gitprocess/`, `internal/gitstore/`, and `internal/conventionalcommit/` following the import DAG in `specs/008-git-management/plan.md`
+- [x] T002 Define consumer-side `GitRunner`, `GitStore`, `Filesystem`, `Clock`, `RandomSource`, and `Reporter` ports in `internal/gitmanager/ports.go` before fakes, adapters, or composition (P-01)
+- [x] T003 Add structural import-boundary tests that permit only `internal/gitprocess` to import `os/exec` and prohibit `internal/gitmanager` from importing `internal/gitprocess` or `internal/gitstore` in `internal/gitmanager/boundary_test.go`
+  - **DEV-T003 (approved deviation):** The `os/exec` import exception is restricted to `internal/gitmanager/testhelpers_test.go` for synthetic test infrastructure only; it does not extend to production code or other files. Residual risk: the exception depends on the exact filename.
+- [x] T004 Add shared inert hostile-Git sentinels and repository fixture builders without real credentials in `internal/gitmanager/testdata/` and `internal/gitmanager/testhelpers_test.go`
+  - **DEV-T004 (approved deviation):** The test-only harness includes `internal/gitmanager/sentinel_pty_posix_test.go` and `internal/gitmanager/sentinel_pty_other_test.go`, originally authorized in Step 75; its scope is exclusively testing.
+- [x] T005 Add deterministic fault-injection implementations of the T002 ports in `internal/gitmanager/fakes_test.go`
+- [x] T006 Add Feature 008 dependency composition interfaces while preserving existing `app.Run` and `app.RunWithGateStore` behavior in `internal/app/gitmanagement.go` and `internal/app/gitmanagement_test.go`
 
 ---
 
