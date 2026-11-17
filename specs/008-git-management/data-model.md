@@ -274,9 +274,7 @@ LinkedWorktree
   worktree_path
   git_dir_path?
   common_dir_identity?
-  head_state
-  symbolic_ref_bytes_base64url?
-  commit_oid?
+  head                  HeadObservation (SCHEMA-103B-01)
   availability          available | missing | locked |
                         inaccessible | ambiguous
   locked
@@ -284,7 +282,7 @@ LinkedWorktree
   prunable?
 ```
 
-Available worktrees require a reversible worktree path and verifiable association with the common directory. Attached HEAD requires exact reversible symbolic-ref bytes; other HEAD states prohibit them. `commit_oid`, when present, is `ObjectOID`. Lock reasons are already redacted and must not expose tokens, credentials or unsafe paths. `prunable` is an observation only and does not authorize pruning. The entity conveys no linked-worktree mutation capability.
+Available worktrees require a reversible worktree path and verifiable association with the common directory. `head` follows the `HeadObservation` rules: attached HEAD requires exact reversible symbolic-ref bytes and a commit `ObjectOID`. Lock reasons are already redacted and must not expose tokens, credentials or unsafe paths. `prunable` is an observation only and does not authorize pruning. The entity conveys no linked-worktree mutation capability.
 
 ### Submodule
 
@@ -639,6 +637,21 @@ Canonical form:
 - Approval tuples in `GitPlanOutput` are a deterministic public projection of `immutable_intent.authorized_files[]`; they are not an additional `GitInitializationPlan` field and do not expand the exact covered-field list in F008-FR-172.
 - Excluded metadata cannot affect authority, operation, precondition, or postcondition.
 - Regeneration requires byte-identical canonical covered form, not semantic similarity.
+
+Canonical encoding rules (T011). Each rule is **derived** when a cited source fixes it and **proposed** when it only fixes an encoding the sources leave open:
+
+| ID | Rule | Basis |
+|---|---|---|
+| CANON-01 | Member names are the snake_case names of this data model. An absent optional member (`?`) is omitted; a collection is always present, as `[]` when empty; a map member is a JSON object. | proposed |
+| CANON-02 | An integer up to 9007199254740991 is a JSON number; above that it is a decimal string. Device, inode, size-decimal and entry-count members are always decimal strings. | derived, F008-FR-171 |
+| CANON-03 | `ObservedPath` and `ObservedRef` both use `reversible_path_bytes_base64url` and optional `display_path_utf8`. Exact byte members (`commit_message_bytes_base64url`) are unpadded base64url. | proposed |
+| CANON-04 | A frozen timestamp is RFC 3339 with whole seconds and the frozen UTC offset; sub-second precision cannot be encoded, because a Git date cannot carry it. | proposed |
+| CANON-05 | A `FileIdentity` encodes as `device_decimal`, `inode_decimal`, `file_type` (`regular \| directory \| symlink \| other`), `permissions_octal` (four octal digits) and `size`. | proposed |
+| CANON-06 | `operation_id` is `<ordinal>:sha256:<hex>` over the canonical object of `kind`, `exact_argv`, `target_identity`, `preconditions`, `expected_effects` and `partial_effect_classification`. An operation with argv also binds `environment_profile` and the exact `environment` path bytes of the snapshot. | derived, F008-FR-173 and plan L-2 |
+| CANON-07 | `plan_digest` is `sha256:<hex>` over the canonical object of exactly the eight covered members. A plan whose stored operation IDs or digest differ from their recomputation is invalid. | derived, F008-FR-172 |
+| CANON-08 | A decoder accepts only input that is already the exact canonical serialization of its value, within the F008-FR-051 limits, and rejects duplicate members, fractions, exponents, unsafe integers, invalid UTF-8 and lone surrogates. Unknown or missing members are rejected against a closed member set; schema-level plan decoding belongs to T055. | derived, research §3 and F008-FR-050–051 |
+
+Open item O-T011-1: `plan.md` lists a stdin digest among the `operation_id` inputs, but no `DerivedOperation` member carries one, and F008-FR-173 does not list it. Operations that feed bytes to Git (blob, tree and commit creation) reach their content through intent digests today. Whether `DerivedOperation` needs an explicit `stdin_digest` must be decided before the operation matrix (T018) and the commit flow (T086).
 
 `prohibited_operations` contains at least push/fetch/pull/merge/rebase/tag/remote mutation/branch delete-or-rename/reset/checkout/switch/stash/gc/amend/restore/submodule or linked-worktree mutation/hooks/`git flow feature finish`. Under SCHEMA-103B-11 these form the closed catalogue `push | fetch | pull | merge | rebase | tag_mutation | remote_mutation | branch_delete | branch_rename | reset | checkout | switch | stash | gc | amend | automatic_restore | submodule_mutation | linked_worktree_mutation | git_flow_hooks | git_flow_feature_finish`, and every plan lists all of them exactly once in that order.
 
