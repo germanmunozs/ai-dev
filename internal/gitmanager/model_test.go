@@ -1242,10 +1242,7 @@ func TestDerivedOperationAndPlan(t *testing.T) {
 		t.Fatal("plan retained or exposed caller-owned collections")
 	}
 
-	verification, err := NewDerivedOperation(verificationOperationInput(1))
-	if err != nil {
-		t.Fatalf("verification operation rejected: %v", err)
-	}
+	verification := mustOperation(t, verificationOperationInput(1))
 	for name, mutate := range map[string]func(*DerivedOperationInput){
 		"ordinal mismatch":         func(in *DerivedOperationInput) { in.Ordinal = 1 },
 		"unknown kind":             func(in *DerivedOperationInput) { in.Kind = "other" },
@@ -1285,6 +1282,7 @@ func TestDerivedOperationAndPlan(t *testing.T) {
 
 	withVerification := validPlanInput(t)
 	withVerification.DerivedOperations = append(withVerification.DerivedOperations, verification)
+	sealPlanInput(t, &withVerification)
 	if _, err := NewGitInitializationPlan(withVerification); err != nil {
 		t.Fatalf("plan with trailing verification rejected: %v", err)
 	}
@@ -1778,7 +1776,7 @@ func regularFileIdentity(inode string) FileIdentity {
 	return FileIdentity{DeviceDecimal: "1", InodeDecimal: inode, Mode: 0o644, Size: 12}
 }
 
-func mustProjectIdentity(t *testing.T) PhysicalProjectIdentity {
+func mustProjectIdentity(t testing.TB) PhysicalProjectIdentity {
 	t.Helper()
 	identity, err := NewPhysicalProjectIdentity("/tmp/project", []byte("/tmp/project"), "1", "2")
 	if err != nil {
@@ -1787,7 +1785,7 @@ func mustProjectIdentity(t *testing.T) PhysicalProjectIdentity {
 	return identity
 }
 
-func mustToolIdentity(t *testing.T) GitToolIdentity {
+func mustToolIdentity(t testing.TB) GitToolIdentity {
 	t.Helper()
 	tool, err := NewGitToolIdentity(GitToolIdentityInput{
 		InvocationMode: InvocationModeDirect, InvocationPath: "/usr/bin/git", InvocationPathDigest: testSHA256,
@@ -1810,7 +1808,7 @@ func validFilesystemProfileInput(role FilesystemRole) FilesystemCapabilityProfil
 	}
 }
 
-func mustFilesystemProfile(t *testing.T, role FilesystemRole) FilesystemCapabilityProfile {
+func mustFilesystemProfile(t testing.TB, role FilesystemRole) FilesystemCapabilityProfile {
 	t.Helper()
 	profile, err := NewFilesystemCapabilityProfile(validFilesystemProfileInput(role))
 	if err != nil {
@@ -1819,7 +1817,7 @@ func mustFilesystemProfile(t *testing.T, role FilesystemRole) FilesystemCapabili
 	return profile
 }
 
-func mustIndex(t *testing.T, in IndexObservationInput) IndexObservation {
+func mustIndex(t testing.TB, in IndexObservationInput) IndexObservation {
 	t.Helper()
 	index, err := NewIndexObservation(in)
 	if err != nil {
@@ -1830,7 +1828,7 @@ func mustIndex(t *testing.T, in IndexObservationInput) IndexObservation {
 
 // validObservationInput describes a normal repository with an attached HEAD
 // and every collection observed empty.
-func validObservationInput(t *testing.T) RepositoryObservationInput {
+func validObservationInput(t testing.TB) RepositoryObservationInput {
 	t.Helper()
 	evidence, err := NewGitFlowEvidence(GitFlowEvidenceInput{ObservationState: ObservationObservedEmpty, Classification: GitFlowAbsent})
 	if err != nil {
@@ -1857,7 +1855,7 @@ func validObservationInput(t *testing.T) RepositoryObservationInput {
 	}
 }
 
-func absentObservationInput(t *testing.T) RepositoryObservationInput {
+func absentObservationInput(t testing.TB) RepositoryObservationInput {
 	t.Helper()
 	in := validObservationInput(t)
 	in.RepositoryKind, in.GitDir, in.CommonDir, in.ObjectFormat, in.RefFormat = RepositoryKindAbsent, ObservedPath{}, ObservedPath{}, "", ""
@@ -1868,7 +1866,7 @@ func absentObservationInput(t *testing.T) RepositoryObservationInput {
 	return in
 }
 
-func mustObservation(t *testing.T, in RepositoryObservationInput) RepositoryObservation {
+func mustObservation(t testing.TB, in RepositoryObservationInput) RepositoryObservation {
 	t.Helper()
 	observation, err := NewRepositoryObservation(in)
 	if err != nil {
@@ -1877,7 +1875,7 @@ func mustObservation(t *testing.T, in RepositoryObservationInput) RepositoryObse
 	return observation
 }
 
-func validInspectionInput(t *testing.T) GitInspectionInput {
+func validInspectionInput(t testing.TB) GitInspectionInput {
 	t.Helper()
 	return GitInspectionInput{
 		SchemaVersion: testInspectionSchema, InspectionID: "inspection-1", InspectedAt: time.Unix(1, 0).UTC(),
@@ -1894,7 +1892,7 @@ func validAuthorizedFile(path string) AuthorizedFile {
 	}
 }
 
-func validIntentInput(t *testing.T) ImmutableIntentInput {
+func validIntentInput(t testing.TB) ImmutableIntentInput {
 	t.Helper()
 	identity := GitIdentity{Name: "A", Email: "a@example.test"}
 	return ImmutableIntentInput{
@@ -1907,7 +1905,7 @@ func validIntentInput(t *testing.T) ImmutableIntentInput {
 	}
 }
 
-func noCommitIntentInput(t *testing.T) ImmutableIntentInput {
+func noCommitIntentInput(t testing.TB) ImmutableIntentInput {
 	t.Helper()
 	in := validIntentInput(t)
 	in.InitialCommit, in.AuthorizedFiles, in.CommitMessageBytes = false, nil, nil
@@ -1915,7 +1913,7 @@ func noCommitIntentInput(t *testing.T) ImmutableIntentInput {
 	return in
 }
 
-func developmentIntentInput(t *testing.T) ImmutableIntentInput {
+func developmentIntentInput(t testing.TB) ImmutableIntentInput {
 	t.Helper()
 	in := noCommitIntentInput(t)
 	in.Strategy, in.InitializeRepository, in.DevelopmentBase = StrategyGitFlow, false, validDevelopmentBase()
@@ -1937,7 +1935,7 @@ func environmentProfileFor(root string) EnvironmentProfile {
 
 func validEnvironmentProfile() EnvironmentProfile { return environmentProfileFor(testStateRoot) }
 
-func validSnapshot(t *testing.T) PreconditionSnapshot {
+func validSnapshot(t testing.TB) PreconditionSnapshot {
 	t.Helper()
 	return PreconditionSnapshot{
 		ProjectIdentity: mustProjectIdentity(t), Observation: mustObservation(t, validObservationInput(t)),
@@ -1970,26 +1968,58 @@ func verificationOperationInput(ordinal uint64) DerivedOperationInput {
 	}
 }
 
-func validPlanInput(t *testing.T) GitInitializationPlanInput {
+func validPlanInput(t testing.TB) GitInitializationPlanInput {
 	t.Helper()
 	intent, err := NewImmutableIntent(validIntentInput(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	operation, err := NewDerivedOperation(validOperationInput(0))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return GitInitializationPlanInput{
+	operation := mustOperation(t, validOperationInput(0))
+	in := GitInitializationPlanInput{
 		SchemaVersion: GitInitializationPlanSchema, PlanID: "plan-1", GeneratedAt: time.Unix(5, 0).UTC(),
 		InspectionID: "inspection-1", InspectedAt: time.Unix(1, 0).UTC(), ImmutableIntent: intent, PreconditionSnapshot: validSnapshot(t),
 		DerivedOperations: []DerivedOperation{operation}, ExpectedPostconditions: []Condition{{Kind: ConditionHeadState, Expected: "unborn"}},
 		ProhibitedOperations: ProhibitedOperations(), PartialEffectPoints: []OperationID{operation.OperationID},
-		RecoveryPolicy: RecoveryPolicySupervisedReconciliation, PlanDigest: testSHA256,
+		RecoveryPolicy: RecoveryPolicySupervisedReconciliation,
 	}
+	sealPlanInput(t, &in)
+	return in
 }
 
-func validAuthorizationInput(t *testing.T) GitAuthorizationInput {
+// mustOperation builds an operation whose ID is derived the way the
+// planner derives it, against the fixture environment profile.
+func mustOperation(t testing.TB, in DerivedOperationInput) DerivedOperation {
+	t.Helper()
+	id, err := DeriveOperationID(in, validEnvironmentProfile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	in.OperationID = id
+	operation, err := NewDerivedOperation(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return operation
+}
+
+// sealPlanInput recomputes the partial-effect points and the plan digest
+// after a fixture changed covered members.
+func sealPlanInput(t testing.TB, in *GitInitializationPlanInput) {
+	t.Helper()
+	in.PartialEffectPoints = nil
+	for _, operation := range in.DerivedOperations {
+		if operation.PartialEffectClassification != PartialEffectNone {
+			in.PartialEffectPoints = append(in.PartialEffectPoints, operation.OperationID)
+		}
+	}
+	digest, err := ComputePlanDigest(*in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in.PlanDigest = digest
+}
+
+func validAuthorizationInput(t testing.TB) GitAuthorizationInput {
 	t.Helper()
 	return GitAuthorizationInput{
 		SchemaVersion: testAuthorizationSchema, AuthorizationID: testAuthorizationID, PlanDigest: testSHA256,

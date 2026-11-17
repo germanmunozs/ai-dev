@@ -3001,6 +3001,26 @@ func (v GitInitializationPlan) Validate() error {
 			return invalid("plan partial-effect points")
 		}
 	}
+	// Identifiers and the digest are derived values: a plan whose stored
+	// values differ from their recomputation was not produced by the planner.
+	for _, operation := range v.derivedOperations {
+		id, err := deriveOperationID(operation.Ordinal, operation.Kind, operation.exactArgv, operation.EnvironmentProfile,
+			operation.TargetIdentity, operation.preconditions, operation.expectedEffects,
+			operation.PartialEffectClassification, v.PreconditionSnapshot.EnvironmentProfile)
+		if err != nil {
+			return err
+		}
+		if id != operation.OperationID {
+			return invalid("operation ID derivation")
+		}
+	}
+	covered, err := CanonicalCoveredPlan(v)
+	if err != nil {
+		return err
+	}
+	if PlanDigest(fmt.Sprintf("sha256:%x", sha256.Sum256(covered))) != v.PlanDigest {
+		return invalid("plan digest")
+	}
 	return nil
 }
 
