@@ -19,14 +19,16 @@ import (
 
 const maxSafeInteger = 1<<53 - 1
 
-// maxCanonicalDepth is the plan nesting bound of F008-FR-051; T013
-// centralizes the remaining input limits.
+// maxCanonicalDepth is the LimitPlanNesting bound; the writer needs it as
+// a constant.
 const maxCanonicalDepth = 32
 
 var (
 	errCanonicalSyntax = errors.New("invalid canonical JSON")
-	errCanonicalLimit  = errors.New("canonical JSON limit exceeded")
-	errNonCanonical    = errors.New("JSON is not in canonical form")
+	// errCanonicalLimit is the limit error every decode bound returns; the
+	// LimitError it unwraps from carries the bound and its mapped reason.
+	errCanonicalLimit = errLimitExceeded
+	errNonCanonical   = errors.New("JSON is not in canonical form")
 )
 
 // MarshalCanonical writes v in RFC 8785 canonical form.
@@ -53,7 +55,7 @@ func writeCanonical(b *bytes.Buffer, v any, depth int) error {
 		return writeCanonicalString(b, x)
 	case []any:
 		if depth > maxCanonicalDepth {
-			return fmt.Errorf("%w: nesting", errCanonicalLimit)
+			return decodeLimitError(LimitPlanNesting, maxCanonicalDepth, depth)
 		}
 		b.WriteByte('[')
 		for i, item := range x {
@@ -67,7 +69,7 @@ func writeCanonical(b *bytes.Buffer, v any, depth int) error {
 		b.WriteByte(']')
 	case map[string]any:
 		if depth > maxCanonicalDepth {
-			return fmt.Errorf("%w: nesting", errCanonicalLimit)
+			return decodeLimitError(LimitPlanNesting, maxCanonicalDepth, depth)
 		}
 		keys := make([]string, 0, len(x))
 		for key := range x {
@@ -161,7 +163,19 @@ type DecodeLimits struct {
 
 // PlanDecodeLimits are the F008-FR-051 plan JSON bounds: 8 MiB, nesting 32,
 // 16,384 members or items per container, and 1 MiB per decoded string.
-var PlanDecodeLimits = DecodeLimits{MaxBytes: 8 << 20, MaxDepth: 32, MaxContainerMembers: 16384, MaxStringBytes: 1 << 20}
+var PlanDecodeLimits = DecodeLimits{
+	MaxBytes:            int(LimitPlanBytes.Max()),
+	MaxDepth:            int(LimitPlanNesting.Max()),
+	MaxContainerMembers: int(LimitContainerMembers.Max()),
+	MaxStringBytes:      int(LimitStringBytes.Max()),
+}
+
+// decodeLimitError reports an exceeded decode bound with its mapped reason.
+// The bound may be tighter than the catalogue when a caller decodes under
+// smaller limits.
+func decodeLimitError(kind LimitKind, max, observed int) error {
+	return &LimitError{Kind: kind, Reason: kind.Reason(), Max: int64(max), Observed: int64(observed)}
+}
 
 // UnmarshalCanonical strictly decodes data and requires it to be exactly
 // the canonical serialization of the decoded value. Duplicate members,
@@ -169,7 +183,7 @@ var PlanDecodeLimits = DecodeLimits{MaxBytes: 8 << 20, MaxDepth: 32, MaxContaine
 // and any non-canonical spelling are rejected.
 func UnmarshalCanonical(data []byte, limits DecodeLimits) (any, error) {
 	if len(data) > limits.MaxBytes {
-		return nil, fmt.Errorf("%w: %d bytes", errCanonicalLimit, len(data))
+		return nil, decodeLimitError(LimitPlanBytes, limits.MaxBytes, len(data))
 	}
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("%w: invalid UTF-8", errCanonicalSyntax)
@@ -244,7 +258,7 @@ func (p *canonicalParser) value(depth int) (any, error) {
 
 func (p *canonicalParser) enter(depth int) error {
 	if depth > p.limits.MaxDepth {
-		return fmt.Errorf("%w: nesting above %d", errCanonicalLimit, p.limits.MaxDepth)
+		return decodeLimitError(LimitPlanNesting, p.limits.MaxDepth, depth)
 	}
 	p.pos++
 	p.skipSpace()
@@ -273,7 +287,7 @@ func (p *canonicalParser) object(depth int) (any, error) {
 			return nil, p.fail(fmt.Sprintf("duplicate member %q", key))
 		}
 		if len(members) == p.limits.MaxContainerMembers {
-			return nil, fmt.Errorf("%w: more than %d members", errCanonicalLimit, p.limits.MaxContainerMembers)
+			return nil, decodeLimitError(LimitContainerMembers, p.limits.MaxContainerMembers, len(members)+1)
 		}
 		p.skipSpace()
 		if p.pos >= len(p.data) || p.data[p.pos] != ':' {
@@ -302,7 +316,7 @@ func (p *canonicalParser) array(depth int) (any, error) {
 	}
 	for {
 		if len(items) == p.limits.MaxContainerMembers {
-			return nil, fmt.Errorf("%w: more than %d items", errCanonicalLimit, p.limits.MaxContainerMembers)
+			return nil, decodeLimitError(LimitContainerMembers, p.limits.MaxContainerMembers, len(items)+1)
 		}
 		value, err := p.value(depth + 1)
 		if err != nil {
@@ -366,7 +380,7 @@ func (p *canonicalParser) string() (string, error) {
 	var b []byte
 	for {
 		if len(b) > p.limits.MaxStringBytes {
-			return "", fmt.Errorf("%w: string above %d bytes", errCanonicalLimit, p.limits.MaxStringBytes)
+			return "", decodeLimitError(LimitStringBytes, p.limits.MaxStringBytes, len(b))
 		}
 		if p.pos >= len(p.data) {
 			return "", p.fail("unterminated string")
@@ -376,7 +390,7 @@ func (p *canonicalParser) string() (string, error) {
 		case c == '"':
 			p.pos++
 			if len(b) > p.limits.MaxStringBytes {
-				return "", fmt.Errorf("%w: string above %d bytes", errCanonicalLimit, p.limits.MaxStringBytes)
+				return "", decodeLimitError(LimitStringBytes, p.limits.MaxStringBytes, len(b))
 			}
 			return string(b), nil
 		case c < 0x20:

@@ -569,8 +569,11 @@ func NewObservedPath(path []byte) ObservedPath {
 func (v ObservedPath) IsZero() bool { return v == ObservedPath{} }
 
 func (v ObservedPath) Validate() error {
-	_, err := validateReversible("observed path", v.ReversiblePathBytesBase64URL, v.DisplayPathUTF8)
-	return err
+	raw, err := validateReversible("observed path", v.ReversiblePathBytesBase64URL, v.DisplayPathUTF8)
+	if err != nil {
+		return err
+	}
+	return CheckPathBytes(raw)
 }
 
 // Bytes returns the exact path bytes; it is meaningful only for a valid value.
@@ -2267,7 +2270,10 @@ func (v AuthorizedFile) Validate() error {
 	if !v.ObservedIdentity.Mode.IsRegular() {
 		return invalid("authorized file observed type")
 	}
-	return firstError(v.ContentSHA256.Validate(), v.BlobOID.Validate(), v.ObservedIdentity.Validate())
+	if err := firstError(v.ContentSHA256.Validate(), v.BlobOID.Validate(), v.ObservedIdentity.Validate(), CheckPathBytes(path)); err != nil {
+		return err
+	}
+	return CheckLimit(LimitAuthorizedFileBytes, v.ObservedIdentity.Size)
 }
 
 func validAuthorizedPath(value string) bool {
@@ -2290,8 +2296,16 @@ func validAuthorizedPath(value string) bool {
 	return true
 }
 
-// validateAuthorizedFiles checks every file and rejects a repeated path.
+// validateAuthorizedFiles checks the file count before anything else, then
+// every file, repeated paths, and the aggregate authorized bytes.
 func validateAuthorizedFiles(files []AuthorizedFile) error {
+	if err := CheckLimit(LimitAuthorizedFiles, int64(len(files))); err != nil {
+		return err
+	}
+	aggregate, err := NewBudget(LimitAggregateAuthorizedBytes)
+	if err != nil {
+		return err
+	}
 	seen := make(map[string]bool, len(files))
 	for _, file := range files {
 		if err := file.Validate(); err != nil {
@@ -2301,6 +2315,9 @@ func validateAuthorizedFiles(files []AuthorizedFile) error {
 			return invalid("duplicate authorized file")
 		}
 		seen[file.PathUTF8] = true
+		if err := aggregate.Add(file.ObservedIdentity.Size); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -2459,6 +2476,9 @@ func (v ImmutableIntent) Validate() error {
 			return invalid("unrequested initial commit intent")
 		}
 		return nil
+	}
+	if err := CheckLimit(LimitCommitMessageBytes, int64(len(v.commitMessageBytes))); err != nil {
+		return err
 	}
 	if v.Author.Validate() != nil || v.Committer.Validate() != nil || v.AuthorTimestamp.IsZero() ||
 		v.CommitterTimestamp.IsZero() || len(v.commitMessageBytes) == 0 {
@@ -2963,6 +2983,16 @@ func NewGitInitializationPlan(in GitInitializationPlanInput) (GitInitializationP
 }
 
 func (v GitInitializationPlan) Validate() error {
+	if err := CheckLimit(LimitDerivedOperations, int64(len(v.derivedOperations))); err != nil {
+		return err
+	}
+	postconditions := int64(len(v.expectedPostconditions))
+	for _, operation := range v.derivedOperations {
+		postconditions += int64(len(operation.expectedPostconditions))
+	}
+	if err := CheckLimit(LimitPostconditions, postconditions); err != nil {
+		return err
+	}
 	if v.SchemaVersion != GitInitializationPlanSchema || len(v.derivedOperations) == 0 || len(v.expectedPostconditions) == 0 ||
 		v.GeneratedAt.IsZero() || v.InspectedAt.IsZero() || v.RecoveryPolicy != RecoveryPolicySupervisedReconciliation {
 		return invalid("initialization plan")
