@@ -10,7 +10,7 @@ import (
 func TestGitManagementCompositionIsInertForExistingCommands(t *testing.T) {
 	dependencies := unavailableGitManagementDependencies()
 	if dependencies.Runner != nil || dependencies.Store != nil || dependencies.Filesystem != nil ||
-		dependencies.Clock != nil || dependencies.RandomSource != nil || dependencies.Reporter != nil {
+		dependencies.Clock != nil || dependencies.RandomSource != nil {
 		t.Fatal("unavailable Git Management dependencies must expose no capability")
 	}
 

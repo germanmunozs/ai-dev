@@ -2,8 +2,12 @@ package gitmanager
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
+	"io/fs"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -40,74 +44,301 @@ func (f *fakeGitRunner) callsSnapshot() []GitInvocation {
 	return calls
 }
 
+// faultPlan injects failures by zero-based call index, counted across every
+// method of one fake. A failure in before proves the call had no effect; a
+// failure in after is returned once the effect is durable, which is how an
+// adapter whose outcome cannot be verified looks to the manager.
+type faultPlan struct {
+	before map[int]error
+	after  map[int]error
+	calls  []string
+}
+
+// begin records the call and returns its index and any pre-effect failure.
+func (p *faultPlan) begin(method string) (int, error) {
+	p.calls = append(p.calls, method)
+	index := len(p.calls) - 1
+	return index, p.before[index]
+}
+
+func (p *faultPlan) failBefore(index int, err error) {
+	if p.before == nil {
+		p.before = make(map[int]error)
+	}
+	p.before[index] = err
+}
+
+func (p *faultPlan) failAfter(index int, err error) {
+	if p.after == nil {
+		p.after = make(map[int]error)
+	}
+	p.after[index] = err
+}
+
+// fakeGitStore is an in-memory GitStore that enforces the same exclusivity
+// and compare-and-swap rules as the contract, through the model itself.
 type fakeGitStore struct {
-	mu      sync.Mutex
-	Calls   []GitStoreRequest
-	Results []GitStoreResult
-	Errors  map[int]error
+	mu             sync.Mutex
+	faults         faultPlan
+	attempts       map[ApplyID]GitApplyAttempt
+	authorizations map[AuthorizationID]GitAuthorization
+	events         []AuditEvent
+	locks          map[string]ApplyID
 }
 
-func newFakeGitStore(results []GitStoreResult, configuredErrors map[int]error) *fakeGitStore {
-	clonedResults := make([]GitStoreResult, len(results))
-	for index, result := range results {
-		clonedResults[index] = cloneGitStoreResult(result)
+func newFakeGitStore() *fakeGitStore {
+	return &fakeGitStore{
+		attempts:       make(map[ApplyID]GitApplyAttempt),
+		authorizations: make(map[AuthorizationID]GitAuthorization),
+		locks:          make(map[string]ApplyID),
 	}
-	clonedErrors := make(map[int]error, len(configuredErrors))
-	for index, err := range configuredErrors {
-		clonedErrors[index] = err
-	}
-	return &fakeGitStore{Results: clonedResults, Errors: clonedErrors}
 }
 
-func (f *fakeGitStore) Execute(_ context.Context, request GitStoreRequest) (GitStoreResult, error) {
+func (f *fakeGitStore) CreateAttempt(_ context.Context, attempt GitApplyAttempt) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.Calls = append(f.Calls, cloneGitStoreRequest(request))
-	index := len(f.Calls) - 1
-	var result GitStoreResult
-	if index < len(f.Results) {
-		result = cloneGitStoreResult(f.Results[index])
+	index, err := f.faults.begin("CreateAttempt")
+	if err != nil {
+		return err
 	}
-	return result, f.Errors[index]
+	if err := attempt.Validate(); err != nil {
+		return err
+	}
+	if _, exists := f.attempts[attempt.ApplyID]; exists {
+		return errors.New("attempt already exists")
+	}
+	f.attempts[attempt.ApplyID] = attempt
+	return f.faults.after[index]
 }
 
-func (f *fakeGitStore) callsSnapshot() []GitStoreRequest {
+func (f *fakeGitStore) IssueAuthorization(_ context.Context, authorization GitAuthorization) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	calls := make([]GitStoreRequest, len(f.Calls))
-	for index, call := range f.Calls {
-		calls[index] = cloneGitStoreRequest(call)
+	index, err := f.faults.begin("IssueAuthorization")
+	if err != nil {
+		return err
 	}
-	return calls
+	if err := authorization.Validate(); err != nil {
+		return err
+	}
+	if authorization.State != AuthorizationStateIssued || authorization.StateVersion != 1 {
+		return invalid("issued authorization")
+	}
+	if _, exists := f.authorizations[authorization.AuthorizationID]; exists {
+		return ErrAuthorizationExists
+	}
+	f.authorizations[authorization.AuthorizationID] = authorization
+	return f.faults.after[index]
 }
 
+func (f *fakeGitStore) LoadAuthorization(_ context.Context, project ProjectIdentityDigest, id AuthorizationID) (GitAuthorization, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, err := f.faults.begin("LoadAuthorization"); err != nil {
+		return GitAuthorization{}, err
+	}
+	authorization, exists := f.authorizations[id]
+	if !exists || authorization.ProjectIdentity.Digest() != project {
+		return GitAuthorization{}, ErrAuthorizationMissing
+	}
+	return authorization, nil
+}
+
+func (f *fakeGitStore) TransitionAuthorization(_ context.Context, request AuthorizationTransitionRequest) (GitAuthorization, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	index, err := f.faults.begin("TransitionAuthorization")
+	if err != nil {
+		return GitAuthorization{}, err
+	}
+	current, exists := f.authorizations[request.AuthorizationID]
+	if !exists || current.ProjectIdentity.Digest() != request.ProjectIdentityDigest {
+		return GitAuthorization{}, ErrAuthorizationMissing
+	}
+	next, err := current.Transition(request)
+	if err != nil {
+		return GitAuthorization{}, err
+	}
+	f.authorizations[request.AuthorizationID] = next
+	if err := f.faults.after[index]; err != nil {
+		return GitAuthorization{}, err
+	}
+	return next, nil
+}
+
+func (f *fakeGitStore) AppendAuditEvent(_ context.Context, event AuditEvent) (ContentDigest, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	index, err := f.faults.begin("AppendAuditEvent")
+	if err != nil {
+		return "", err
+	}
+	if err := event.Validate(); err != nil {
+		return "", err
+	}
+	for _, published := range f.events {
+		if published.ApplyID == event.ApplyID && published.Sequence == event.Sequence {
+			return "", errors.New("audit event already published")
+		}
+	}
+	event.Record = cloneSlice(event.Record)
+	f.events = append(f.events, event)
+	if err := f.faults.after[index]; err != nil {
+		return "", err
+	}
+	return recordDigest(event.Record), nil
+}
+
+func (f *fakeGitStore) AcquireApplyLock(_ context.Context, project PhysicalProjectIdentity, owner ApplyID) (ApplyLock, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, err := f.faults.begin("AcquireApplyLock"); err != nil {
+		return nil, err
+	}
+	// The lock namespace is device/inode only: path aliases contend.
+	key := project.DeviceDecimal() + "\x00" + project.InodeDecimal()
+	if _, held := f.locks[key]; held {
+		return nil, ErrApplyLockHeld
+	}
+	f.locks[key] = owner
+	return &fakeApplyLock{store: f, key: key}, nil
+}
+
+type fakeApplyLock struct {
+	store    *fakeGitStore
+	key      string
+	released bool
+}
+
+func (l *fakeApplyLock) Release(context.Context) error {
+	l.store.mu.Lock()
+	defer l.store.mu.Unlock()
+	index, err := l.store.faults.begin("ApplyLock.Release")
+	if err != nil {
+		return err
+	}
+	if l.released {
+		return errors.New("apply lock already released")
+	}
+	l.released = true
+	delete(l.store.locks, l.key)
+	return l.store.faults.after[index]
+}
+
+func (f *fakeGitStore) callsSnapshot() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return cloneSlice(f.faults.calls)
+}
+
+func (f *fakeGitStore) eventsSnapshot() []AuditEvent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	events := make([]AuditEvent, len(f.events))
+	for index, event := range f.events {
+		event.Record = cloneSlice(event.Record)
+		events[index] = event
+	}
+	return events
+}
+
+// recordDigest is the digest a store derives from the durable record bytes.
+func recordDigest(record []byte) ContentDigest {
+	return ContentDigest(fmt.Sprintf("sha256:%x", sha256.Sum256(record)))
+}
+
+type fakeFile struct {
+	identity FileIdentity
+	data     []byte
+}
+
+// fakeFilesystem is an in-memory Filesystem. Paths are exact byte strings and
+// are never cleaned or normalized.
 type fakeFilesystem struct {
-	mu      sync.Mutex
-	Calls   []FilesystemRequest
-	Results []FilesystemResult
-	Errors  map[int]error
+	mu        sync.Mutex
+	faults    faultPlan
+	entries   map[string]fakeFile
+	nextInode uint64
 }
 
-func (f *fakeFilesystem) Execute(_ context.Context, request FilesystemRequest) (FilesystemResult, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.Calls = append(f.Calls, cloneFilesystemRequest(request))
-	index := len(f.Calls) - 1
-	var result FilesystemResult
-	if index < len(f.Results) {
-		result = cloneFilesystemResult(f.Results[index])
-	}
-	return result, f.Errors[index]
+func newFakeFilesystem() *fakeFilesystem {
+	return &fakeFilesystem{entries: make(map[string]fakeFile), nextInode: 100}
 }
 
-func (f *fakeFilesystem) callsSnapshot() []FilesystemRequest {
+func (f *fakeFilesystem) create(path string, data []byte, mode fs.FileMode) (FileIdentity, error) {
+	if _, exists := f.entries[path]; exists {
+		return FileIdentity{}, fs.ErrExist
+	}
+	f.nextInode++
+	identity := FileIdentity{DeviceDecimal: "1", InodeDecimal: strconv.FormatUint(f.nextInode, 10), Mode: mode, Size: int64(len(data))}
+	f.entries[path] = fakeFile{identity: identity, data: cloneSlice(data)}
+	return identity, nil
+}
+
+func (f *fakeFilesystem) Identify(_ context.Context, path string) (FileIdentity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	calls := make([]FilesystemRequest, len(f.Calls))
-	for index, call := range f.Calls {
-		calls[index] = cloneFilesystemRequest(call)
+	if _, err := f.faults.begin("Identify"); err != nil {
+		return FileIdentity{}, err
 	}
-	return calls
+	entry, exists := f.entries[path]
+	if !exists {
+		return FileIdentity{}, fs.ErrNotExist
+	}
+	return entry.identity, nil
+}
+
+func (f *fakeFilesystem) ReadRegular(_ context.Context, path string, limit int64) (FileContent, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, err := f.faults.begin("ReadRegular"); err != nil {
+		return FileContent{}, err
+	}
+	entry, exists := f.entries[path]
+	if !exists {
+		return FileContent{}, fs.ErrNotExist
+	}
+	if !entry.identity.Mode.IsRegular() {
+		return FileContent{}, errors.New("not a regular file")
+	}
+	if int64(len(entry.data)) > limit {
+		return FileContent{}, errors.New("file exceeds read limit")
+	}
+	return FileContent{Identity: entry.identity, Data: cloneSlice(entry.data)}, nil
+}
+
+func (f *fakeFilesystem) CreateExclusive(_ context.Context, path string, data []byte, mode fs.FileMode) (FileIdentity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	index, err := f.faults.begin("CreateExclusive")
+	if err != nil {
+		return FileIdentity{}, err
+	}
+	identity, err := f.create(path, data, mode.Perm())
+	if err != nil {
+		return FileIdentity{}, err
+	}
+	return identity, f.faults.after[index]
+}
+
+func (f *fakeFilesystem) CreateDirectory(_ context.Context, path string, mode fs.FileMode) (FileIdentity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	index, err := f.faults.begin("CreateDirectory")
+	if err != nil {
+		return FileIdentity{}, err
+	}
+	identity, err := f.create(path, nil, mode.Perm()|fs.ModeDir)
+	if err != nil {
+		return FileIdentity{}, err
+	}
+	return identity, f.faults.after[index]
+}
+
+func (f *fakeFilesystem) callsSnapshot() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return cloneSlice(f.faults.calls)
 }
 
 type fakeClock struct {
@@ -176,64 +407,203 @@ func (f *fakeRandomSource) Read(destination []byte) (int, error) {
 	return n, nil
 }
 
-type fakeReporter struct {
-	mu     sync.Mutex
-	Calls  []ReportRequest
-	Errors map[int]error
-}
-
-func (f *fakeReporter) Report(_ context.Context, request ReportRequest) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.Calls = append(f.Calls, cloneReportRequest(request))
-	return f.Errors[len(f.Calls)-1]
-}
-
-func (f *fakeReporter) callsSnapshot() []ReportRequest {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	calls := make([]ReportRequest, len(f.Calls))
-	for index, call := range f.Calls {
-		calls[index] = cloneReportRequest(call)
-	}
-	return calls
-}
-
-func TestPortFakesInjectFaultsDeterministically(t *testing.T) {
+func TestFakeGitRunnerInjectsFaultsAndCopies(t *testing.T) {
 	ctx := context.Background()
-	runner := &fakeGitRunner{Errors: map[int]error{1: errInjected}}
-	_, firstErr := runner.Run(ctx, GitInvocation{Args: []string{"version"}})
-	_, secondErr := runner.Run(ctx, GitInvocation{Args: []string{"status"}})
-	if firstErr != nil || !errors.Is(secondErr, errInjected) {
-		t.Fatalf("runner errors = %v, %v", firstErr, secondErr)
+	runner := &fakeGitRunner{Results: []GitRunResult{{Stdout: []byte("partial"), ExitCode: 1}}, Errors: map[int]error{0: errInjected}}
+	request := GitInvocation{Args: []string{"status"}, Environment: []string{"A=B"}, Stdin: []byte("stdin")}
+	result, err := runner.Run(ctx, request)
+	if string(result.Stdout) != "partial" || result.ExitCode != 1 || !errors.Is(err, errInjected) {
+		t.Fatalf("runner result=%+v err=%v", result, err)
+	}
+	if _, err := runner.Run(ctx, GitInvocation{Args: []string{"version"}}); err != nil {
+		t.Fatalf("unconfigured call failed: %v", err)
+	}
+	request.Args[0], request.Environment[0], request.Stdin[0] = "changed", "changed", 'X'
+	result.Stdout[0] = 'X'
+	recorded := runner.callsSnapshot()[0]
+	if recorded.Args[0] != "status" || recorded.Environment[0] != "A=B" || string(recorded.Stdin) != "stdin" || string(runner.Results[0].Stdout) != "partial" {
+		t.Fatalf("runner retained or exposed caller-owned data: %+v", recorded)
+	}
+}
+
+func TestFakeGitStoreEnforcesAuthorizationContract(t *testing.T) {
+	ctx := context.Background()
+	store := newFakeGitStore()
+	authorization, err := NewGitAuthorization(validAuthorizationInput(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := authorization.ProjectIdentity.Digest()
+	if _, err := store.LoadAuthorization(ctx, project, authorization.AuthorizationID); !errors.Is(err, ErrAuthorizationMissing) {
+		t.Fatalf("load before issue: %v", err)
+	}
+	if err := store.IssueAuthorization(ctx, authorization); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.IssueAuthorization(ctx, authorization); !errors.Is(err, ErrAuthorizationExists) {
+		t.Fatalf("second issue: %v", err)
+	}
+	if _, err := store.LoadAuthorization(ctx, testSHA256, authorization.AuthorizationID); !errors.Is(err, ErrAuthorizationMissing) {
+		t.Fatalf("load from another project partition: %v", err)
 	}
 
-	store := &fakeGitStore{Errors: map[int]error{0: errInjected}}
-	if _, err := store.Execute(ctx, GitStoreRequest{Operation: "test"}); !errors.Is(err, errInjected) {
-		t.Fatalf("store error = %v", err)
+	claim := AuthorizationTransitionRequest{ProjectIdentityDigest: project, AuthorizationID: authorization.AuthorizationID, ExpectedState: AuthorizationStateIssued, ExpectedVersion: 1, To: AuthorizationStateClaimed, Owner: testApplyID}
+	claimed, err := store.TransitionAuthorization(ctx, claim)
+	if err != nil || claimed.State != AuthorizationStateClaimed {
+		t.Fatalf("claim = %+v, %v", claimed, err)
+	}
+	// The losing claimer of the same state/version tuple is a proven conflict.
+	loser := claim
+	loser.Owner = testOtherApplyID
+	if _, err := store.TransitionAuthorization(ctx, loser); !errors.Is(err, ErrAuthorizationConflict) {
+		t.Fatalf("second claim: %v", err)
+	}
+	loaded, err := store.LoadAuthorization(ctx, project, authorization.AuthorizationID)
+	if err != nil || loaded.OwnerApplyID != testApplyID || loaded.StateVersion != 2 {
+		t.Fatalf("durable authorization = %+v, %v", loaded, err)
+	}
+}
+
+func TestFakeGitStoreFaultInjection(t *testing.T) {
+	ctx := context.Background()
+	authorization, err := NewGitAuthorization(validAuthorizationInput(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := authorization.ProjectIdentity.Digest()
+
+	// A failure before the effect proves nothing became durable.
+	before := newFakeGitStore()
+	before.faults.failBefore(0, errInjected)
+	if err := before.IssueAuthorization(ctx, authorization); !errors.Is(err, errInjected) {
+		t.Fatalf("pre-effect failure: %v", err)
+	}
+	if _, err := before.LoadAuthorization(ctx, project, authorization.AuthorizationID); !errors.Is(err, ErrAuthorizationMissing) {
+		t.Fatalf("pre-effect failure left a record: %v", err)
 	}
 
-	filesystem := &fakeFilesystem{Errors: map[int]error{0: errInjected}}
-	if _, err := filesystem.Execute(ctx, FilesystemRequest{Operation: "test"}); !errors.Is(err, errInjected) {
-		t.Fatalf("filesystem error = %v", err)
+	// A failure after the effect leaves the transition durable although the
+	// caller could not verify it.
+	after := newFakeGitStore()
+	if err := after.IssueAuthorization(ctx, authorization); err != nil {
+		t.Fatal(err)
+	}
+	after.faults.failAfter(1, ErrStoreOutcomeUnverifiable)
+	claim := AuthorizationTransitionRequest{ProjectIdentityDigest: project, AuthorizationID: authorization.AuthorizationID, ExpectedState: AuthorizationStateIssued, ExpectedVersion: 1, To: AuthorizationStateClaimed, Owner: testApplyID}
+	if _, err := after.TransitionAuthorization(ctx, claim); !errors.Is(err, ErrStoreOutcomeUnverifiable) {
+		t.Fatalf("post-effect failure: %v", err)
+	}
+	loaded, err := after.LoadAuthorization(ctx, project, authorization.AuthorizationID)
+	if err != nil || loaded.State != AuthorizationStateClaimed {
+		t.Fatalf("post-effect failure lost the durable transition: %+v, %v", loaded, err)
+	}
+	if calls := after.callsSnapshot(); len(calls) != 3 || calls[1] != "TransitionAuthorization" {
+		t.Fatalf("recorded calls = %v", calls)
+	}
+}
+
+func TestFakeGitStoreAuditAttemptsAndLock(t *testing.T) {
+	ctx := context.Background()
+	store := newFakeGitStore()
+	project := mustProjectIdentity(t)
+	attempt := GitApplyAttempt{SchemaVersion: "ai-dev.git-apply-attempt/v1", ApplyID: testApplyID, StartedAt: time.Unix(2, 0).UTC(), InvocationMode: InvocationModeDirect}
+	if err := store.CreateAttempt(ctx, attempt); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateAttempt(ctx, attempt); err == nil {
+		t.Fatal("attempt record replaced")
 	}
 
-	now := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
-	clock := newFakeClock(now)
-	if got := clock.Now(); !got.Equal(now) {
-		t.Fatalf("clock = %v", got)
+	record := []byte(`{"kind":"attempt_created"}`)
+	event := AuditEvent{Kind: AuditEventAttemptCreated, ProjectIdentityDigest: project.Digest(), ApplyID: testApplyID, Sequence: 1, Record: record}
+	digest, err := store.AppendAuditEvent(ctx, event)
+	if err != nil || digest.Validate() != nil {
+		t.Fatalf("append = %q, %v", digest, err)
+	}
+	if _, err := store.AppendAuditEvent(ctx, event); err == nil {
+		t.Fatal("audit event replaced")
+	}
+	record[0] = 'X'
+	events := store.eventsSnapshot()
+	events[0].Record[1] = 'X'
+	if got := store.eventsSnapshot(); len(got) != 1 || string(got[0].Record) != `{"kind":"attempt_created"}` {
+		t.Fatalf("store retained or exposed caller-owned record: %q", got[0].Record)
 	}
 
-	random := newFakeRandomSource([]byte{1, 2})
-	random.injectErrorAt(2, errInjected)
-	buffer := make([]byte, 2)
-	if n, err := random.Read(buffer); n != 2 || !errors.Is(err, errInjected) {
-		t.Fatalf("random read = %d, %v", n, err)
+	lock, err := store.AcquireApplyLock(ctx, project, testApplyID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A path alias of the same device/inode contends on the same lock.
+	alias, err := NewPhysicalProjectIdentity("/alias/project", []byte("/alias/project"), project.DeviceDecimal(), project.InodeDecimal())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.AcquireApplyLock(ctx, alias, testOtherApplyID); !errors.Is(err, ErrApplyLockHeld) {
+		t.Fatalf("aliased acquisition: %v", err)
+	}
+	if err := lock.Release(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := lock.Release(ctx); err == nil {
+		t.Fatal("apply lock released twice")
+	}
+	if _, err := store.AcquireApplyLock(ctx, alias, testOtherApplyID); err != nil {
+		t.Fatalf("reuse of a free lock: %v", err)
+	}
+}
+
+func TestFakeFilesystemExclusiveAndBounded(t *testing.T) {
+	ctx := context.Background()
+	filesystem := newFakeFilesystem()
+	directory, err := filesystem.CreateDirectory(ctx, "/p/.ai-dev", 0o700)
+	if err != nil || !directory.Mode.IsDir() || directory.Validate() != nil {
+		t.Fatalf("directory = %+v, %v", directory, err)
+	}
+	data := []byte("config")
+	created, err := filesystem.CreateExclusive(ctx, "/p/.ai-dev/config.json", data, 0o600)
+	if err != nil || created.Size != 6 || created.InodeDecimal == directory.InodeDecimal {
+		t.Fatalf("created = %+v, %v", created, err)
+	}
+	if _, err := filesystem.CreateExclusive(ctx, "/p/.ai-dev/config.json", data, 0o600); !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("replacement create: %v", err)
+	}
+	data[0] = 'X'
+	content, err := filesystem.ReadRegular(ctx, "/p/.ai-dev/config.json", 6)
+	if err != nil || string(content.Data) != "config" || content.Identity != created {
+		t.Fatalf("content = %+v, %v", content, err)
+	}
+	content.Data[0] = 'X'
+	if again, _ := filesystem.ReadRegular(ctx, "/p/.ai-dev/config.json", 6); string(again.Data) != "config" {
+		t.Fatal("filesystem exposed stored bytes")
+	}
+	if _, err := filesystem.ReadRegular(ctx, "/p/.ai-dev/config.json", 5); err == nil {
+		t.Fatal("read over the limit accepted")
+	}
+	if _, err := filesystem.ReadRegular(ctx, "/p/.ai-dev", 10); err == nil {
+		t.Fatal("directory read as a regular file")
+	}
+	if identity, err := filesystem.Identify(ctx, "/p/.ai-dev/config.json"); err != nil || identity != created {
+		t.Fatalf("identify = %+v, %v", identity, err)
+	}
+	if _, err := filesystem.Identify(ctx, "/p/missing"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("identify missing: %v", err)
 	}
 
-	reporter := &fakeReporter{Errors: map[int]error{0: errInjected}}
-	if err := reporter.Report(ctx, ReportRequest{Kind: "test"}); !errors.Is(err, errInjected) {
-		t.Fatalf("reporter error = %v", err)
+	faulty := newFakeFilesystem()
+	faulty.faults.failBefore(0, errInjected)
+	faulty.faults.failAfter(1, errInjected)
+	if _, err := faulty.CreateExclusive(ctx, "/a", nil, 0o600); !errors.Is(err, errInjected) {
+		t.Fatalf("pre-effect failure: %v", err)
+	}
+	if _, err := faulty.CreateExclusive(ctx, "/a", nil, 0o600); !errors.Is(err, errInjected) {
+		t.Fatalf("post-effect failure: %v", err)
+	}
+	if _, err := faulty.Identify(ctx, "/a"); err != nil {
+		t.Fatalf("post-effect failure lost the created file: %v", err)
+	}
+	if calls := faulty.callsSnapshot(); len(calls) != 3 {
+		t.Fatalf("recorded calls = %v", calls)
 	}
 }
 
@@ -267,30 +637,14 @@ func TestFakeRandomSourceReadFullAndExhaustion(t *testing.T) {
 	})
 }
 
-func TestPortFakesReturnPartialResultsWithErrors(t *testing.T) {
-	ctx := context.Background()
-	runner := &fakeGitRunner{Results: []GitRunResult{{Stdout: []byte("partial"), ExitCode: 1}}, Errors: map[int]error{0: errInjected}}
-	if result, err := runner.Run(ctx, GitInvocation{}); string(result.Stdout) != "partial" || result.ExitCode != 1 || !errors.Is(err, errInjected) {
-		t.Fatalf("runner result=%+v err=%v", result, err)
-	}
-	store := &fakeGitStore{Results: []GitStoreResult{{Applied: true, Payload: []byte("persisted effect")}}, Errors: map[int]error{0: errInjected}}
-	if result, err := store.Execute(ctx, GitStoreRequest{}); !result.Applied || string(result.Payload) != "persisted effect" || !errors.Is(err, errInjected) {
-		t.Fatalf("store result=%+v err=%v", result, err)
-	}
-	filesystem := &fakeFilesystem{Results: []FilesystemResult{{Applied: true, Data: []byte("written")}}, Errors: map[int]error{0: errInjected}}
-	if result, err := filesystem.Execute(ctx, FilesystemRequest{}); !result.Applied || string(result.Data) != "written" || !errors.Is(err, errInjected) {
-		t.Fatalf("filesystem result=%+v err=%v", result, err)
-	}
-}
-
 func TestPortFakesAreRaceSafe(t *testing.T) {
 	const calls = 64
 	ctx := context.Background()
 	runner := &fakeGitRunner{}
-	store := &fakeGitStore{}
-	filesystem := &fakeFilesystem{}
-	reporter := &fakeReporter{}
+	store := newFakeGitStore()
+	filesystem := newFakeFilesystem()
 	random := newFakeRandomSource(make([]byte, calls))
+	project := mustProjectIdentity(t)
 	times := make([]time.Time, calls)
 	for index := range times {
 		times[index] = time.Unix(int64(index+1), 0).UTC()
@@ -304,9 +658,8 @@ func TestPortFakesAreRaceSafe(t *testing.T) {
 		go func() {
 			defer wait.Done()
 			_, _ = runner.Run(ctx, GitInvocation{Args: []string{"call"}, Stdin: []byte{byte(index)}})
-			_, _ = store.Execute(ctx, GitStoreRequest{Operation: "call", Payload: []byte{byte(index)}})
-			_, _ = filesystem.Execute(ctx, FilesystemRequest{Operation: "call", Data: []byte{byte(index)}})
-			_ = reporter.Report(ctx, ReportRequest{Kind: "call", Payload: []byte{byte(index)}})
+			_, _ = store.AppendAuditEvent(ctx, AuditEvent{Kind: AuditEventMutationIntent, ProjectIdentityDigest: project.Digest(), ApplyID: testApplyID, Sequence: uint64(index), Record: []byte{byte(index)}})
+			_, _ = filesystem.CreateExclusive(ctx, "/file-"+strconv.Itoa(index), []byte{byte(index)}, 0o600)
 			buffer := make([]byte, 1)
 			if n, err := random.Read(buffer); n != 1 || err != nil {
 				t.Errorf("random read=%d err=%v", n, err)
@@ -317,8 +670,7 @@ func TestPortFakesAreRaceSafe(t *testing.T) {
 	wait.Wait()
 	close(results)
 	for name, got := range map[string]int{
-		"runner": len(runner.callsSnapshot()), "store": len(store.callsSnapshot()),
-		"filesystem": len(filesystem.callsSnapshot()), "reporter": len(reporter.callsSnapshot()),
+		"runner": len(runner.callsSnapshot()), "store": len(store.eventsSnapshot()), "filesystem": len(filesystem.callsSnapshot()),
 	} {
 		if got != calls {
 			t.Fatalf("%s calls=%d want=%d", name, got, calls)
@@ -343,44 +695,6 @@ func TestFakeClockPanicsWhenExhausted(t *testing.T) {
 	_ = clock.Now()
 }
 
-func TestPortFakesDefensivelyCopyInputsAndResults(t *testing.T) {
-	ctx := context.Background()
-	input := []byte("request")
-	configuredResult := []byte("result")
-	configuredErrors := map[int]error{}
-	store := newFakeGitStore([]GitStoreResult{{Payload: configuredResult}}, configuredErrors)
-	result, err := store.Execute(ctx, GitStoreRequest{Payload: input})
-	if err != nil {
-		t.Fatal(err)
-	}
-	input[0] = 'X'
-	result.Payload[0] = 'X'
-	configuredResult[0] = 'X'
-	configuredErrors[0] = errInjected
-	calls := store.callsSnapshot()
-	if string(calls[0].Payload) != "request" {
-		t.Fatalf("recorded input changed: %q", calls[0].Payload)
-	}
-	if string(store.Results[0].Payload) != "result" {
-		t.Fatalf("configured result changed through returned slice: %q", store.Results[0].Payload)
-	}
-	mapConfiguration := map[int]error{}
-	mapStore := newFakeGitStore(nil, mapConfiguration)
-	mapConfiguration[0] = errInjected
-	if _, err := mapStore.Execute(ctx, GitStoreRequest{}); err != nil {
-		t.Fatalf("fake retained caller-owned error map: %v", err)
-	}
-
-	request := GitInvocation{Args: []string{"status"}, Environment: []string{"A=B"}, Stdin: []byte("stdin")}
-	runner := &fakeGitRunner{}
-	_, _ = runner.Run(ctx, request)
-	request.Args[0], request.Environment[0], request.Stdin[0] = "changed", "changed", 'X'
-	recorded := runner.callsSnapshot()[0]
-	if recorded.Args[0] != "status" || recorded.Environment[0] != "A=B" || string(recorded.Stdin) != "stdin" {
-		t.Fatalf("recorded invocation changed: %+v", recorded)
-	}
-}
-
 func cloneGitInvocation(value GitInvocation) GitInvocation {
 	value.Args = append([]string(nil), value.Args...)
 	value.Environment = append([]string(nil), value.Environment...)
@@ -394,36 +708,11 @@ func cloneGitRunResult(value GitRunResult) GitRunResult {
 	return value
 }
 
-func cloneGitStoreRequest(value GitStoreRequest) GitStoreRequest {
-	value.Payload = append([]byte(nil), value.Payload...)
-	return value
-}
-
-func cloneGitStoreResult(value GitStoreResult) GitStoreResult {
-	value.Payload = append([]byte(nil), value.Payload...)
-	return value
-}
-
-func cloneFilesystemRequest(value FilesystemRequest) FilesystemRequest {
-	value.Data = append([]byte(nil), value.Data...)
-	return value
-}
-
-func cloneFilesystemResult(value FilesystemResult) FilesystemResult {
-	value.Data = append([]byte(nil), value.Data...)
-	return value
-}
-
-func cloneReportRequest(value ReportRequest) ReportRequest {
-	value.Payload = append([]byte(nil), value.Payload...)
-	return value
-}
-
 var (
 	_ GitRunner    = (*fakeGitRunner)(nil)
 	_ GitStore     = (*fakeGitStore)(nil)
+	_ ApplyLock    = (*fakeApplyLock)(nil)
 	_ Filesystem   = (*fakeFilesystem)(nil)
 	_ Clock        = (*fakeClock)(nil)
 	_ RandomSource = (*fakeRandomSource)(nil)
-	_ Reporter     = (*fakeReporter)(nil)
 )
