@@ -1780,8 +1780,11 @@ func (v ConfigEntry) Validate() error {
 	return firstError(v.Origin.Validate(), v.SourceDigest.Validate())
 }
 
-// validateConfigKey accepts section[.subsection].name with lowercase section
-// and name; the subsection keeps its exact bytes.
+// ValidateConfigKey reports whether key is a canonical Git configuration
+// key: section[.subsection].name with lowercase section and name, where the
+// subsection keeps its exact bytes.
+func ValidateConfigKey(key string) error { return validateConfigKey(key) }
+
 func validateConfigKey(key string) error {
 	first, last := strings.IndexByte(key, '.'), strings.LastIndexByte(key, '.')
 	if first <= 0 || last == len(key)-1 || !utf8.ValidString(key) {

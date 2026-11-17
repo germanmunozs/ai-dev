@@ -27,11 +27,21 @@ type GitInvocation struct {
 }
 
 // GitRunResult contains bounded bytes captured from one Git invocation.
+// StdoutObserved and StderrObserved count every byte Git wrote, including
+// bytes beyond the capture limit that were discarded, so the manager can
+// apply CheckCapturedStream with the governing reason of the operation.
 type GitRunResult struct {
-	Stdout   []byte
-	Stderr   []byte
-	ExitCode int
+	Stdout         []byte
+	Stderr         []byte
+	ExitCode       int
+	StdoutObserved int64
+	StderrObserved int64
 }
+
+// ErrCapturedOutputExceeded reports that Git wrote more than an invocation's
+// capture limit; the runner stops the process and keeps only the bounded
+// prefix.
+var ErrCapturedOutputExceeded = errors.New("captured Git output exceeded its limit")
 
 // Store outcomes the manager must tell apart. An adapter wraps one of these
 // so callers can classify with errors.Is; any other error is an ordinary
