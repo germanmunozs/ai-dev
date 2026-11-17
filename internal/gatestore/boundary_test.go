@@ -316,7 +316,7 @@ func checkRepositorySource(filename string, source any) []error {
 			findings = append(findings, fmt.Errorf("gatestore imported by %s", rel))
 		}
 		if importPath == "ai-dev/internal/gate" {
-			allowed := strings.HasPrefix(rel, "internal/gatestore/") || rel == "internal/report/workflowgate.go" || rel == "internal/app/workflowgate.go" || rel == "internal/app/doctor.go"
+			allowed := strings.HasPrefix(rel, "internal/gatestore/") || rel == "internal/report/workflowgate.go" || rel == "internal/app/workflowgate.go" || rel == "internal/app/app.go"
 			if !allowed {
 				findings = append(findings, fmt.Errorf("gate imported by %s", rel))
 			}

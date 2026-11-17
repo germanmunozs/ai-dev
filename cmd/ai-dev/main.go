@@ -13,6 +13,14 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	code := app.RunWithGateStore(ctx, os.Args[1:], system.OSExecutor{}, system.OSLauncher{}, os.DirFS("."), gatestore.New("."), os.Stdin, os.Stdout, os.Stderr)
+	code := app.RunWithDependencies(ctx, os.Args[1:], app.Dependencies{
+		Executor:  system.OSExecutor{},
+		Launcher:  system.OSLauncher{},
+		Root:      os.DirFS("."),
+		GateStore: gatestore.New("."),
+		Stdin:     os.Stdin,
+		Stdout:    os.Stdout,
+		Stderr:    os.Stderr,
+	})
 	os.Exit(code)
 }
