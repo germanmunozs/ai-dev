@@ -62,6 +62,9 @@ var (
 	// whether a durable write or compare-and-swap took effect. Callers must
 	// classify conservatively and must not retry.
 	ErrStoreOutcomeUnverifiable = errors.New("git store outcome unverifiable")
+	// ErrOwnedResourceReplaced reports that a resource this attempt created
+	// is missing or no longer the object it created; it was not released.
+	ErrOwnedResourceReplaced = errors.New("owned resource replaced or missing")
 )
 
 // GitStore is the consumer-owned durable authorization, audit, and apply-lock
@@ -70,8 +73,16 @@ var (
 // transition the manager did not name.
 type GitStore interface {
 	// CreateAttempt exclusively creates and syncs the attempt record that
-	// must precede any business result.
+	// must precede any business result. The attempt record is the
+	// attempt_created record; events of the attempt start at sequence 1.
 	CreateAttempt(context.Context, GitApplyAttempt) error
+	// RecordAttemptResult publishes, without replacement, the canonical
+	// result an attempt returned.
+	RecordAttemptResult(context.Context, ApplyID, []byte) (ContentDigest, error)
+	// ListAuditEvents reads the published events of one attempt in sequence
+	// order. An attempt directory a single writer could not have produced
+	// is an error, never a partial trail.
+	ListAuditEvents(context.Context, ApplyID) (AuditTrail, error)
 	// IssueAuthorization exclusively creates an authorization in its initial
 	// state.
 	IssueAuthorization(context.Context, GitAuthorization) error
@@ -93,6 +104,17 @@ type GitStore interface {
 type ApplyLock interface {
 	Release(context.Context) error
 }
+
+// AuditTrail is the published audit state of one attempt. CrashEvidence
+// reports unpublished temporaries: a write may have been interrupted, so
+// the trail cannot prove the absence of any record.
+type AuditTrail struct {
+	Events        []AuditEventKind
+	CrashEvidence bool
+}
+
+// Contains reports whether the trail holds a published event of kind.
+func (v AuditTrail) Contains(kind AuditEventKind) bool { return containsValue(v.Events, kind) }
 
 // AuthorizationTransitionRequest is one authorization compare-and-swap. The
 // Expected fields are compared; the remaining fields are written only when

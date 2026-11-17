@@ -124,15 +124,15 @@ func TestReplaceComparesAndSwapsUnderLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	*trace = nil
-	expect := func(want string) func([]byte) error {
-		return func(current []byte) error {
+	swap := func(want, next string) func([]byte) ([]byte, error) {
+		return func(current []byte) ([]byte, error) {
 			if string(current) != want {
-				return gitmanager.ErrAuthorizationConflict
+				return nil, gitmanager.ErrAuthorizationConflict
 			}
-			return nil
+			return []byte(next), nil
 		}
 	}
-	if err := r.replace("records", "auth.json", expect("v1"), []byte("v2")); err != nil {
+	if err := r.replace("records", "auth.json", swap("v1", "v2")); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"lock", "read", "open-temporary", "write", "sync-file", "close", "rename", "sync-directory"}
@@ -143,7 +143,7 @@ func TestReplaceComparesAndSwapsUnderLock(t *testing.T) {
 	if got, _ := os.ReadFile(filepath.Join(dir, "auth.json")); string(got) != "v2" || info.Mode().Perm() != 0o600 {
 		t.Fatalf("record %q mode %v", got, info.Mode())
 	}
-	if err := r.replace("records", "auth.json", expect("v1"), []byte("v3")); !errors.Is(err, gitmanager.ErrAuthorizationConflict) {
+	if err := r.replace("records", "auth.json", swap("v1", "v3")); !errors.Is(err, gitmanager.ErrAuthorizationConflict) {
 		t.Fatalf("stale compare: %v", err)
 	}
 	if got, _ := os.ReadFile(filepath.Join(dir, "auth.json")); string(got) != "v2" {
@@ -155,7 +155,7 @@ func TestReplaceComparesAndSwapsUnderLock(t *testing.T) {
 }
 
 func TestReplaceFaults(t *testing.T) {
-	accept := func([]byte) error { return nil }
+	accept := func([]byte) ([]byte, error) { return []byte("v2"), nil }
 	for _, step := range []string{"lock", "read", "open-temporary", "write", "sync-file", "close", "rename"} {
 		t.Run(step, func(t *testing.T) {
 			r, dir, _ := newTestRecords(t)
@@ -163,7 +163,7 @@ func TestReplaceFaults(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.ops = failAt(r.ops, step)
-			if err := r.replace("records", "auth.json", accept, []byte("v2")); !errors.Is(err, errInjectedFault) {
+			if err := r.replace("records", "auth.json", accept); !errors.Is(err, errInjectedFault) {
 				t.Fatalf("replace: %v", err)
 			}
 			if got, _ := os.ReadFile(filepath.Join(dir, "auth.json")); string(got) != "v1" {
@@ -179,7 +179,7 @@ func TestReplaceFaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.ops = failAt(r.ops, "sync-directory")
-	if err := r.replace("records", "auth.json", accept, []byte("v2")); !errors.Is(err, gitmanager.ErrStoreOutcomeUnverifiable) {
+	if err := r.replace("records", "auth.json", accept); !errors.Is(err, gitmanager.ErrStoreOutcomeUnverifiable) {
 		t.Fatalf("directory sync failure: %v", err)
 	}
 	if got, _ := os.ReadFile(filepath.Join(dir, "auth.json")); string(got) != "v2" {
@@ -203,12 +203,12 @@ func TestReplaceSerializesConcurrentWriters(t *testing.T) {
 		wait.Add(1)
 		go func(i int) {
 			defer wait.Done()
-			err := r.replace("records", "auth.json", func(current []byte) error {
+			err := r.replace("records", "auth.json", func(current []byte) ([]byte, error) {
 				if string(current) != "0" {
-					return gitmanager.ErrAuthorizationConflict
+					return nil, gitmanager.ErrAuthorizationConflict
 				}
-				return nil
-			}, []byte(strconv.Itoa(i)))
+				return []byte(strconv.Itoa(i)), nil
+			})
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
@@ -248,7 +248,7 @@ func TestReadRefusesUnsafeRecords(t *testing.T) {
 		if _, err := r.read("records", name); err == nil {
 			t.Errorf("%s read", name)
 		}
-		if err := r.replace("records", name, func([]byte) error { return nil }, []byte("y")); err == nil {
+		if err := r.replace("records", name, func([]byte) ([]byte, error) { return []byte("y"), nil }); err == nil {
 			t.Errorf("%s replaced", name)
 		}
 	}

@@ -14,7 +14,7 @@ import (
 // evaluates build constraints in process with go/build, because Feature 008
 // tests may not start processes outside gitprocess.
 func TestPlatformSelection(t *testing.T) {
-	posix := []string{"filesystem_posix.go", "record_posix.go", "store_posix.go"}
+	posix := []string{"filesystem_posix.go", "record_posix.go", "store_posix.go", "authorization.go", "audit.go", "lock_posix.go"}
 	for _, tc := range []struct {
 		goos, goarch string
 		supported    bool

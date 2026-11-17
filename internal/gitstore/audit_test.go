@@ -3,10 +3,12 @@
 package gitstore
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"ai-dev/internal/gitmanager"
 )
@@ -167,5 +169,176 @@ func writeFile(t *testing.T, path string, mode os.FileMode) {
 	}
 	if err := os.Chmod(path, mode); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func testAttempt(t *testing.T, project gitmanager.PhysicalProjectIdentity) gitmanager.GitApplyAttempt {
+	t.Helper()
+	return gitmanager.GitApplyAttempt{
+		SchemaVersion: gitmanager.GitApplyAttemptSchema, ApplyID: testApplyID, AuthorizationID: testAuthorizationID,
+		ProjectIdentity: project, StartedAt: time.Unix(20, 0).UTC(), InvocationMode: gitmanager.InvocationModeDirect,
+	}
+}
+
+func auditEvent(project gitmanager.PhysicalProjectIdentity, sequence uint64, kind gitmanager.AuditEventKind, operation gitmanager.OperationID) gitmanager.AuditEvent {
+	return gitmanager.AuditEvent{
+		Kind: kind, ProjectIdentityDigest: project.Digest(), ApplyID: testApplyID, Sequence: sequence,
+		AuthorizationID: testAuthorizationID, OperationID: operation, Record: []byte(`{"kind":"` + string(kind) + `"}`),
+	}
+}
+
+// The attempt record precedes every event and result, is private and
+// immutable, and an attempt ID is never reused.
+func TestCreateAttemptAndResult(t *testing.T) {
+	ctx := context.Background()
+	store, path := openTestStore(t)
+	project := testProject(t, privateTempDir(t))
+	attempt := testAttempt(t, project)
+	if _, err := store.AppendAuditEvent(ctx, auditEvent(project, 1, gitmanager.AuditEventMutationIntent, "")); err == nil {
+		t.Fatal("event appended before its attempt record")
+	}
+	if _, err := store.RecordAttemptResult(ctx, testApplyID, []byte(`{}`)); err == nil {
+		t.Fatal("result recorded before its attempt record")
+	}
+	if err := store.CreateAttempt(ctx, attempt); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(path, "attempts", string(testApplyID))
+	want, _ := gitmanager.EncodeAttemptRecord(attempt)
+	if data, err := os.ReadFile(filepath.Join(dir, "attempt.json")); err != nil || string(data) != string(want) {
+		t.Fatalf("attempt record %q %v", data, err)
+	}
+	for _, sub := range []string{"", "events"} {
+		if info, err := os.Lstat(filepath.Join(dir, sub)); err != nil || info.Mode().Perm() != 0o700 {
+			t.Fatalf("%s: %v %v", sub, info, err)
+		}
+	}
+	if err := store.CreateAttempt(ctx, attempt); !errors.Is(err, ErrRecordExists) {
+		t.Fatalf("attempt reused: %v", err)
+	}
+	digest, err := store.RecordAttemptResult(ctx, testApplyID, []byte(`{"status":"refused"}`))
+	if err != nil || digest.Validate() != nil {
+		t.Fatalf("result %q %v", digest, err)
+	}
+	if _, err := store.RecordAttemptResult(ctx, testApplyID, []byte(`{"status":"applied"}`)); !errors.Is(err, ErrRecordExists) {
+		t.Fatalf("result replaced: %v", err)
+	}
+	// An attempt with no resolved project is still recorded.
+	unresolved := gitmanager.GitApplyAttempt{SchemaVersion: gitmanager.GitApplyAttemptSchema, ApplyID: testOtherApplyID,
+		StartedAt: time.Unix(20, 0).UTC(), InvocationMode: gitmanager.InvocationModeDirect}
+	if err := store.CreateAttempt(ctx, unresolved); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateAttempt(ctx, gitmanager.GitApplyAttempt{ApplyID: testApplyID}); err == nil {
+		t.Fatal("invalid attempt accepted")
+	}
+}
+
+func TestCreateAttemptDurabilityFaults(t *testing.T) {
+	ctx := context.Background()
+	store, path := openTestStore(t)
+	project := testProject(t, privateTempDir(t))
+	store.records.ops = failAt(store.records.ops, "sync-file")
+	if err := store.CreateAttempt(ctx, testAttempt(t, project)); !errors.Is(err, errInjectedFault) {
+		t.Fatalf("attempt with sync fault: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(path, "attempts", string(testApplyID), "attempt.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("failed attempt record published")
+	}
+	store.records.ops = failAt(defaultRecordOps(), "sync-directory")
+	attempt := testAttempt(t, project)
+	attempt.ApplyID = testOtherApplyID
+	if err := store.CreateAttempt(ctx, attempt); !errors.Is(err, gitmanager.ErrStoreOutcomeUnverifiable) {
+		t.Fatalf("attempt with directory sync fault: %v", err)
+	}
+}
+
+// The store accepts only the next sequence and only an order a correct
+// apply could have produced, so no record can claim an effect that has no
+// started operation, or a closure that has no prepared result.
+func TestAuditEventOrdering(t *testing.T) {
+	ctx := context.Background()
+	store, _ := openTestStore(t)
+	project := testProject(t, privateTempDir(t))
+	if err := store.CreateAttempt(ctx, testAttempt(t, project)); err != nil {
+		t.Fatal(err)
+	}
+	op := gitmanager.OperationID("0:" + testDigest)
+	appendAt := func(sequence uint64, kind gitmanager.AuditEventKind, operation gitmanager.OperationID) error {
+		_, err := store.AppendAuditEvent(ctx, auditEvent(project, sequence, kind, operation))
+		return err
+	}
+	mustAppend := func(sequence uint64, kind gitmanager.AuditEventKind, operation gitmanager.OperationID) {
+		t.Helper()
+		if err := appendAt(sequence, kind, operation); err != nil {
+			t.Fatalf("%d %s: %v", sequence, kind, err)
+		}
+	}
+	refuse := func(sequence uint64, kind gitmanager.AuditEventKind, operation gitmanager.OperationID) {
+		t.Helper()
+		if err := appendAt(sequence, kind, operation); err == nil {
+			t.Fatalf("%d %s accepted", sequence, kind)
+		}
+	}
+	refuse(1, gitmanager.AuditEventAttemptCreated, "")
+	refuse(2, gitmanager.AuditEventAuthorizationIssued, "")
+	refuse(1, gitmanager.AuditEventOperationStarted, op)
+	refuse(1, gitmanager.AuditEventOperationCompleted, op)
+	refuse(1, gitmanager.AuditEventPreparedTerminalResult, "")
+	refuse(1, gitmanager.AuditEventTerminalAuthorizationCAS, "")
+	mustAppend(1, gitmanager.AuditEventAuthorizationIssued, "")
+	mustAppend(2, gitmanager.AuditEventAuthorizationTransition, "")
+	mustAppend(3, gitmanager.AuditEventMutationIntent, "")
+	refuse(4, gitmanager.AuditEventMutationIntent, "")
+	refuse(4, gitmanager.AuditEventAuthorizationIssued, "")
+	mustAppend(4, gitmanager.AuditEventAuthorizationTransition, "")
+	mustAppend(5, gitmanager.AuditEventOperationStarted, op)
+	refuse(6, gitmanager.AuditEventOperationStarted, op)
+	refuse(6, gitmanager.AuditEventResourceReleaseStarted, "")
+	refuse(6, gitmanager.AuditEventPreparedTerminalResult, "")
+	mustAppend(6, gitmanager.AuditEventOperationCompleted, op)
+	refuse(7, gitmanager.AuditEventOperationFailed, op)
+	refuse(7, gitmanager.AuditEventResourceReleaseResult, "")
+	mustAppend(7, gitmanager.AuditEventResourceReleaseStarted, "")
+	refuse(8, gitmanager.AuditEventOperationStarted, op)
+	refuse(8, gitmanager.AuditEventPreparedTerminalResult, "")
+	mustAppend(8, gitmanager.AuditEventResourceReleaseResult, "")
+	refuse(9, gitmanager.AuditEventTerminalAuthorizationCAS, "")
+	refuse(10, gitmanager.AuditEventPreparedTerminalResult, "")
+	mustAppend(9, gitmanager.AuditEventPreparedTerminalResult, "")
+	refuse(10, gitmanager.AuditEventResourceReleaseStarted, "")
+	refuse(10, gitmanager.AuditEventPreparedTerminalResult, "")
+	mustAppend(10, gitmanager.AuditEventTerminalAuthorizationCAS, "")
+	refuse(11, gitmanager.AuditEventAuthorizationTransition, "")
+
+	trail, err := store.ListAuditEvents(ctx, testApplyID)
+	if err != nil || len(trail.Events) != 10 || trail.CrashEvidence || trail.Events[2] != gitmanager.AuditEventMutationIntent {
+		t.Fatalf("trail %+v %v", trail, err)
+	}
+}
+
+func TestAuditTrailReportsCrashEvidence(t *testing.T) {
+	ctx := context.Background()
+	store, path := openTestStore(t)
+	project := testProject(t, privateTempDir(t))
+	if err := store.CreateAttempt(ctx, testAttempt(t, project)); err != nil {
+		t.Fatal(err)
+	}
+	trail, err := store.ListAuditEvents(ctx, testApplyID)
+	if err != nil || len(trail.Events) != 0 || trail.CrashEvidence {
+		t.Fatalf("fresh trail %+v %v", trail, err)
+	}
+	events := filepath.Join(path, "attempts", string(testApplyID), "events")
+	writeFile(t, filepath.Join(events, temporaryPrefix+"0123456789abcdef"), 0o600)
+	trail, err = store.ListAuditEvents(ctx, testApplyID)
+	if err != nil || !trail.CrashEvidence || trail.Contains(gitmanager.AuditEventMutationIntent) {
+		t.Fatalf("trail with temporary %+v %v", trail, err)
+	}
+	writeFile(t, filepath.Join(events, eventName(2, gitmanager.AuditEventMutationIntent)), 0o600)
+	if _, err := store.ListAuditEvents(ctx, testApplyID); !errors.Is(err, ErrInconsistentEvents) {
+		t.Fatalf("gapped trail: %v", err)
+	}
+	if _, err := store.ListAuditEvents(ctx, testOtherApplyID); err == nil {
+		t.Fatal("trail of an unknown attempt")
 	}
 }

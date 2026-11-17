@@ -11,6 +11,8 @@ import (
 	"ai-dev/internal/gitmanager"
 )
 
+var _ gitmanager.GitStore = (*Store)(nil)
+
 // PlatformError reports an operation that cannot run on this platform or
 // with this state, together with the closed reason the caller returns.
 type PlatformError struct {

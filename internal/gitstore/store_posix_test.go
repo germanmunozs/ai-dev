@@ -25,7 +25,7 @@ func TestOpenCreatesPrivateLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	for _, dir := range []string{"", "environment", "locks", "projects"} {
+	for _, dir := range []string{"", "attempts", "environment", "locks", "projects"} {
 		info, err := os.Lstat(filepath.Join(path, dir))
 		if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
 			t.Fatalf("%q: %v %v", dir, info, err)

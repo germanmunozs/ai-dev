@@ -49,16 +49,47 @@ func (f *fakeGitRunner) callsSnapshot() []GitInvocation {
 // failure in after is returned once the effect is durable, which is how an
 // adapter whose outcome cannot be verified looks to the manager.
 type faultPlan struct {
-	before map[int]error
-	after  map[int]error
-	calls  []string
+	before   map[int]error
+	after    map[int]error
+	calls    []string
+	byMethod map[string]map[int]methodFault
+}
+
+// methodFault fails the nth zero-based call of one method, before or after
+// its effect.
+type methodFault struct {
+	err   error
+	after bool
 }
 
 // begin records the call and returns its index and any pre-effect failure.
 func (p *faultPlan) begin(method string) (int, error) {
+	occurrence := 0
+	for _, call := range p.calls {
+		if call == method {
+			occurrence++
+		}
+	}
 	p.calls = append(p.calls, method)
 	index := len(p.calls) - 1
+	if fault, ok := p.byMethod[method][occurrence]; ok {
+		if !fault.after {
+			return index, fault.err
+		}
+		p.failAfter(index, fault.err)
+	}
 	return index, p.before[index]
+}
+
+// failCall fails the nth zero-based call of method.
+func (p *faultPlan) failCall(method string, nth int, err error, after bool) {
+	if p.byMethod == nil {
+		p.byMethod = make(map[string]map[int]methodFault)
+	}
+	if p.byMethod[method] == nil {
+		p.byMethod[method] = make(map[int]methodFault)
+	}
+	p.byMethod[method][nth] = methodFault{err: err, after: after}
 }
 
 func (p *faultPlan) failBefore(index int, err error) {
@@ -75,12 +106,15 @@ func (p *faultPlan) failAfter(index int, err error) {
 	p.after[index] = err
 }
 
-// fakeGitStore is an in-memory GitStore that enforces the same exclusivity
-// and compare-and-swap rules as the contract, through the model itself.
+// fakeGitStore is an in-memory GitStore that enforces the same exclusivity,
+// compare-and-swap and audit-order rules as the contract, through the model
+// itself.
 type fakeGitStore struct {
 	mu             sync.Mutex
 	faults         faultPlan
 	attempts       map[ApplyID]GitApplyAttempt
+	results        map[ApplyID][]byte
+	crashEvidence  map[ApplyID]bool
 	authorizations map[AuthorizationID]GitAuthorization
 	events         []AuditEvent
 	locks          map[string]ApplyID
@@ -89,9 +123,53 @@ type fakeGitStore struct {
 func newFakeGitStore() *fakeGitStore {
 	return &fakeGitStore{
 		attempts:       make(map[ApplyID]GitApplyAttempt),
+		results:        make(map[ApplyID][]byte),
+		crashEvidence:  make(map[ApplyID]bool),
 		authorizations: make(map[AuthorizationID]GitAuthorization),
 		locks:          make(map[string]ApplyID),
 	}
+}
+
+func (f *fakeGitStore) RecordAttemptResult(_ context.Context, id ApplyID, record []byte) (ContentDigest, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	index, err := f.faults.begin("RecordAttemptResult")
+	if err != nil {
+		return "", err
+	}
+	if _, exists := f.attempts[id]; !exists || len(record) == 0 {
+		return "", errors.New("result without attempt")
+	}
+	if _, exists := f.results[id]; exists {
+		return "", errors.New("attempt result already recorded")
+	}
+	f.results[id] = cloneSlice(record)
+	if err := f.faults.after[index]; err != nil {
+		return "", err
+	}
+	return recordDigest(record), nil
+}
+
+func (f *fakeGitStore) ListAuditEvents(_ context.Context, id ApplyID) (AuditTrail, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, err := f.faults.begin("ListAuditEvents"); err != nil {
+		return AuditTrail{}, err
+	}
+	if _, exists := f.attempts[id]; !exists {
+		return AuditTrail{}, errors.New("unknown attempt")
+	}
+	return AuditTrail{Events: f.kindsLocked(id), CrashEvidence: f.crashEvidence[id]}, nil
+}
+
+func (f *fakeGitStore) kindsLocked(id ApplyID) []AuditEventKind {
+	var kinds []AuditEventKind
+	for _, event := range f.events {
+		if event.ApplyID == id {
+			kinds = append(kinds, event.Kind)
+		}
+	}
+	return kinds
 }
 
 func (f *fakeGitStore) CreateAttempt(_ context.Context, attempt GitApplyAttempt) error {
@@ -176,10 +254,15 @@ func (f *fakeGitStore) AppendAuditEvent(_ context.Context, event AuditEvent) (Co
 	if err := event.Validate(); err != nil {
 		return "", err
 	}
-	for _, published := range f.events {
-		if published.ApplyID == event.ApplyID && published.Sequence == event.Sequence {
-			return "", errors.New("audit event already published")
-		}
+	if _, exists := f.attempts[event.ApplyID]; !exists {
+		return "", errors.New("audit event without attempt")
+	}
+	previous := f.kindsLocked(event.ApplyID)
+	if event.Sequence != uint64(len(previous))+1 {
+		return "", errors.New("audit event out of sequence")
+	}
+	if err := CheckAuditEventOrder(previous, event.Kind); err != nil {
+		return "", err
 	}
 	event.Record = cloneSlice(event.Record)
 	f.events = append(f.events, event)
@@ -514,8 +597,8 @@ func TestFakeGitStoreAuditAttemptsAndLock(t *testing.T) {
 		t.Fatal("attempt record replaced")
 	}
 
-	record := []byte(`{"kind":"attempt_created"}`)
-	event := AuditEvent{Kind: AuditEventAttemptCreated, ProjectIdentityDigest: project.Digest(), ApplyID: testApplyID, Sequence: 1, Record: record}
+	record := []byte(`{"kind":"mutation_intent"}`)
+	event := AuditEvent{Kind: AuditEventMutationIntent, ProjectIdentityDigest: project.Digest(), ApplyID: testApplyID, Sequence: 1, Record: record}
 	digest, err := store.AppendAuditEvent(ctx, event)
 	if err != nil || digest.Validate() != nil {
 		t.Fatalf("append = %q, %v", digest, err)
@@ -526,7 +609,7 @@ func TestFakeGitStoreAuditAttemptsAndLock(t *testing.T) {
 	record[0] = 'X'
 	events := store.eventsSnapshot()
 	events[0].Record[1] = 'X'
-	if got := store.eventsSnapshot(); len(got) != 1 || string(got[0].Record) != `{"kind":"attempt_created"}` {
+	if got := store.eventsSnapshot(); len(got) != 1 || string(got[0].Record) != `{"kind":"mutation_intent"}` {
 		t.Fatalf("store retained or exposed caller-owned record: %q", got[0].Record)
 	}
 
@@ -658,7 +741,13 @@ func TestPortFakesAreRaceSafe(t *testing.T) {
 		go func() {
 			defer wait.Done()
 			_, _ = runner.Run(ctx, GitInvocation{Args: []string{"call"}, Stdin: []byte{byte(index)}})
-			_, _ = store.AppendAuditEvent(ctx, AuditEvent{Kind: AuditEventMutationIntent, ProjectIdentityDigest: project.Digest(), ApplyID: testApplyID, Sequence: uint64(index), Record: []byte{byte(index)}})
+			applyID := ApplyID(fmt.Sprintf("123e4567-e89b-42d3-a456-4266141741%02d", index))
+			if err := store.CreateAttempt(ctx, GitApplyAttempt{SchemaVersion: GitApplyAttemptSchema, ApplyID: applyID, StartedAt: time.Unix(1, 0).UTC(), InvocationMode: InvocationModeDirect}); err != nil {
+				t.Error(err)
+			}
+			if _, err := store.AppendAuditEvent(ctx, AuditEvent{Kind: AuditEventMutationIntent, ProjectIdentityDigest: project.Digest(), ApplyID: applyID, Sequence: 1, Record: []byte{byte(index)}}); err != nil {
+				t.Error(err)
+			}
 			_, _ = filesystem.CreateExclusive(ctx, "/file-"+strconv.Itoa(index), []byte{byte(index)}, 0o600)
 			buffer := make([]byte, 1)
 			if n, err := random.Read(buffer); n != 1 || err != nil {

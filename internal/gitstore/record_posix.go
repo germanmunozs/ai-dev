@@ -186,9 +186,10 @@ func (r records) read(dir, name string) ([]byte, error) {
 }
 
 // replace performs one compare-and-swap of an existing record: under an
-// exclusive lock on its directory, check sees the current bytes, and only
-// when it accepts them is the record atomically replaced by next.
-func (r records) replace(dir, name string, check func(current []byte) error, next []byte) error {
+// exclusive lock on its directory, next sees the current bytes and either
+// refuses them or returns the replacement, which atomically replaces the
+// record.
+func (r records) replace(dir, name string, next func(current []byte) ([]byte, error)) error {
 	d, err := r.root.Open(dir)
 	if err != nil {
 		return err
@@ -203,10 +204,30 @@ func (r records) replace(dir, name string, check func(current []byte) error, nex
 	if err != nil {
 		return err
 	}
-	if err := check(current); err != nil {
+	replacement, err := next(current)
+	if err != nil {
 		return err
 	}
-	temporary, err := r.writeTemporary(dir, next)
+	temporary, err := r.writeTemporary(dir, replacement)
+	if err != nil {
+		return err
+	}
+	r.ops.step("rename")
+	if err := r.ops.rename(r.root, temporary, path.Join(dir, name)); err != nil {
+		_ = r.root.Remove(temporary)
+		return err
+	}
+	return r.syncDirectory(dir)
+}
+
+// put atomically writes a replaceable record without comparing what it
+// replaces. Only diagnostic records use it; authorization records use
+// replace and immutable records use publish.
+func (r records) put(dir, name string, data []byte) error {
+	if !validRecordName(name) {
+		return fmt.Errorf("invalid record name %q", name)
+	}
+	temporary, err := r.writeTemporary(dir, data)
 	if err != nil {
 		return err
 	}

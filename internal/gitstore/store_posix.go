@@ -20,7 +20,7 @@ type Store struct {
 }
 
 // Open creates or validates the private state layout: the root and its
-// environment, locks and projects directories are mode 0700 and owned by
+// attempts, environment, locks and projects directories are mode 0700 and owned by
 // this user, and both environment leaves are absent.
 func Open(stateRoot gitmanager.ObservedPath) (*Store, error) {
 	refuse := func(detail string) (*Store, error) {
@@ -43,7 +43,7 @@ func Open(stateRoot gitmanager.ObservedPath) (*Store, error) {
 	if err != nil {
 		return refuse("open state root: " + err.Error())
 	}
-	for _, dir := range []string{"environment", "locks", "projects"} {
+	for _, dir := range []string{"attempts", "environment", "locks", "projects"} {
 		if err := ensurePrivateDirectory(root, dir); err != nil {
 			root.Close()
 			return nil, asAuditUnavailable(err)
@@ -61,13 +61,21 @@ func Open(stateRoot gitmanager.ObservedPath) (*Store, error) {
 // Close releases the state root.
 func (s *Store) Close() error { return s.root.Close() }
 
-// projectDirectory returns, creating it when needed, the private partition
-// of one physical project identity.
-func (s *Store) projectDirectory(project gitmanager.ProjectIdentityDigest) (string, error) {
+// projectPath names the partition of one physical project identity.
+func projectPath(project gitmanager.ProjectIdentityDigest) (string, error) {
 	if err := project.Validate(); err != nil {
 		return "", err
 	}
-	dir := path.Join("projects", strings.TrimPrefix(string(project), "sha256:"))
+	return path.Join("projects", strings.TrimPrefix(string(project), "sha256:")), nil
+}
+
+// projectDirectory returns, creating it when needed, the private partition
+// of one physical project identity.
+func (s *Store) projectDirectory(project gitmanager.ProjectIdentityDigest) (string, error) {
+	dir, err := projectPath(project)
+	if err != nil {
+		return "", err
+	}
 	for _, name := range []string{dir, path.Join(dir, "authorizations"), path.Join(dir, "attempts")} {
 		if err := ensurePrivateDirectory(s.root, name); err != nil {
 			return "", asAuditUnavailable(err)
