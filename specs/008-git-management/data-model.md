@@ -846,6 +846,8 @@ Logical layout (names are roles, not permission to expose concrete temp paths in
         └── result.json
 ```
 
+Proposed deviation STO-08 (contracts/authorization-audit.md §10, pending human approval): attempts are stored at `<state-root>/attempts/<apply-id>/` instead of under the project partition, because the attempt record precedes project resolution.
+
 Directories are `0700`; records are `0600`. Apply-lock existence is not ownership. Authorization replacement is atomic and version-checked. Event/result absence is meaningful and never repaired automatically.
 
 `<state-root>` is exactly the canonical Git state root: `$HOME/Library/Application Support/ai-dev/state/git` on macOS; on Linux, absolute `$XDG_STATE_HOME/ai-dev/git`, or `$HOME/.local/state/ai-dev/git` when XDG_STATE_HOME is unset. A relative XDG_STATE_HOME is invalid. No consumer appends another `git` segment.
