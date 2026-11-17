@@ -1262,10 +1262,14 @@ func TestDerivedOperationAndPlan(t *testing.T) {
 		"invalid postcondition": func(in *DerivedOperationInput) {
 			in.ExpectedPostconditions = []Condition{{Kind: ConditionHeadState, Expected: "x"}}
 		},
-		"invalid affected ref":           func(in *DerivedOperationInput) { in.AffectedRefs = []ObservedRef{NewObservedRef([]byte("main"))} },
-		"invalid affected config key":    func(in *DerivedOperationInput) { in.AffectedConfigKeys = []string{"Core"} },
-		"unknown temporary role":         func(in *DerivedOperationInput) { in.TemporaryResourceRoles = []ResourceRole{"other"} },
-		"invalid affected path":          func(in *DerivedOperationInput) { in.AffectedPaths = []ObservedPath{{}} },
+		"invalid affected ref":        func(in *DerivedOperationInput) { in.AffectedRefs = []ObservedRef{NewObservedRef([]byte("main"))} },
+		"invalid affected config key": func(in *DerivedOperationInput) { in.AffectedConfigKeys = []string{"Core"} },
+		"unknown temporary role":      func(in *DerivedOperationInput) { in.TemporaryResourceRoles = []ResourceRole{"other"} },
+		"invalid affected path":       func(in *DerivedOperationInput) { in.AffectedPaths = []ObservedPath{{}} },
+		"invalid stdin digest":        func(in *DerivedOperationInput) { in.StdinDigest = "sha256:abc" },
+		"stdin without Git invocation": func(in *DerivedOperationInput) {
+			in.StdinDigest, in.ExactArgv, in.EnvironmentProfile = testSHA256, nil, ""
+		},
 		"unknown partial classification": func(in *DerivedOperationInput) { in.PartialEffectClassification = "other" },
 	} {
 		bad := validOperationInput(0)

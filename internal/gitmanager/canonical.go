@@ -492,14 +492,15 @@ func canonicalSHA256(v any) (string, error) {
 // its zero-based ordinal and the SHA-256 of the canonical JSON of its kind,
 // exact argv, target identity, preconditions, expected effects, and
 // partial-effect classification. For a Git invocation it also binds the
-// environment profile name and the exact frozen environment path bytes
-// (plan L-2). The OperationID field of in is ignored.
+// environment profile name, the exact frozen environment path bytes
+// (plan L-2), and the digest of the exact stdin bytes when Git reads stdin
+// (O-T011-1). The OperationID field of in is ignored.
 func DeriveOperationID(in DerivedOperationInput, environment EnvironmentProfile) (OperationID, error) {
-	return deriveOperationID(in.Ordinal, in.Kind, in.ExactArgv, in.EnvironmentProfile, in.TargetIdentity,
+	return deriveOperationID(in.Ordinal, in.Kind, in.ExactArgv, in.EnvironmentProfile, in.StdinDigest, in.TargetIdentity,
 		in.Preconditions, in.ExpectedEffects, in.PartialEffectClassification, environment)
 }
 
-func deriveOperationID(ordinal uint64, kind OperationKind, argv []string, profile, target string,
+func deriveOperationID(ordinal uint64, kind OperationKind, argv []string, profile string, stdin ContentDigest, target string,
 	preconditions, effects []Condition, partial PartialEffectClassification, environment EnvironmentProfile) (OperationID, error) {
 	e := &canonicalEncoder{}
 	content := map[string]any{
@@ -514,6 +515,7 @@ func deriveOperationID(ordinal uint64, kind OperationKind, argv []string, profil
 		content["environment_profile"] = profile
 		content["environment"] = e.environment(environment)
 	}
+	optional(content, "stdin_digest", string(stdin), stdin != "")
 	if e.err != nil {
 		return "", e.err
 	}

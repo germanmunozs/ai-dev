@@ -2746,6 +2746,7 @@ type DerivedOperation struct {
 	Ordinal                     uint64
 	Kind                        OperationKind
 	EnvironmentProfile          string
+	StdinDigest                 ContentDigest
 	TargetIdentity              string
 	PartialEffectClassification PartialEffectClassification
 	RecoveryInstruction         RecoveryInstruction
@@ -2766,6 +2767,7 @@ type DerivedOperationInput struct {
 	Kind                        OperationKind
 	ExactArgv                   []string
 	EnvironmentProfile          string
+	StdinDigest                 ContentDigest
 	TargetIdentity              string
 	Preconditions               []Condition
 	AffectedPaths               []ObservedPath
@@ -2785,6 +2787,7 @@ func NewDerivedOperation(in DerivedOperationInput) (DerivedOperation, error) {
 		Ordinal:                     in.Ordinal,
 		Kind:                        in.Kind,
 		EnvironmentProfile:          in.EnvironmentProfile,
+		StdinDigest:                 in.StdinDigest,
 		TargetIdentity:              in.TargetIdentity,
 		PartialEffectClassification: in.PartialEffectClassification,
 		RecoveryInstruction:         in.RecoveryInstruction,
@@ -2822,9 +2825,18 @@ func (v DerivedOperation) Validate() error {
 		return invalid("operation recovery instruction")
 	}
 	// A Git invocation is exact argv under a named environment profile;
-	// neither appears without the other.
+	// neither appears without the other. Only a Git invocation reads stdin,
+	// and its exact bytes are bound by digest (O-T011-1).
 	if (len(v.exactArgv) > 0) != (v.EnvironmentProfile != "") {
 		return invalid("operation argv and environment profile")
+	}
+	if v.StdinDigest != "" {
+		if len(v.exactArgv) == 0 {
+			return invalid("operation stdin without Git invocation")
+		}
+		if err := v.StdinDigest.Validate(); err != nil {
+			return err
+		}
 	}
 	for _, argument := range v.exactArgv {
 		if strings.ContainsRune(argument, 0) {
@@ -3005,7 +3017,7 @@ func (v GitInitializationPlan) Validate() error {
 	// values differ from their recomputation was not produced by the planner.
 	for _, operation := range v.derivedOperations {
 		id, err := deriveOperationID(operation.Ordinal, operation.Kind, operation.exactArgv, operation.EnvironmentProfile,
-			operation.TargetIdentity, operation.preconditions, operation.expectedEffects,
+			operation.StdinDigest, operation.TargetIdentity, operation.preconditions, operation.expectedEffects,
 			operation.PartialEffectClassification, v.PreconditionSnapshot.EnvironmentProfile)
 		if err != nil {
 			return err

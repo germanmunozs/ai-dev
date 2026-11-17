@@ -590,6 +590,7 @@ DerivedOperation
   kind
   exact_argv[]?
   environment_profile?
+  stdin_digest?                  ContentDigest of the exact stdin bytes (O-T011-1)
   target_identity
   preconditions[]                Condition
   affected_paths[]               ObservedPath
@@ -647,11 +648,11 @@ Canonical encoding rules (T011). Each rule is **derived** when a cited source fi
 | CANON-03 | `ObservedPath` and `ObservedRef` both use `reversible_path_bytes_base64url` and optional `display_path_utf8`. Exact byte members (`commit_message_bytes_base64url`) are unpadded base64url. | proposed |
 | CANON-04 | A frozen timestamp is RFC 3339 with whole seconds and the frozen UTC offset; sub-second precision cannot be encoded, because a Git date cannot carry it. | proposed |
 | CANON-05 | A `FileIdentity` encodes as `device_decimal`, `inode_decimal`, `file_type` (`regular \| directory \| symlink \| other`), `permissions_octal` (four octal digits) and `size`. | proposed |
-| CANON-06 | `operation_id` is `<ordinal>:sha256:<hex>` over the canonical object of `kind`, `exact_argv`, `target_identity`, `preconditions`, `expected_effects` and `partial_effect_classification`. An operation with argv also binds `environment_profile` and the exact `environment` path bytes of the snapshot. | derived, F008-FR-173 and plan L-2 |
+| CANON-06 | `operation_id` is `<ordinal>:sha256:<hex>` over the canonical object of `kind`, `exact_argv`, `target_identity`, `preconditions`, `expected_effects` and `partial_effect_classification`. An operation with argv also binds `environment_profile`, the exact `environment` path bytes of the snapshot and, when Git reads stdin, `stdin_digest`. | derived, F008-FR-173, plan L-2 and O-T011-1 |
 | CANON-07 | `plan_digest` is `sha256:<hex>` over the canonical object of exactly the eight covered members. A plan whose stored operation IDs or digest differ from their recomputation is invalid. | derived, F008-FR-172 |
 | CANON-08 | A decoder accepts only input that is already the exact canonical serialization of its value, within the F008-FR-051 limits, and rejects duplicate members, fractions, exponents, unsafe integers, invalid UTF-8 and lone surrogates. Unknown or missing members are rejected against a closed member set; schema-level plan decoding belongs to T055. | derived, research §3 and F008-FR-050–051 |
 
-Open item O-T011-1: `plan.md` lists a stdin digest among the `operation_id` inputs, but no `DerivedOperation` member carries one, and F008-FR-173 does not list it. Operations that feed bytes to Git (blob, tree and commit creation) reach their content through intent digests today. Whether `DerivedOperation` needs an explicit `stdin_digest` must be decided before the operation matrix (T018) and the commit flow (T086).
+Resolved item O-T011-1 (2026-11-17, owner instruction to apply the agent's recommendation): `DerivedOperation` carries an optional `stdin_digest`, the `sha256:` digest of the exact bytes the operation feeds to Git on stdin (blob content, tree encoding, commit message). It is present only on an operation with `exact_argv`, and it is part of the `operation_id` content, so the authorized operation binds the exact input bytes as `plan.md` requires. T018 and T086 populate it.
 
 `prohibited_operations` contains at least push/fetch/pull/merge/rebase/tag/remote mutation/branch delete-or-rename/reset/checkout/switch/stash/gc/amend/restore/submodule or linked-worktree mutation/hooks/`git flow feature finish`. Under SCHEMA-103B-11 these form the closed catalogue `push | fetch | pull | merge | rebase | tag_mutation | remote_mutation | branch_delete | branch_rename | reset | checkout | switch | stash | gc | amend | automatic_restore | submodule_mutation | linked_worktree_mutation | git_flow_hooks | git_flow_feature_finish`, and every plan lists all of them exactly once in that order.
 

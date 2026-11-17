@@ -490,5 +490,6 @@ func (e *canonicalEncoder) operation(v DerivedOperation) any {
 		object["exact_argv"] = canonicalStrings(v.exactArgv)
 		object["environment_profile"] = v.EnvironmentProfile
 	}
+	optional(object, "stdin_digest", string(v.StdinDigest), v.StdinDigest != "")
 	return object
 }

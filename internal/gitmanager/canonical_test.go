@@ -270,6 +270,7 @@ func TestDeriveOperationID(t *testing.T) {
 		"expected effect":  func(v *DerivedOperationInput) { v.ExpectedEffects = []Condition{{Kind: ConditionIndexEmpty}} },
 		"partial effect":   func(v *DerivedOperationInput) { v.PartialEffectClassification = PartialEffectAtomic },
 		"NFD target":       func(v *DerivedOperationInput) { v.TargetIdentity = "proje\u0301ct" },
+		"stdin bytes":      func(v *DerivedOperationInput) { v.StdinDigest = testOtherSHA256 },
 	}
 	for name, mutate := range different {
 		changed := validOperationInput(3)
