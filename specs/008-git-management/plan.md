@@ -13,7 +13,7 @@ The implementation is organized around a domain package (`internal/gitmanager`),
 ## Technical Context
 
 **Language/Version**: Go 1.27.1  
-**Primary Dependencies**: Go standard library; the installed Git executable as a frozen external toolchain. No Git Flow executable and no container runtime. Any new third-party dependency requires a separately reviewed plan amendment.  
+**Primary Dependencies**: Go standard library; the installed Git executable, version 2.45.0 or later, as a frozen external toolchain. 2.45.0 is the first release supporting `git init --ref-format`; the operation matrix also needs `rev-parse --path-format` (2.31) and `init --object-format` (2.29). The frozen capability probe remains authoritative: a Git that reports an older version or lacks a required capability returns `git_capability_missing` before planning. No Git Flow executable and no container runtime. Any new third-party dependency requires a separately reviewed plan amendment.  
 **Storage**: Versioned `.ai-dev/config.json` inside the project; canonical plan exported outside the project; authorization, attempts, audit records, locks, and prepared temporary material under the per-user ai-dev state directory outside the repository.  
 **Testing**: `go test`, race-enabled repeated concurrency tests, subprocess contract tests, fault-injection tests, structural boundary tests, cross-compilation, and native macOS/APFS plus Linux/ext4 acceptance evidence.  
 **Target Platform**: macOS and Linux on compatible local filesystems. Windows and incompatible filesystems fail closed for plan/apply. iOS, Android, linked worktrees, submodules, and bare repositories are not plan/apply targets.  
@@ -61,7 +61,7 @@ internal/gitprocess  internal/gitstore
           internal/gitmanager ─────► internal/conventionalcommit
 ```
 
-`internal/gitmanager` owns all domain values plus the consumer-side ports `GitRunner`, `GitStore`, `Filesystem`, `Clock`, `RandomSource` and `Reporter`. It imports only standard-library packages and the leaf `internal/conventionalcommit`. `internal/gitprocess` and `internal/gitstore` import `gitmanager` to implement those ports; `gitmanager` MUST NOT import either implementation. `internal/app` is the sole composition root that imports domain plus implementations and injects them. `internal/report` may import domain result types but is never imported by `gitmanager`. This one-way DAG is enforced by a structural import test and cannot form a Go cycle.
+`internal/gitmanager` owns all domain values plus the consumer-side ports `GitRunner`, `GitStore`, `Filesystem`, `Clock` and `RandomSource`. `GitStore` and `Filesystem` expose one intent-revealing method per contract step (`CreateAttempt`, `IssueAuthorization`, `LoadAuthorization`, `TransitionAuthorization`, `AppendAuditEvent`, `AcquireApplyLock`; `Identify`, `ReadRegular`, `CreateExclusive`, `CreateDirectory`) with typed requests and the sentinel outcomes `ErrAuthorizationExists`, `ErrAuthorizationMissing`, `ErrAuthorizationConflict`, `ErrApplyLockHeld` and `ErrStoreOutcomeUnverifiable`; neither port has a generic operation envelope, and later tasks extend the closed method set rather than adding one. There is no rendering port: Git commands return validated domain results that `internal/report` renders, as in Features 001–006. It imports only standard-library packages and the leaf `internal/conventionalcommit`. `internal/gitprocess` and `internal/gitstore` import `gitmanager` to implement those ports; `gitmanager` MUST NOT import either implementation. `internal/app` is the sole composition root that imports domain plus implementations and injects them. `internal/report` may import domain result types but is never imported by `gitmanager`. This one-way DAG is enforced by a structural import test and cannot form a Go cycle.
 
 ### Components
 
@@ -78,7 +78,7 @@ internal/gitprocess  internal/gitstore
 
 ### Existing-code compatibility
 
-- Keep `app.Run` and `app.RunWithGateStore` signatures as compatibility wrappers for existing tests and callers. Introduce an internal dependency bundle or a new wrapper used by `cmd/ai-dev/main.go`; existing wrappers install an explicitly unavailable Git-management service unless tests provide one.
+- Keep `app.Run` and `app.RunWithGateStore` signatures as compatibility wrappers for existing tests and callers. `cmd/ai-dev/main.go` calls `app.RunWithDependencies` with the `app.Dependencies` bundle, which carries `GitManagementDependencies`; the router lives in `internal/app/app.go`, and the existing wrappers install an explicitly unavailable Git-management bundle unless tests provide one.
 - Do not widen `system.Executor` or `system.Launcher`. Their current behavior is insufficient for controlled Git environment, bounded binary I/O, and stdin plumbing. `internal/gitprocess.Runner` is a separate narrow port so Features 001–006 retain behavior.
 - Reuse established report validation and isolated JSON-output conventions, not Feature 006 authorization or storage semantics.
 - Reuse lessons from `gatestore` (platform build constraints, injected operations, directory durability, fail-closed unsupported fallback) without importing or sharing Human Gate records.
@@ -244,7 +244,7 @@ Capability is evaluated independently for physical project/Git dir, user-state/a
 
 - Plan JSON: 8 MiB bytes, nesting 32, 16,384 object members/array items, 1 MiB per string.
 - Allowlist/approvals: 4,096 files; path at most 4,096 bytes and platform `NAME_MAX` per component; 64 MiB per authorized file; 512 MiB aggregate authorized bytes; 1 MiB commit message; 16 MiB aggregate attribute/config/ignore source bytes and 1 MiB per source.
-- Derived operations: 8,192; expected postconditions: 16,384; captured stdout/stderr: 4 MiB each; config include depth: 16 with cycle rejection.
+- Derived operations: 8,192; expected postconditions: 16,384 in total across the plan-level list and every operation's expected postconditions; captured stdout/stderr: 4 MiB each; config include depth: 16 with cycle rejection.
 
 Exact limits are accepted. One-unit/byte-over outcomes are fixed: plan/JSON/structure/count/path → `plan_invalid`; configuration/attribute/ignore sources → `attributes_incompatible`; authorized-file/aggregate bytes → `repository_state_incompatible`; commit message → `commit_message_invalid`; bounded command output → the closed reason of the evaluated source/operation. Checks run before authorization or mutation whenever the content is available; later overflow preserves that cause and uses effect-based status.
 - Reversible path bytes are unpadded RFC 4648 base64url in JSON plus a required UTF-8 display field when representable; no normalization occurs.
@@ -355,8 +355,6 @@ specs/008-git-management/
     └── apply-strategy.md
 ```
 
-`tasks.md` is intentionally not created by this phase.
-
 ### Source Code (repository root)
 
 ```text
@@ -464,6 +462,7 @@ These commands are planned evidence, not executed by this phase.
 | Native macOS | APFS acceptance package and artifact hashes | AC matrix passes on supported macOS environment |
 | Native Linux | ext4 acceptance package and artifact hashes | AC matrix passes on supported Linux environment |
 | Security | secret fixtures, no-network sentinels, hooks/filter/helper/fsmonitor sentinels | No configured code/network executes; sensitive bytes absent from audit |
+| Dependency hygiene | `go list -m all` and `go.mod` review | Only module `ai-dev`; no third-party module or `go.sum`. A new dependency requires the plan amendment stated in Technical Context, and `govulncheck` becomes mandatory from that point |
 | Fuzz/property | `go test` fuzz targets for plan decoder/canonical writer, attribute parser and Conventional Commit parser | No panic/hang; canonical round-trip and bounded rejection invariants hold |
 | Regression | existing Features 001–006 suites and authority boundary tests | No behavior/authority regression |
 
@@ -492,3 +491,9 @@ PASS. Phase 1 retains specification-first sequencing, isolates new complexity at
 | Separate `gitstore` package | Durable CAS authorization, append-only audit, fsync, external locks, and platform fallback form an independent persistence trust boundary. | Reusing `gatestore` would couple Git authority to Human Gate evidence, violating FR-009/144. |
 | Schema-restricted RFC 8785 writer | Plan digests require byte-identical canonical form, special property ordering, exact strings, and rejection of floats/unknowns. | Plain `encoding/json` output is not a sufficient normative claim of RFC 8785 canonicalization. |
 | Independent index parser/verifier | The installed index must be autonomous v2 with exact entries/checksum and no shared-index reference. | Trusting only Git command success cannot prove required binary postconditions or protect against ambient index settings. |
+| In-process configuration, attribute, conversion and ignore evaluators | F008-FR-028–034 and F008-FR-175 require knowing effective conversions and ignore status without ever letting Git execute a configured filter, helper, hook or include command. Cost: a reimplementation of Git semantics that must match Git exactly or fail closed, so real configurations it cannot prove (for example unsupported include forms) are rejected as `attributes_incompatible`; it is the largest correctness and maintenance surface of the feature. | Running Git under an isolated environment and verifying status after the fact detects a divergence only once objects exist, and asking Git whether a configuration is unsafe is itself an invocation under that configuration. |
+| Durable authorization, audit and apply-lock kernel | F008-FR-059–071 and F008-FR-178–180 require single-use authority, audit before every business result, and conservative classification after a crash. Cost: a CAS state machine, no-replace record publication, device/inode locks and a reconciliation path, all needing fault-injection and race evidence. | An in-process confirmation with no durable record cannot prove after a crash whether mutation began, and cannot stop a second process from consuming the same authorization. |
+| Supported-filesystem allowlist (local APFS, local ext4) | F008-FR-133–136 require proven exclusive create, fsync, atomic rename and stable identity. Cost: plan/apply refuse overlayfs, tmpfs, NFS, SMB and FUSE, which excludes most containers and CI runners; only inspect works there. | Accepting any POSIX filesystem would assert durability the implementation cannot verify. |
+| In-process high-risk secret screening | F008-FR-085 and F008-FR-091–093 require refusing an initial commit that contains suspected secrets without sending content to an external tool. Cost: a maintained pattern corpus with unavoidable false negatives and positives. | An external scanner is a configured executable and a new dependency, and would see file contents outside the audit boundary. |
+
+**Scope decision (2026-11-17).** An architecture review before Phase 2 proposed reducing Feature 008 to an inspect/plan/init MVP that would defer the four rows added above. The project owner chose to retain the full specified scope, so those rows record complexity that Principle III requires to be explicit. This paragraph was written by the implementing agent from that instruction; the version-controlled approval is the owner's own commit or review of this change.

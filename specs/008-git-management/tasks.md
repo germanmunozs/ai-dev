@@ -25,6 +25,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 - [x] T001 Create package skeletons and package documentation for `internal/gitmanager/`, `internal/gitprocess/`, `internal/gitstore/`, and `internal/conventionalcommit/` following the import DAG in `specs/008-git-management/plan.md`
 - [x] T002 Define consumer-side `GitRunner`, `GitStore`, `Filesystem`, `Clock`, `RandomSource`, and `Reporter` ports in `internal/gitmanager/ports.go` before fakes, adapters, or composition (P-01)
+  - **DEV-T002 (deviation accepted by owner instruction on 2026-11-17; the auditable approval is the owner's commit, see `contracts/inspection-plan.md` §13 *Acceptance status*):** After the pre-Phase 2 architecture review, `GitStore` and `Filesystem` expose typed intent-revealing methods instead of a generic `Execute` envelope, and the `Reporter` port was removed because rendering stays in `internal/report`. `plan.md` describes the resulting port set. The T005 fakes and the T006 composition bundle were updated to match; `cmd/ai-dev/main.go` now composes through `app.RunWithDependencies`, and the Feature 006 gate-import allowlist names `internal/app/app.go` instead of `internal/app/doctor.go`.
 - [x] T003 Add structural import-boundary tests that permit only `internal/gitprocess` to import `os/exec` and prohibit `internal/gitmanager` from importing `internal/gitprocess` or `internal/gitstore` in `internal/gitmanager/boundary_test.go`
   - **DEV-T003 (approved deviation):** The `os/exec` import exception is restricted to `internal/gitmanager/testhelpers_test.go` for synthetic test infrastructure only; it does not extend to production code or other files. Residual risk: the exception depends on the exact filename.
 - [x] T004 Add shared inert hostile-Git sentinels and repository fixture builders without real credentials in `internal/gitmanager/testdata/` and `internal/gitmanager/testhelpers_test.go`
@@ -40,15 +41,15 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 **⚠️ CRITICAL**: No user-story implementation may begin until this phase is complete.
 
-- [ ] T007 Add table-driven tests for every closed enum, identifier distinction, status/reason/exit mapping, decimal-string device/inode, and reversible base64url path rule in `internal/gitmanager/model_test.go` (F008-FR-021, F008-FR-051–052, F008-FR-150–154, F008-FR-166, F008-FR-171, F008-FR-186, F008-FR-189; AC-009, AC-021–022, AC-024)
-- [ ] T008 Implement `PhysicalProjectIdentity`, `GitToolIdentity`, `GitInspection`, `ImmutableIntent`, `PreconditionSnapshot`, `DerivedOperation`, `GitInitializationPlan`, `GitAuthorization`, `GitApplyAttempt`, `GitApplyResult`, and `SecondaryFailure` with strict validation in `internal/gitmanager/model.go`
+- [x] T007 Add table-driven tests for every closed enum, identifier distinction, status/reason/exit mapping, decimal-string device/inode, reversible base64url path rule, and every SCHEMA-103A/103B entity invariant (observation states, HEAD/ref/index/worktree/configuration/project-config observations, conditions, environment profile, development base, operation and plan catalogues) in `internal/gitmanager/model_test.go` (F008-FR-021, F008-FR-051–052, F008-FR-150–154, F008-FR-166, F008-FR-171, F008-FR-186, F008-FR-189; AC-009, AC-021–022, AC-024)
+- [x] T008 Implement `PhysicalProjectIdentity`, `GitToolIdentity`, `GitInspection`, `ImmutableIntent`, `PreconditionSnapshot`, `DerivedOperation`, `GitInitializationPlan`, `GitAuthorization`, `GitApplyAttempt`, `GitApplyResult`, and `SecondaryFailure` with strict validation, together with the SCHEMA-103A/103B entities they are composed of (`RepositoryObservation`, `HeadObservation`, `RefObservation`, `IndexObservation`, `WorktreeChange`, `WorktreePathIdentity`, `ConfigEntry`, `ProjectConfigObservation`, `Incompatibility`, the nine structured evidence groups, `ObservedPath`/`ObservedRef`, `Condition`, `EnvironmentProfile`, `DevelopmentBase`), in `internal/gitmanager/model.go`
 - [ ] T009 [P] Add RFC 8785/JCS canonicalization vectors, duplicate/unknown-key rejection, unsafe-integer strings, NFC/NFD preservation, and deterministic `operation_id` tests in `internal/gitmanager/canonical_test.go` (F008-FR-050–058, F008-FR-152, F008-FR-171–173; AC-002, AC-012)
 - [ ] T010 [P] Create `FuzzPlanDecoder` for bounded allocation and strict schema rejection in `internal/gitmanager/plan_decode_fuzz_test.go` and `FuzzCanonicalWriter` for deterministic bytes/digests in `internal/gitmanager/canonical_fuzz_test.go` (F008-FR-050–056)
 - [ ] T011 Implement schema-restricted canonical JSON, plan digest calculation excluding only normative metadata and self-derived `plan_digest`, and deterministic operation IDs in `internal/gitmanager/canonical.go`
 - [ ] T012 [P] Add exact-boundary and one-over tests for plan JSON, nesting, members, strings, paths, file counts, operation counts, postconditions, authorized bytes, commit messages, source bytes, include depth, and captured streams in `internal/gitmanager/limits_test.go` (F008-FR-051; AC-022)
 - [ ] T013 Implement streaming/bounded input accounting and the approved limit-to-reason mapping in `internal/gitmanager/limits.go`
 - [ ] T014 [P] Add macOS/Linux state-root tests covering empty/unset/relative `XDG_STATE_HOME`, no `git/git`, fixed absent HOME/XDG leaves, and identical profile bytes for plan/digest/operation/execution in `internal/gitmanager/statepaths_test.go` (L-2; AC-019)
-- [ ] T015 Implement canonical state roots and fixed private Git environment paths—macOS `$HOME/Library/Application Support/ai-dev/state/git`, Linux absolute `$XDG_STATE_HOME/ai-dev/git` or `$HOME/.local/state/ai-dev/git`, with direct `environment/nonexistent-*-v1` leaves—in `internal/gitmanager/statepaths.go`
+- [ ] T015 Implement canonical state roots and fixed private Git environment paths—macOS `$HOME/Library/Application Support/ai-dev/state/git`, Linux absolute `$XDG_STATE_HOME/ai-dev/git` or `$HOME/.local/state/ai-dev/git`, with direct `environment/nonexistent-*-v1` leaves—in `internal/gitmanager/statepaths.go`; T015 computes these paths from the real user context, while `EnvironmentProfile` in `model.go` (T008) only validates the frozen bytes and their fixed leaves
 - [ ] T016 [P] Add exact-argv/no-shell, environment allowlist, hostile `GIT_*`, HOME/XDG absence, prompt/network/helper/hook/filter/fsmonitor/editor/pager/signing, bounded-output, and macOS launcher/`DEVELOPER_DIR` tests in `internal/gitprocess/runner_test.go` (F008-FR-012–018, F008-FR-130–132, F008-FR-155–156, F008-FR-163; AC-001, AC-015)
 - [ ] T017 [P] Add row-by-row tests for the approved Git operation matrix, exact argv, overrides, dynamic filter neutralization, sorted `-c` replay, `core.excludesFile`, `git config --` capability, private HOME/XDG, `GIT_CONFIG_NOSYSTEM=1`, rejection of unreproducible configuration, and frozen-environment equality in `internal/gitprocess/invocation_matrix_test.go` (F008-FR-163, F008-FR-175; AC-001, AC-015)
 - [ ] T018 Implement the closed operation-to-argv/environment builder exactly matching the `Exact Git operation matrix (P-04)` section of `specs/008-git-management/plan.md`, including its approved `update-ref`, `config`, `read-tree`, prepared-index, installation, verification, override, replay, argv, and environment rows without adding Git subcommands, in `internal/gitprocess/invocation.go`
@@ -121,7 +122,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 - [ ] T048 [P] [US2] Add strategy/branch/prefix/ref validation tests, including no default, rejected `trunk`/`trunk_based`, literal `HEAD`, leading dashes, controls, `@{-1}`, shell metacharacters, and Git Flow reserved-name collisions in `internal/gitmanager/strategy_test.go` (F008-FR-035–049, F008-FR-146, F008-FR-170, F008-FR-181, F008-FR-187; AC-011, AC-023)
 - [ ] T049 [P] [US2] Add plan-time and canonicalization rejection tests for literal path byte `|` in `internal/gitmanager/plan_path_test.go` (F008-FR-087, F008-FR-177; AC-012)
-- [ ] T050 [P] [US2] Add plan regeneration, exact covered fields, prohibited-operation minimum, deterministic operation enumeration, c-01 precedence, and untrusted-plan rejection tests in `internal/gitmanager/plan_test.go` (F008-FR-050–058, F008-FR-140–143, F008-FR-164–165, F008-FR-172–173; AC-002, AC-030)
+- [ ] T050 [P] [US2] Add plan regeneration, exact covered fields, prohibited-operation minimum, deterministic operation enumeration, c-01 precedence, rejection of every plan under an interrupted `sequencer_state` (O-103B-1), and untrusted-plan rejection tests in `internal/gitmanager/plan_test.go` (F008-FR-050–058, F008-FR-140–143, F008-FR-164–165, F008-FR-172–173; AC-002, AC-030)
 - [ ] T051 [P] [US2] Add output path alias/symlink/project/Git-area/existing-file, exclusive-create `0600`, fsync, partial external file, and APFS/ext4-profile tests in `internal/gitmanager/planoutput_test.go` (F008-FR-182; AC-013)
 - [ ] T052 [P] [US2] Add plan CLI option-matrix, `--project-dir`, rejection-envelope, exact exit 0/1/2, and structured output tests in `cmd/ai-dev/init_plan_test.go` (AC-022)
 
@@ -130,7 +131,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [ ] T053 [US2] Implement canonical strategy, branch, prefix, ref, object-format, and tool-capability validation in `internal/gitmanager/strategy.go`
 - [ ] T054 [US2] Implement immutable intent and complete precondition-snapshot construction, including frozen state-root/environment/config/attribute/ignore/toolchain identities in `internal/gitmanager/snapshot.go`
 - [ ] T055 [US2] Implement planner/regenerator that enumerates every mutation, precondition, effect, postcondition, partial point, recovery instruction, and prohibited operation in `internal/gitmanager/plan.go`
-- [ ] T056 [US2] Implement phase-aware `repository_state_incompatible` → `plan_stale` → `concurrent_change` classifier in `internal/gitmanager/classify.go`
+- [ ] T056 [US2] Implement phase-aware `repository_state_incompatible` → `plan_stale` → `concurrent_change` classifier, including the O-103B-1 interrupted-sequencer rule, in `internal/gitmanager/classify.go`
 - [ ] T057 [US2] Implement safe external plan export with physical-parent validation, exclusive creation, restrictive mode, file/directory sync, and no overwrite in `internal/gitmanager/planoutput.go`
 - [ ] T058 [US2] Add `GitPlanOutput` and `GitPlanRejectionOutput` text/JSON rendering in `internal/report/gitplan.go`
 - [ ] T059 [US2] Wire `ai-dev init plan` and its approved option matrix without `--write-config` in `internal/app/gitinit.go` and `cmd/ai-dev/main.go`
@@ -304,8 +305,8 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 - **Phase 1 (Setup)**: Starts immediately.
 - **Phase 2 (Foundational)**: Depends on Phase 1 and blocks all user stories.
-- **Durable Safety Kernel / Phase 3**: Depends on Phase 2 and blocks every Git mutation and public mutating route.
-- **US1 / Phase 4**: Depends on Phases 2–3 and establishes inspection input for every later Git-management story.
+- **Durable Safety Kernel / Phase 3**: Depends on Phase 2 and blocks every Git mutation and public mutating route (US3–US6, US8 and T107). It does not block the read-only US1/US2 or US7, and may proceed in parallel with them.
+- **US1 / Phase 4**: Depends on Phase 2 and establishes inspection input for every later Git-management story.
 - **US2 / Phase 5**: Depends on US1 because planning consumes a complete inspection.
 - **US3 / Phase 6**: Depends on US2 and the completed Phase 3 safety kernel.
 - **US4 / Phase 7**: Depends on US2, US3, and the T035 permit boundary.
@@ -318,8 +319,9 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 ### User Story Dependency Graph
 
 ```text
-Setup → Foundation → Durable Safety Kernel → US1 → US2 → US3 → US4 → US5 → US6 → US8 → CLI activation/validation
-                                         └──────────────────────────────► US7 ────────────────────────┘
+Setup → Foundation ─┬─► US1 → US2 ──────────────┬─► US3 → US4 → US5 → US6 → US8 → CLI activation/validation
+                    ├─► Durable Safety Kernel ───┘                                      ▲
+                    └─► US7 ─────────────────────────────────────────────────────────────┘
 
 Completed Safety Kernel + internal mutation operations
     ├──► T106 real-engine integration harness (no public CLI dependency)
