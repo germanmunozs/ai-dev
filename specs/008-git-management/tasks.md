@@ -325,6 +325,124 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ---
 
+## Phase 13: Robustness Hardening
+
+**Purpose**: Close the robustness gaps found by the post-activation analysis of 2026-11-18. The analysis inspected the code and measured coverage: `gitmanager` 86.9 %, `gitprocess` 88.6 %, `gitstore` 87.5 %, `app` 79.8 %.
+
+**Rules for this phase**:
+- These tasks add no requirement by themselves.
+- A task marked **(needs owner decision)** or **(needs owner authorization)** MUST NOT start until the owner records that decision.
+- An agent MUST NOT mark such a decision as approved.
+
+### Governance
+
+- [ ] T119 **(needs owner decision)** Record the owner's approval or rejection of each proposed deviation still marked "pending human approval" in this file, `data-model.md` and `contracts/`.
+  - Deviation notes: DEV-T020–T023, DEV-T024–T035, DEV-T036–T047, DEV-T048–T059, DEV-T060–T072, DEV-T073–T077, DEV-T078–T089, DEV-T090–T096, DEV-T097–T102, DEV-T103–T105 and DEV-T106–T114.
+  - STO-08.
+  - The contract decisions COM, CFG, CCV, REC-01–03, ACT-01–03 and FLT-01–02.
+  - A rejected deviation becomes a new remediation task. T118 depends on this task.
+
+### Interrupt policy during apply
+
+The gap:
+- `cmd/ai-dev/main.go` cancels the context on SIGINT.
+- `gitprocess.Runner` uses `exec.CommandContext`, which kills Git when that context is cancelled.
+- Git children share the terminal's process group, so a terminal SIGINT also reaches them directly.
+
+As a result, an interrupt during `update-ref`, a config write or the index installation kills Git mid-operation. The attempt closes as `state_indeterminate` and may leave Git `.lock` files behind. The specification defines no interrupt policy.
+
+- [ ] T120 **(needs owner decision)** Propose an interrupt-policy amendment INT-01 in `contracts/authorization-audit.md`.
+  - Before the durable `mutation_intent`, an interrupt refuses cleanly and leaves the authorization usable.
+  - From `mutation_intent` until the terminal CAS, an interrupt is deferred:
+    - the running operation and the remaining verification, release and closure complete;
+    - no later operation starts;
+    - the result reports that the interrupt was deferred.
+  - The amendment fixes the status, reason, exit code and audit event for each case. It MUST NOT add rollback or retry. T121–T122 depend on its approval.
+- [ ] T121 After T120, add `cmd/ai-dev/gitmanagement_interrupt_test.go`.
+  - It sends SIGINT and SIGTERM to the `ai-dev` subprocess before the claim, and before, during and after each operation of a real apply.
+  - It asserts:
+    - no Git process is killed mid-operation;
+    - no operation starts after the interrupt;
+    - there is exactly one terminal closure;
+    - no `index.lock`, `config.lock` or ref `.lock` is left behind;
+    - status, reason and exit code match INT-01;
+    - a later consumption runs nothing again.
+- [ ] T122 After T120 and T121, implement INT-01.
+  - Shield the window from the durable `mutation_intent` to the terminal CAS from cancellation with `context.WithoutCancel`, in `internal/gitmanager/apply.go` and `internal/gitmanager/safety.go`.
+  - Start Git in its own process group so that a terminal SIGINT does not reach it: `SysProcAttr.Setpgid`, in a new `internal/gitprocess/runner_posix.go`.
+  - Keep `terminal.go` as the sole closer and record the deferred interrupt in the audit trail.
+
+### Real crashes and I/O faults
+
+Today the fault matrix (T110) uses a fake store, and crash evidence is simulated by planting temporaries. The functions with the lowest coverage are exactly the I/O branches on the mutation path:
+
+| Function | Coverage |
+|---|---|
+| `installIndex` | 56.8 % |
+| `writeProjectConfig` | 68.3 % |
+| `createDirectory` | 66.7 % |
+| `newPreparedIndex` | 66.7 % |
+| `acquireIndexLock` | 72.7 % |
+| `abandon` | 60 % |
+| `reconcileAuthorization` | 55.6 % |
+| `InspectReconciliation` | 62.1 % |
+
+- [ ] T123 [P] Add `internal/app/gitmanagement_crash_test.go`, modeled on `internal/gatestore/crash_posix_test.go`.
+  - It re-executes the test binary and kills it with SIGKILL at every durable step of a real apply, with the real `gitstore` and real Git.
+  - The steps are: attempt record, issuance, claim CAS, mutation intent, every operation start and result, release, prepared result, terminal CAS and result record.
+  - After each kill it asserts:
+    - a later consumption runs no operation again;
+    - the authorization is consumed exactly when intent may be durable;
+    - `init reconcile` reports the crash evidence;
+    - a linked reconciliation authorization with a fresh plan completes or refuses with a typed reason.
+  - Requires a production filesystem; it skips on tmpfs.
+- [ ] T124 [P] Add `internal/gitmanager/iofault_test.go`.
+  - Inject a failure, and an outcome that cannot be verified, at every open, write, fsync, chmod, rename, link, close and directory-sync step of the following functions:
+    - `installIndex`, `newPreparedIndex` and `acquireIndexLock` in `index_posix.go`;
+    - `createConfigDirectory`, `createDirectory` and `writeProjectConfig` in `projectconfig_posix.go`.
+  - Each case asserts:
+    - the operation outcome is completed, failed with zero effects proven, or indeterminate, and never assumed successful;
+    - no temporary or lock owned by ai-dev survives except as reported crash evidence;
+    - no existing file is overwritten.
+- [ ] T125 After T124, add an injectable I/O operations seam for the files named in T124, following the existing `ops` struct of `internal/gatestore`. Production behavior is unchanged. Each mutating helper still takes the `MutationPermit` (checked by `security_boundary_test.go`).
+- [ ] T126 [P] Cover the remaining branches of these functions, with no production change unless a test exposes a defect:
+  - `reconcileAuthorization`, `InspectReconciliation` and `EncodeReconciliationReport` in `internal/gitmanager/reconcile_test.go`;
+  - `abandon`, `render` and `finishResult` in `internal/gitmanager/recovery_test.go`.
+- [ ] T127 [P] Using the T125 seam, inject ENOSPC and EDQUOT at every write to the state root and the project in `internal/gitmanager/iofault_test.go` and `internal/gitstore/store_posix_test.go`. Assert typed refusals or indeterminate outcomes, and that no durable record is truncated.
+
+### Earlier refusals and hostile-repository proofs
+
+- [ ] T128 [P] Add tests to `internal/gitmanager/inspect_test.go` and `internal/gitmanager/commitflow_integration_test.go`.
+  - Leftover ref lock files (`refs/heads/<branch>.lock`, `HEAD.lock`, `packed-refs.lock`) present at plan time, and appearing between plan and apply, MUST refuse before the first blob, with the reason fixed by T129.
+  - Today inspection observes only `index.lock` and `config.lock`. A ref lock would surface only when `update-ref` fails, after the commit objects exist.
+- [ ] T129 **(needs owner decision for the reason)** After T128, observe ref lock files in `internal/gitmanager/inspect_posix.go` and `internal/gitmanager/inspect.go`. Classify them in `internal/gitmanager/classify.go`, reusing an existing reason or a newly approved one, and revalidate them before `initial_ref_cas` and `development_ref_cas`.
+- [ ] T130 [P] Extend the hostile-configuration sentinels in `internal/gitprocess/runner_test.go` to the mutating rows: `init`, `config` write, `hash-object -w`, `commit-tree`, `update-ref` and `read-tree` into the prepared index.
+  - Install sentinel `reference-transaction`, `post-index-change`, `pre-commit`, `post-commit` and `post-checkout` hooks, both in `.git/hooks` and through a hostile `core.hooksPath`.
+  - Assert that no sentinel runs and that the private HOME and XDG leaves stay absent.
+- [ ] T131 [P] Add real-Git coverage for the `git-flow-next` dialect, both as adoption and as a new project with and without an initial commit, in `internal/gitmanager/commitflow_integration_test.go`. Today it is verified only by unit tests.
+
+### Platform and version evidence
+
+- [ ] T132 **(needs owner authorization)** Run the real-Git suites against Git 2.45.0, the declared minimum in `internal/gitprocess/identify.go`, and against the current release. Record versions, commands, exit codes and hashes with the T115/T116 evidence. Today only 2.54.0 (macOS) and 2.55.0 (Linux VM) are exercised.
+- [ ] T133 **(needs owner authorization: outward-facing, uses CI runners)** Add `.github/workflows/ci.yml` with macOS and Linux jobs:
+  - `gofmt -l`, `go vet ./...` and `go test ./...`;
+  - repeated `go test -race -timeout 60m` for `gitstore`, `gitmanager`, `app` and `cmd/ai-dev`;
+  - time-boxed fuzzing of the four fuzz targets;
+  - a check that the Linux `TMPDIR` is local ext4, so the real-Git suites do not skip.
+  - CI logs are evidence for T116 only once the owner approves them as the evidence root.
+- [ ] T134 **(optional; needs owner authorization)** Verify power-loss durability of the store and project-config publication sequences. Use `dm-log-writes` or `dm-flakey` on a Linux ext4 device: replay every write prefix and assert that the recovered state is a consistent prefix that T123 classifies. Record the result as T116 evidence.
+
+### Operational policy
+
+- [ ] T135 **(needs owner decision)** Propose a state-root retention policy for `attempts/`, audit events and `prepared/` in `contracts/authorization-audit.md`. These directories grow without bound, because no cleanup ever runs. The proposal MUST keep every unresolved attempt's evidence, MUST remain supervised and explicit, and is decision-only: no implementation without a later approved task.
+
+**Checkpoint**: Phase 13 is complete when:
+- T119 is recorded;
+- every task this phase authorizes is done, or is explicitly declined by the owner;
+- the coverage of each function listed above reaches at least 85 %, or each remaining branch is documented as unreachable.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -341,6 +459,14 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - **US7 / Phase 10**: Depends only on Phase 2 and may proceed in parallel with US1–US6 after the foundation is stable.
 - **US8 / Phase 11**: Its critical primitives were completed in Phase 3; this phase adds supervised reconciliation after US3–US6.
 - **Activation and validation / Phase 12**: Depends on all selected stories. T106 exercises the real internal engine and completed T024–T035 safety kernel through an isolated harness and does not depend on T107 or `cmd/ai-dev/main.go`. T110 and T111 likewise exercise internal components without requiring T107. Only after T106, T110, and T111 succeed may T107 enable the public mutating routes; T109 then depends on T107 and verifies those public routes. Native evidence and independent review follow without weakening that gate.
+- **Robustness hardening / Phase 13**: Depends on Phase 12.
+  - T119 precedes T118.
+  - T120 gates T121 → T122.
+  - T124 → T125 precede T127.
+  - T128 → T129 are sequential.
+  - T123, T126, T130 and T131 are independent test files.
+  - T132–T134 run only under owner authorization and feed T115/T116.
+  - T135 is decision-only.
 
 ### User Story Dependency Graph
 
@@ -354,6 +480,15 @@ Completed Safety Kernel + internal mutation operations
     ├──► T110 fault matrix (no public CLI dependency)
     └──► T111 race detector (no public CLI dependency)
           T106 + T110 + T111 ──► T107 public activation ──► T109 public CLI tests
+
+Phase 13 (after Phase 12)
+    T119 owner decisions ──────────────────────────────────────────► T118 review
+    T120 INT-01 decision ──► T121 interrupt tests ──► T122 interrupt policy
+    T124 I/O fault tests ──► T125 I/O seam ──► T127 ENOSPC/EDQUOT
+    T128 ref-lock tests ──► T129 ref-lock observation
+    T123 real crashes | T126 coverage | T130 hook sentinels | T131 git-flow-next   (parallel)
+    T132 version matrix | T133 CI | T134 power loss ──► T115/T116 evidence   (owner-authorized)
+    T135 retention proposal (decision only)
 ```
 
 ### Within Each User Story
