@@ -110,6 +110,9 @@ type BuildError struct {
 	Detail    string
 }
 
+// ClosedReason is the closed reason the caller returns for this refusal.
+func (e *BuildError) ClosedReason() gitmanager.Reason { return e.Reason }
+
 func (e *BuildError) Error() string {
 	return fmt.Sprintf("git operation %s cannot be built (%s): %s", e.Operation, e.Reason, e.Detail)
 }

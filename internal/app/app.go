@@ -54,8 +54,11 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 	executor, launcher, root, store := deps.Executor, deps.Launcher, deps.Root, deps.GateStore
 	stdin, stdout, stderr := deps.Stdin, deps.Stdout, deps.Stderr
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow> [options]")
+		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]")
 		return 2
+	}
+	if args[0] == "init" {
+		return RunGitInit(ctx, args[1:], deps.Git, stdout, stderr)
 	}
 	if args[0] == "agents" {
 		return RunAgentsList(args[1:], executor, stdout, stderr)
@@ -100,7 +103,7 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 	}
 	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev doctor [--format text|json]") }
 	if args[0] != "doctor" {
-		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow> [options]")
+		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]")
 		return 2
 	}
 	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)

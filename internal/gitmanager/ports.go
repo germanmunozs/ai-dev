@@ -298,3 +298,52 @@ type Clock interface {
 type RandomSource interface {
 	Read([]byte) (int, error)
 }
+
+// GitReadRow is the closed set of read-only Git rows an inspection may run.
+// No mutating row is reachable through GitReader, so an inspection cannot
+// change the project, repository, index, refs or configuration by
+// construction (F008-FR-011, inspection contract §1).
+type GitReadRow string
+
+const (
+	GitReadDiscover        GitReadRow = "discover_repository"
+	GitReadHeadSymbolicRef GitReadRow = "head_symbolic_ref"
+	GitReadHeadCommit      GitReadRow = "head_commit"
+	GitReadShowRefs        GitReadRow = "show_refs"
+	GitReadStatus          GitReadRow = "status"
+)
+
+func (v GitReadRow) Valid() bool {
+	switch v {
+	case GitReadDiscover, GitReadHeadSymbolicRef, GitReadHeadCommit, GitReadShowRefs, GitReadStatus:
+		return true
+	default:
+		return false
+	}
+}
+
+// GitConfigReplay is one safely parsed configuration value replayed to Git
+// as an exact -c argument, because the private environment hides the scope
+// that set it.
+type GitConfigReplay struct {
+	Key   string
+	Value string
+}
+
+// GitReadRequest is one read row under the frozen toolchain and private
+// environment, with the filter drivers to neutralize and the values to
+// replay.
+type GitReadRequest struct {
+	Row           GitReadRow
+	Tool          GitToolIdentity
+	Environment   EnvironmentProfile
+	Directory     []byte
+	FilterDrivers []string
+	Replay        []GitConfigReplay
+}
+
+// GitReader runs one read-only row. A row that cannot be built safely is
+// an error carrying a closed reason; Git's own exit status is in the result.
+type GitReader interface {
+	Read(context.Context, GitReadRequest) (GitRunResult, error)
+}

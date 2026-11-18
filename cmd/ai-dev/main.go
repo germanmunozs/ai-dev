@@ -18,6 +18,7 @@ func main() {
 		Launcher:  system.OSLauncher{},
 		Root:      os.DirFS("."),
 		GateStore: gatestore.New("."),
+		Git:       app.DefaultGitManagementDependencies(),
 		Stdin:     os.Stdin,
 		Stdout:    os.Stdout,
 		Stderr:    os.Stderr,
