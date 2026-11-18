@@ -225,3 +225,26 @@ Verification:
 - **Exact form:** tests reject every deviation from the F008-FR-190 vector (template, object format, ref format, branch, root, separator, `--shared`, `init.*` and shared-repository overrides, trailing arguments). Each missing capability is `git_capability_missing` both when planning and when dispatching, and an existing repository is planned without initialization.
 - **Real Git (macOS/APFS, Git 2.54.0):** the hostile setup puts a template with hooks, `description` and `info/exclude` in both `init.templateDir` and `GIT_TEMPLATE_DIR`. It also sets `init.defaultBranch`, `init.defaultObjectFormat=sha256`, `init.defaultRefFormat=reftable` and `core.sharedRepository=group` in the user's configuration, and `GIT_DEFAULT_HASH`, `GIT_DEFAULT_REF_FORMAT` and `GIT_CONFIG_PARAMETERS` in the process environment. Under all of that, apply through the real store and dispatcher creates `HEAD` → `refs/heads/trunk-x` with format version 0 and a files ref store. It creates no hooks, `info`, `description`, `logs` or `reftable` and no configuration key beyond those git init writes itself. A second apply of the same plan is `plan_stale` and leaves the repository untouched.
 - **Linux (Fedora CoreOS arm64, Git 2.55.0):** the unit suites pass. The real-Git test skips because `/tmp` is tmpfs, which inspection correctly refuses as a production filesystem.
+
+## 13. Reconciliation and repeated-apply decisions (T103–T105)
+
+A rule is **derived** when the specification fixes it and **proposed** when it fills a gap. Proposed rules need human approval.
+
+| ID | Rule | Basis |
+|---|---|---|
+| REC-01 | `already_applied` is now produced, superseding APL-09. When an attempt consumes an `applied` authorization of the same plan digest, it does not regenerate the plan: the authorization's own effects make the snapshot stale. Instead it takes the apply lock, rereads the authorization, and verifies the plan's postconditions on a fresh inspection. If all of them hold, the result is `already_applied`, exit 0, with no transition, no operation and the lock released. Otherwise the result stays `authorization_consumed`. The same check runs when a racing loser finds the authorization `applied` under the lock. | derived F008-FR-127, AC-005; mechanism proposed |
+| REC-02 | The postconditions verified for `already_applied` and for reconciliation come from the plan file. `DecodePlanFile` now decodes `expected_postconditions` with a round-trip check. They are authentic only because the file's digest covers them and a durable authorization names that digest. | proposed |
+| REC-03 | `InspectReconciliation` is steps 1–2 of F008-FR-180 and writes nothing. It takes the prior plan file and authorization ID, rereads the prior authorization (which must name that plan digest), reads the consuming attempt's audit trail, and classifies every prior postcondition on a fresh inspection as applied, absent or unverifiable. Its report grants no authority. | derived F008-FR-180; report shape proposed |
+| REC-04 | Steps 3–4 are a new plan applied with an issuance whose `ReconcilesAuthorizationID` names the prior authorization. `Apply` then issues through the T032 `issueReconciliation`, linking the previous authorization, apply attempt and plan digest; the prior record is proven byte-identical afterwards. A prior that is not unresolved, or that names the new ID, is `authorization_mismatch`; a missing prior is `authorization_missing`. `internal/app/gitreconcile.go` composes the inspection, and `applyPlan` runs the linked issuance. No CLI route or option is added, because the CLI contract defines none: `ai-dev init reconcile --plan FILE --authorization-id UUID` and `ai-dev init apply --reconciles-authorization UUID` are proposed amendments. | derived F008-FR-180; interface and CLI amendment proposed |
+
+Verification:
+
+- **Real store:** `reconcile_integration_test.go`.
+  - An indeterminate authorization is refused as `authorization_consumed` with recovery required and is never re-executed. Its inspection reports it unresolved, with a readable trail containing `mutation_intent` and absent postconditions.
+  - The linked authorization over a new plan applies, records the previous IDs, and leaves the prior record byte-identical. A conclusive authorization is not reconcilable, and an unrelated authorization still applies.
+  - Ten rounds of two concurrent consumers of one issued authorization each give exactly one `applied`. The other attempt is `lock_conflict` or `authorization_consumed`, the operations run exactly once, and the final record is `applied` with three transitions.
+- **Real Git (macOS/APFS):**
+  - Consuming the committed authorization again is `already_applied`, exit 0, with no transition; after a tracked file changes, the same attempt is `authorization_consumed`.
+  - In a two-attempt race on real Git, exactly one attempt applies, and any later attempt is `already_applied`.
+- **App:** `gitreconcile_test.go` composes the inspection over the real store and writes nothing.
+- **Linux (Fedora CoreOS arm64):** these tests skip because `/tmp` is tmpfs, and the rest of the suites pass.

@@ -282,9 +282,10 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Tests and integration for User Story 8
 
-- [ ] T103 [P] [US8] Add supervised reconciliation tests for fresh inspection, verified effects, new plan/authorization, immutable history, and no old-authority reactivation in `internal/gitmanager/reconcile_test.go` (F008-FR-128–129, F008-FR-168, F008-FR-180; AC-006, AC-021)
-- [ ] T104 [P] [US8] Add two-process race repetition for claim, intent, sole terminal closer, unrelated authorization, and `already_applied` verification in `internal/gitmanager/concurrency_test.go` (AC-005–006, AC-021)
-- [ ] T105 [US8] Expose read-only reconciliation inspection and a new linked authorization flow through T032 in `internal/app/gitreconcile.go`
+- [x] T103 [P] [US8] Add supervised reconciliation tests for fresh inspection, verified effects, new plan/authorization, immutable history, and no old-authority reactivation in `internal/gitmanager/reconcile_test.go` (F008-FR-128–129, F008-FR-168, F008-FR-180; AC-006, AC-021)
+- [x] T104 [P] [US8] Add two-process race repetition for claim, intent, sole terminal closer, unrelated authorization, and `already_applied` verification in `internal/gitmanager/concurrency_test.go` (AC-005–006, AC-021)
+- [x] T105 [US8] Expose read-only reconciliation inspection and a new linked authorization flow through T032 in `internal/app/gitreconcile.go`
+  - **DEV-T103–T105 (proposed deviation, pending human approval):** The kernel-level reconciliation tests of T032 stay in `reconcile_test.go`. The end-to-end T103 and T104 tests run through the real store in the external-package `reconcile_integration_test.go`, because only an external test may compose `gitstore`; real-Git races and `already_applied` are in `commitflow_integration_test.go`. There is no `concurrency_test.go`. This phase also produces `already_applied` (REC-01) and decodes the plan's postconditions (REC-02). No CLI route is added (REC-04). Decisions REC-01–04 are recorded in `contracts/authorization-audit.md` §13.
 
 **Checkpoint**: US8 independently satisfies AC-005–006, AC-017–018, AC-021, AC-026, and AC-032.
 
