@@ -17,8 +17,10 @@ type GitManagementDependencies struct {
 	Clock        gitmanager.Clock
 	RandomSource gitmanager.RandomSource
 
-	// Read-only inspection capabilities.
+	// Read-only inspection and planning capabilities. Commands only
+	// builds argv for a plan; it runs nothing.
 	Reader            gitmanager.GitReader
+	Commands          gitmanager.GitCommandBuilder
 	ObserveFilesystem func(path string) (gitmanager.FilesystemObservation, error)
 	IdentifyGit       func(context.Context, gitmanager.EnvironmentProfile) (gitmanager.GitToolIdentity, error)
 	LookupEnv         func(string) (string, bool)

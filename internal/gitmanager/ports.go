@@ -311,11 +311,12 @@ const (
 	GitReadHeadCommit      GitReadRow = "head_commit"
 	GitReadShowRefs        GitReadRow = "show_refs"
 	GitReadStatus          GitReadRow = "status"
+	GitReadCheckRefFormat  GitReadRow = "check_ref_format"
 )
 
 func (v GitReadRow) Valid() bool {
 	switch v {
-	case GitReadDiscover, GitReadHeadSymbolicRef, GitReadHeadCommit, GitReadShowRefs, GitReadStatus:
+	case GitReadDiscover, GitReadHeadSymbolicRef, GitReadHeadCommit, GitReadShowRefs, GitReadStatus, GitReadCheckRefFormat:
 		return true
 	default:
 		return false
@@ -340,10 +341,46 @@ type GitReadRequest struct {
 	Directory     []byte
 	FilterDrivers []string
 	Replay        []GitConfigReplay
+	// BranchName is the candidate of check_ref_format, which runs outside
+	// any repository.
+	BranchName []byte
 }
 
 // GitReader runs one read-only row. A row that cannot be built safely is
 // an error carrying a closed reason; Git's own exit status is in the result.
 type GitReader interface {
 	Read(context.Context, GitReadRequest) (GitRunResult, error)
+}
+
+// GitCommandKind is the closed set of mutating rows a plan can name.
+type GitCommandKind string
+
+const (
+	GitCommandInit        GitCommandKind = "init"
+	GitCommandConfigWrite GitCommandKind = "config_write_local"
+	GitCommandUpdateRef   GitCommandKind = "update_ref"
+)
+
+// GitCommand is one mutating row with its typed parameters. Building it
+// runs nothing: the planner records the exact argv it yields, and only the
+// permitted dispatcher may later execute it.
+type GitCommand struct {
+	Kind           GitCommandKind
+	Tool           GitToolIdentity
+	Environment    EnvironmentProfile
+	Directory      []byte
+	BranchName     []byte
+	PhysicalRoot   []byte
+	RefName        []byte
+	ObjectOID      ObjectOID
+	ExpectedOldOID ObjectOID
+	ConfigKey      string
+	ConfigValue    string
+}
+
+// GitCommandBuilder builds the exact invocation of one mutating row from
+// the operation matrix. A row that cannot be built is an error carrying a
+// closed reason.
+type GitCommandBuilder interface {
+	BuildCommand(GitCommand) (GitInvocation, error)
 }

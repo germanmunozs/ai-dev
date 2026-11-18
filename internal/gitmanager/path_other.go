@@ -35,3 +35,8 @@ func readIndex(string, int) (IndexObservationInput, string) {
 }
 
 var errUnsupportedPlatform = inspectFailure(ReasonPlatformUnsupported, "platform unsupported")
+
+// WritePlanOutput fails closed on unsupported platforms.
+func WritePlanOutput(PlanOutputRequest, []byte) (string, *PlanRejection) {
+	return "", reject(ReasonPlatformUnsupported, "plan output requires macOS or Linux")
+}

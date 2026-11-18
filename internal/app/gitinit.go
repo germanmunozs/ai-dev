@@ -14,12 +14,15 @@ import (
 	"ai-dev/internal/report"
 )
 
-const gitInitUsage = "Usage: ai-dev init inspect [--project-dir PATH] [--format text|json]"
+const gitInitUsage = "Usage: ai-dev init <inspect|plan> [options]"
 
 // RunGitInit routes the Git Management "init" commands. Only the read-only
 // inspect command is active; it receives no store, no authorization and no
 // mutating port.
 func RunGitInit(ctx context.Context, args []string, deps GitManagementDependencies, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "plan" {
+		return RunGitPlan(ctx, args[1:], deps, stdout, stderr)
+	}
 	if len(args) == 0 || args[0] != "inspect" {
 		fmt.Fprintln(stderr, gitInitUsage)
 		return 2
@@ -54,24 +57,34 @@ func RunGitInit(ctx context.Context, args []string, deps GitManagementDependenci
 // the toolchain is identified once, and the in-process evaluators read the
 // user's real HOME and XDG configuration.
 func inspectProject(ctx context.Context, deps GitManagementDependencies, projectDir string) (gitmanager.GitInspection, error) {
+	inspection, _, err := inspectWithEnvironment(ctx, deps, projectDir)
+	return inspection, err
+}
+
+// inspectWithEnvironment inspects and also returns the private Git
+// environment profile the inspection used.
+func inspectWithEnvironment(ctx context.Context, deps GitManagementDependencies, projectDir string) (gitmanager.GitInspection, gitmanager.EnvironmentProfile, error) {
+	fail := func(err error) (gitmanager.GitInspection, gitmanager.EnvironmentProfile, error) {
+		return gitmanager.GitInspection{}, gitmanager.EnvironmentProfile{}, err
+	}
 	if deps.Reader == nil || deps.IdentifyGit == nil || deps.LookupEnv == nil || deps.Environ == nil || deps.WorkingDir == nil {
-		return gitmanager.GitInspection{}, errors.New("Git inspection is unavailable in this build")
+		return fail(errors.New("Git inspection is unavailable in this build"))
 	}
 	stateRoot, err := gitmanager.ResolveStateRoot(deps.GOOS, deps.LookupEnv)
 	if err != nil {
-		return gitmanager.GitInspection{}, err
+		return fail(err)
 	}
 	environment, err := gitmanager.NewEnvironmentProfile(stateRoot)
 	if err != nil {
-		return gitmanager.GitInspection{}, err
+		return fail(err)
 	}
 	tool, err := deps.IdentifyGit(ctx, environment)
 	if err != nil {
-		return gitmanager.GitInspection{}, err
+		return fail(err)
 	}
 	workingDir, err := deps.WorkingDir()
 	if err != nil {
-		return gitmanager.GitInspection{}, err
+		return fail(err)
 	}
 	user := gitmanager.UserContext{}
 	if home, ok := deps.LookupEnv("HOME"); ok {
@@ -87,17 +100,18 @@ func inspectProject(ctx context.Context, deps GitManagementDependencies, project
 	}
 	id, err := newInspectionID()
 	if err != nil {
-		return gitmanager.GitInspection{}, err
+		return fail(err)
 	}
 	now := time.Now
 	if deps.Clock != nil {
 		now = deps.Clock.Now
 	}
-	return gitmanager.Inspect(ctx, gitmanager.InspectorDependencies{Git: deps.Reader, ObserveFilesystem: deps.ObserveFilesystem},
+	inspection, err := gitmanager.Inspect(ctx, gitmanager.InspectorDependencies{Git: deps.Reader, ObserveFilesystem: deps.ObserveFilesystem},
 		gitmanager.InspectRequest{
 			ProjectDir: projectDir, WorkingDir: workingDir, Tool: tool, Environment: environment, User: user,
 			InspectionID: id, InspectedAt: now().UTC().Truncate(time.Second),
 		})
+	return inspection, environment, err
 }
 
 // newInspectionID is a random UUIDv4 naming one inspection.

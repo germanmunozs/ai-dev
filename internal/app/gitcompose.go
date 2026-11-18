@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"os"
 	"runtime"
 
@@ -16,6 +17,8 @@ import (
 func DefaultGitManagementDependencies() GitManagementDependencies {
 	return GitManagementDependencies{
 		Reader:            gitprocess.Reader{Runner: gitprocess.Runner{}},
+		Commands:          gitprocess.Builder{},
+		RandomSource:      rand.Reader,
 		ObserveFilesystem: gitstore.ObserveFilesystem,
 		IdentifyGit: func(ctx context.Context, environment gitmanager.EnvironmentProfile) (gitmanager.GitToolIdentity, error) {
 			path, mode, err := gitprocess.LocateGit(os.Getenv("PATH"))

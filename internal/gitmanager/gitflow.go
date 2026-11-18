@@ -20,13 +20,26 @@ var gitFlowNextProperties = map[string]bool{
 
 var gitFlowTopics = []string{"feature", "bugfix", "release", "hotfix", "support"}
 
-// gitFlowNextProfile is the exact normative git-flow-next profile for the
-// given branches and prefixes.
-func gitFlowNextProfile(production, development string, prefixes map[string]string, tagPrefix string) map[string]string {
-	p := map[string]string{"gitflow.version": "1.0", "gitflow.initialized": "true"}
+// configKV is one configuration key and value in a planned order.
+type configKV struct{ key, value string }
+
+// gitFlowAVHEntries is the AVH profile in the specification's order.
+func gitFlowAVHEntries(production, development string, prefixes map[string]string) []configKV {
+	return []configKV{
+		{"gitflow.branch.master", production}, {"gitflow.branch.develop", development},
+		{"gitflow.prefix.feature", prefixes["feature"]}, {"gitflow.prefix.bugfix", prefixes["bugfix"]},
+		{"gitflow.prefix.release", prefixes["release"]}, {"gitflow.prefix.hotfix", prefixes["hotfix"]},
+		{"gitflow.prefix.support", prefixes["support"]}, {"gitflow.prefix.versiontag", prefixes["version_tag"]},
+	}
+}
+
+// gitFlowNextEntries is the git-flow-next profile in the specification's
+// order (spec, Normative Git Flow Profiles).
+func gitFlowNextEntries(production, development string, prefixes map[string]string, tagPrefix string) []configKV {
+	entries := []configKV{{"gitflow.version", "1.0"}, {"gitflow.initialized", "true"}}
 	set := func(branch string, values ...string) {
 		for i := 0; i+1 < len(values); i += 2 {
-			p["gitflow.branch."+branch+"."+values[i]] = values[i+1]
+			entries = append(entries, configKV{"gitflow.branch." + branch + "." + values[i], values[i+1]})
 		}
 	}
 	set(production, "type", "base", "upstreamstrategy", "none", "downstreamstrategy", "none", "autoupdate", "false", "tag", "false")
@@ -43,7 +56,16 @@ func gitFlowNextProfile(production, development string, prefixes map[string]stri
 	topic("release", production, development, "merge", "merge", "true")
 	topic("hotfix", production, production, "merge", "rebase", "true")
 	topic("support", production, production, "none", "none", "false")
-	return p
+	return entries
+}
+
+// gitFlowNextProfile is the git-flow-next profile as a lookup map.
+func gitFlowNextProfile(production, development string, prefixes map[string]string, tagPrefix string) map[string]string {
+	profile := make(map[string]string)
+	for _, entry := range gitFlowNextEntries(production, development, prefixes, tagPrefix) {
+		profile[entry.key] = entry.value
+	}
+	return profile
 }
 
 // classifyGitFlow builds the Git Flow evidence of the local repository

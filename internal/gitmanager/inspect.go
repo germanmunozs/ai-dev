@@ -844,6 +844,32 @@ func (s *inspection) observeProjectConfig() {
 		}
 	}
 	s.obs.ProjectConfig = observation
+	// The project configuration directory and file are frozen so a plan
+	// can bind its writes to their exact identity.
+	for _, rel := range []string{".ai-dev", ProjectConfigPath} {
+		if pathExists(s.root + "/" + rel) {
+			s.addPathIdentity(rel)
+		}
+	}
+}
+
+// addPathIdentity freezes one repository-relative path once.
+func (s *inspection) addPathIdentity(rel string) {
+	for _, existing := range s.obs.WorktreePathIdentities {
+		if strings.TrimSuffix(string(existing.Path.Bytes()), "/") == rel {
+			return
+		}
+	}
+	identity, ok := observePathIdentity(s.root + "/" + rel)
+	if !ok {
+		s.warn(rel + " has no observable identity")
+		return
+	}
+	identity.Path = NewObservedPath([]byte(rel))
+	s.obs.WorktreePathIdentities = append(s.obs.WorktreePathIdentities, identity)
+	sort.Slice(s.obs.WorktreePathIdentities, func(i, j int) bool {
+		return bytes.Compare(s.obs.WorktreePathIdentities[i].Path.Bytes(), s.obs.WorktreePathIdentities[j].Path.Bytes()) < 0
+	})
 }
 
 // observeFilesystems records the project filesystem profile from mount
