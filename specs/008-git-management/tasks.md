@@ -184,14 +184,15 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Tests for User Story 4
 
-- [ ] T073 [P] [US4] Add exact argv, empty-template, explicit SHA-1/files-ref/branch, existing-repository no-reinit, missing-capability, and hostile ambient configuration tests in `internal/gitmanager/initrepo_test.go` (F008-FR-094–095, F008-FR-109, F008-FR-181, F008-FR-190; AC-007)
-- [ ] T074 [P] [US4] Add operation-level revalidation, declared-effects, no-reflog/no-implicit-config, postcondition inspection, and fail-closed missing/invalid/wrong-authorization-or-operation `MutationPermit` tests in `internal/gitmanager/operations_test.go`; prove production adapters cannot construct permits and use only an internal `_test.go` constructor in tests (F008-FR-140–143, F008-FR-164, F008-FR-166, F008-FR-174; AC-007, AC-009)
+- [x] T073 [P] [US4] Add exact argv, empty-template, explicit SHA-1/files-ref/branch, existing-repository no-reinit, missing-capability, and hostile ambient configuration tests in `internal/gitmanager/initrepo_test.go` (F008-FR-094–095, F008-FR-109, F008-FR-181, F008-FR-190; AC-007)
+- [x] T074 [P] [US4] Add operation-level revalidation, declared-effects, no-reflog/no-implicit-config, postcondition inspection, and fail-closed missing/invalid/wrong-authorization-or-operation `MutationPermit` tests in `internal/gitmanager/operations_test.go`; prove production adapters cannot construct permits and use only an internal `_test.go` constructor in tests (F008-FR-140–143, F008-FR-164, F008-FR-166, F008-FR-174; AC-007, AC-009)
 
 ### Implementation for User Story 4
 
-- [ ] T075 [US4] Implement frozen capability validation and the exact argv `git init --template= --object-format=sha1 --ref-format=files --initial-branch=<name> -- <physical-path>` in `internal/gitmanager/initrepo.go`
-- [ ] T076 [US4] Implement typed exact-argv operation dispatch with immediate precondition revalidation and complete postcondition inspection in `internal/gitmanager/operations.go`; every production mutation entrypoint MUST require and validate the non-forgeable T035 `MutationPermit` against authorization and operation IDs, fail closed before invoking Git when absent/invalid/mismatched, and expose no public bypass
-- [ ] T077 [US4] Add initialization effects and toolchain details to strategy/apply reports in `internal/report/gitapply.go`
+- [x] T075 [US4] Implement frozen capability validation and the exact argv `git init --template= --object-format=sha1 --ref-format=files --initial-branch=<name> -- <physical-path>` in `internal/gitmanager/initrepo.go`
+- [x] T076 [US4] Implement typed exact-argv operation dispatch with immediate precondition revalidation and complete postcondition inspection in `internal/gitmanager/operations.go`; every production mutation entrypoint MUST require and validate the non-forgeable T035 `MutationPermit` against authorization and operation IDs, fail closed before invoking Git when absent/invalid/mismatched, and expose no public bypass
+- [x] T077 [US4] Add initialization effects and toolchain details to strategy/apply reports in `internal/report/gitapply.go`
+  - **DEV-T073–T077 (proposed deviation, pending human approval):** Condition evaluation against fresh state lives in the added file `internal/gitmanager/conditions.go`. `OperationExecutor.Revalidate`/`Execute` now receive the regenerated plan (OPS-01). The real-Git T073 acceptance is the external-package `initrepo_integration_test.go`, because only an external test may compose `gitprocess`. It verifies effects through files rather than a Git subprocess, which the boundary test forbids in this package. T077 also renders the initialization in the plan text report (`internal/report/gitplan.go`). The dispatcher does not yet perform the `.ai-dev/` writes (OPS-07, T093). Decisions OPS-01–08 are recorded in `contracts/authorization-audit.md` §12.
 
 **Checkpoint**: US4 independently satisfies AC-007, relevant AC-009/AC-015, and N-E/P-3 precedence.
 
