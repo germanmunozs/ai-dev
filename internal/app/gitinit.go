@@ -14,14 +14,20 @@ import (
 	"ai-dev/internal/report"
 )
 
-const gitInitUsage = "Usage: ai-dev init <inspect|plan> [options]"
+const gitInitUsage = "Usage: ai-dev init [inspect|plan|apply] [options]"
 
 // RunGitInit routes the Git Management "init" commands. Only the read-only
 // inspect command is active; it receives no store, no authorization and no
 // mutating port.
-func RunGitInit(ctx context.Context, args []string, deps GitManagementDependencies, stdout, stderr io.Writer) int {
+func RunGitInit(ctx context.Context, args []string, deps GitManagementDependencies, stdin io.Reader, interactive bool, stdout, stderr io.Writer) int {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return RunGitWizard(ctx, args, deps, stdin, interactive, stdout, stderr)
+	}
 	if len(args) > 0 && args[0] == "plan" {
 		return RunGitPlan(ctx, args[1:], deps, stdout, stderr)
+	}
+	if len(args) > 0 && args[0] == "apply" {
+		return RunGitApply(ctx, args[1:], deps, stdout, stderr)
 	}
 	if len(args) == 0 || args[0] != "inspect" {
 		fmt.Fprintln(stderr, gitInitUsage)

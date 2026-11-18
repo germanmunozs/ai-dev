@@ -27,6 +27,13 @@ type GitManagementDependencies struct {
 	Environ           func() []string
 	WorkingDir        func() (string, error)
 	GOOS              string
+
+	// Apply capabilities. OpenStore opens the durable store at the state
+	// root. Executor runs permitted operations; it stays nil until the
+	// mutation operations exist (T107), and apply is then refused before
+	// any record is created.
+	OpenStore func(gitmanager.ObservedPath) (gitmanager.GitStore, func(), error)
+	Executor  gitmanager.OperationExecutor
 }
 
 func unavailableGitManagementDependencies() GitManagementDependencies {

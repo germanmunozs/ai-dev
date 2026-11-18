@@ -288,6 +288,9 @@ type FileContent struct {
 	Data     []byte
 }
 
+// TimeSource is a clock reading.
+type TimeSource func() time.Time
+
 // Clock supplies time without consulting ambient time from domain code.
 type Clock interface {
 	Now() time.Time

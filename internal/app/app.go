@@ -58,7 +58,7 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 		return 2
 	}
 	if args[0] == "init" {
-		return RunGitInit(ctx, args[1:], deps.Git, stdout, stderr)
+		return RunGitInit(ctx, args[1:], deps.Git, stdin, isTerminal(stdin), stdout, stderr)
 	}
 	if args[0] == "agents" {
 		return RunAgentsList(args[1:], executor, stdout, stderr)

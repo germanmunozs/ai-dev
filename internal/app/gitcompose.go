@@ -27,6 +27,13 @@ func DefaultGitManagementDependencies() GitManagementDependencies {
 			}
 			return gitprocess.Identify(ctx, mode, path, nil, environment, []byte("/"))
 		},
+		OpenStore: func(root gitmanager.ObservedPath) (gitmanager.GitStore, func(), error) {
+			store, err := gitstore.Open(root)
+			if err != nil {
+				return nil, nil, err
+			}
+			return store, func() { store.Close() }, nil
+		},
 		LookupEnv:  os.LookupEnv,
 		Environ:    os.Environ,
 		WorkingDir: os.Getwd,

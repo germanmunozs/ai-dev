@@ -64,6 +64,17 @@ type claimRequest struct {
 
 type operationOutcome string
 
+// OperationOutcome is how an executed operation ended, as the operation
+// executor reports it.
+type OperationOutcome = operationOutcome
+
+// Exported operation outcomes.
+const (
+	OperationCompleted     = operationCompleted
+	OperationFailed        = operationFailed
+	OperationIndeterminate = operationIndeterminate
+)
+
 const (
 	operationCompleted     operationOutcome = "completed"
 	operationFailed        operationOutcome = "failed"

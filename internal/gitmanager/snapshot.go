@@ -126,6 +126,12 @@ func buildIntent(d strategyDecision, inspection GitInspection, projectID Project
 
 // newProjectID draws a UUIDv4 for a project without a valid configuration.
 func newProjectID(random RandomSource) (ProjectID, error) {
+	id, err := newUUIDv4(random)
+	return ProjectID(id), err
+}
+
+// newUUIDv4 draws a random UUIDv4 from the injected source.
+func newUUIDv4(random RandomSource) (string, error) {
 	b := make([]byte, 16)
 	if random == nil {
 		return "", fmt.Errorf("no random source")
@@ -134,5 +140,5 @@ func newProjectID(random RandomSource) (ProjectID, error) {
 		return "", fmt.Errorf("random source failed")
 	}
 	b[6], b[8] = b[6]&0x0f|0x40, b[8]&0x3f|0x80
-	return ProjectID(fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])), nil
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
