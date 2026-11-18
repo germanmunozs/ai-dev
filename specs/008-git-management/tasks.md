@@ -235,16 +235,17 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Tests for User Story 6
 
-- [ ] T090 [P] [US6] Add deterministic `.ai-dev/config.json` project-ID, no-op/conflict, atomic write, directory barrier, credentials exclusion, and clone portability tests in `internal/gitmanager/projectconfig_test.go` (F008-FR-072–079, F008-FR-185; AC-011, AC-024)
-- [ ] T091 [P] [US6] Add exact AVH eight-key and git-flow-next profile tests, `.base` preservation, F008-FR-170 reserved-name collisions, no hooks, non-Git-Flow freedom, partial-write stopping, and adoption/no-normalization tests in `internal/gitmanager/gitflow_test.go` (F008-FR-038–049, F008-FR-146, F008-FR-149, F008-FR-170; AC-011, AC-023)
-- [ ] T092 [P] [US6] Add `--development-base-oid` omission/syntax/algorithm/access/tip-equality/authorization/drift/race matrix in `internal/gitmanager/development_test.go` (F008-FR-043–046, F008-FR-192; AC-031)
+- [x] T090 [P] [US6] Add deterministic `.ai-dev/config.json` project-ID, no-op/conflict, atomic write, directory barrier, credentials exclusion, and clone portability tests in `internal/gitmanager/projectconfig_test.go` (F008-FR-072–079, F008-FR-185; AC-011, AC-024)
+- [x] T091 [P] [US6] Add exact AVH eight-key and git-flow-next profile tests, `.base` preservation, F008-FR-170 reserved-name collisions, no hooks, non-Git-Flow freedom, partial-write stopping, and adoption/no-normalization tests in `internal/gitmanager/gitflow_test.go` (F008-FR-038–049, F008-FR-146, F008-FR-149, F008-FR-170; AC-011, AC-023)
+- [x] T092 [P] [US6] Add `--development-base-oid` omission/syntax/algorithm/access/tip-equality/authorization/drift/race matrix in `internal/gitmanager/development_test.go` (F008-FR-043–046, F008-FR-192; AC-031)
 
 ### Implementation for User Story 6
 
-- [ ] T093 [US6] Implement deterministic project configuration rendering, safe `.ai-dev/` creation barrier, atomic content-digest write, equivalent no-op, and conflict refusal in `internal/gitmanager/projectconfig.go`
-- [ ] T094 [US6] Implement exact AVH and git-flow-next detection/adoption/planning with one ordered operation per key and no Git Flow executable/hooks in `internal/gitmanager/gitflow.go`
-- [ ] T095 [US6] Implement explicit existing-history development-base validation and target-absent ref CAS as a later separately authorized operation in `internal/gitmanager/development.go`
-- [ ] T096 [US6] Implement read-only non-authoritative `GitStrategyReport` for Feature 007 consumption in `internal/gitmanager/strategyreport.go` and `internal/report/gitstrategy.go`
+- [x] T093 [US6] Implement deterministic project configuration rendering, safe `.ai-dev/` creation barrier, atomic content-digest write, equivalent no-op, and conflict refusal in `internal/gitmanager/projectconfig.go`
+- [x] T094 [US6] Implement exact AVH and git-flow-next detection/adoption/planning with one ordered operation per key and no Git Flow executable/hooks in `internal/gitmanager/gitflow.go`
+- [x] T095 [US6] Implement explicit existing-history development-base validation and target-absent ref CAS as a later separately authorized operation in `internal/gitmanager/development.go`
+- [x] T096 [US6] Implement read-only non-authoritative `GitStrategyReport` for Feature 007 consumption in `internal/gitmanager/strategyreport.go` and `internal/report/gitstrategy.go`
+  - **DEV-T090–T096 (proposed deviation, pending human approval):** Planning for T094/T095 already existed from Phase 5. Here it is tested and dispatched, with no separate `development.go` (CFG-05). The configuration operations live in the added `projectconfig_posix.go`, with fallbacks in `index_other.go`. The configuration is published by a no-replace hard link instead of `rename` (CFG-02). The end-to-end real-Git acceptance for this phase is in `commitflow_integration_test.go` and `initrepo_integration_test.go`. Decisions CFG-01–06 are recorded in `contracts/apply-strategy.md` §11.
 
 **Checkpoint**: US6 independently satisfies AC-011, AC-023–024, AC-028, and AC-031.
 
