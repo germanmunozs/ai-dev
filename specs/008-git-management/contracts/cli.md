@@ -182,3 +182,22 @@ Verification:
 - **Grammar and fuzz:** `validate_test.go` covers the corpus. `FuzzConventionalCommitValidator` ran for 30 s (about 2 million executions) without failure. It checks that validation is deterministic and internally consistent, that CR, NUL and invalid UTF-8 are never accepted, and that accepted headers and footers reassemble from the input.
 - **CLI:** `cmd/ai-dev/git_commit_validate_test.go` runs the built binary with a fake `git` on `PATH`. It covers exits 0/1/2 in text and JSON, `--message` versus `--file`, and lowercase `breaking-change`. It proves the fake `git` never ran and that no file changed in the working directory or HOME.
 - **Linux (Fedora CoreOS arm64):** the validator, report and app suites pass, and the Linux binary validates and refuses with exits 0 and 1.
+
+## 12. Reconciliation amendment (REC-04, approved by the owner on 2026-11-18)
+
+The owner approved REC-04 in this session ("apruebo la enmienda de CLI de reconciliación (REC-04)"). The auditable approval is the owner's commit of this text. It adds two forms:
+
+```text
+ai-dev init reconcile --plan FILE --authorization-id UUID [--format text|json]
+```
+
+- Read-only steps 1–2 of F008-FR-180. It rereads the prior authorization, which must name the plan file's digest, and the audit trail of the attempt that consumed it, then classifies every prior postcondition on a fresh inspection as applied, absent or unverifiable.
+- It creates no authorization, transitions nothing and runs no mutation. It writes nothing to the project or the state store.
+- JSON output is one `ai-dev.git-reconciliation-report/v1` object with `grants_mutation_authority=false`; a refusal uses `GitPlanRejectionOutput`. A produced report exits 0, a domain refusal 1, and usage errors or an unreadable plan exit 2.
+
+```text
+ai-dev init apply ... --issue-authorization --authorized-by TEXT [...] --reconciles-authorization UUID
+```
+
+- An issuance-only option, refused (exit 2) in the consume form. After the new plan is regenerated, issuance links the new authorization to the named unresolved prior authorization, its consuming apply ID and its plan digest (steps 3–4). The prior record is never transitioned and is proven byte-identical afterwards.
+- A prior that is not unresolved, or the new ID itself, is `authorization_mismatch`; a missing prior is `authorization_missing`. Both exit 1.
