@@ -96,21 +96,22 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Tests for User Story 1
 
-- [ ] T036 [P] [US1] Add repository-kind, HEAD (`unborn|attached|detached|invalid`), history, index/worktree, ignored/conflict/mode/type, and redaction tests in `internal/gitmanager/inspect_test.go` (F008-FR-011–027, F008-FR-138–139, F008-FR-162; AC-001, AC-029)
-- [ ] T037 [P] [US1] Add descriptor-based root, symlink, ancestor/nested, alias, dubious ownership, non-UTF-8, NFC/NFD, case-folding, and inode-over-2^53 tests in `internal/gitmanager/path_test.go` (F008-FR-019–024, F008-FR-087–089, F008-FR-150–151, F008-FR-176, F008-FR-183, F008-FR-186; AC-012, AC-024)
-- [ ] T038 [P] [US1] Add safe in-process system/global/XDG/local config, includes, attributes, macros, conversions, ignores, negation, nested precedence, `core.excludesFile`, `info/attributes`, `info/exclude`, and fail-closed differential tests in `internal/gitmanager/configeval_test.go` (F008-FR-026, F008-FR-028–034, F008-FR-148, F008-FR-175; AC-014)
-- [ ] T039 [P] [US1] Create `FuzzAttributeParser` for matching, quoting, escapes, macros, precedence, and fail-closed unsupported grammar in `internal/gitmanager/attributes_fuzz_test.go` (F008-FR-029–034, F008-FR-175)
-- [ ] T040 [P] [US1] Add inspect CLI text/JSON contract and zero-side-effect subprocess tests in `cmd/ai-dev/init_inspect_test.go` (F008-FR-001, F008-FR-011; AC-001, AC-022)
+- [x] T036 [P] [US1] Add repository-kind, HEAD (`unborn|attached|detached|invalid`), history, index/worktree, ignored/conflict/mode/type, and redaction tests in `internal/gitmanager/inspect_test.go` (F008-FR-011–027, F008-FR-138–139, F008-FR-162; AC-001, AC-029)
+- [x] T037 [P] [US1] Add descriptor-based root, symlink, ancestor/nested, alias, dubious ownership, non-UTF-8, NFC/NFD, case-folding, and inode-over-2^53 tests in `internal/gitmanager/path_test.go` (F008-FR-019–024, F008-FR-087–089, F008-FR-150–151, F008-FR-176, F008-FR-183, F008-FR-186; AC-012, AC-024)
+- [x] T038 [P] [US1] Add safe in-process system/global/XDG/local config, includes, attributes, macros, conversions, ignores, negation, nested precedence, `core.excludesFile`, `info/attributes`, `info/exclude`, and fail-closed differential tests in `internal/gitmanager/configeval_test.go` (F008-FR-026, F008-FR-028–034, F008-FR-148, F008-FR-175; AC-014)
+- [x] T039 [P] [US1] Create `FuzzAttributeParser` for matching, quoting, escapes, macros, precedence, and fail-closed unsupported grammar in `internal/gitmanager/attributes_fuzz_test.go` (F008-FR-029–034, F008-FR-175)
+- [x] T040 [P] [US1] Add inspect CLI text/JSON contract and zero-side-effect subprocess tests in `cmd/ai-dev/init_inspect_test.go` (F008-FR-001, F008-FR-011; AC-001, AC-022)
 
 ### Implementation for User Story 1
 
-- [ ] T041 [US1] Implement descriptor-safe physical path resolution, physical/documentary identity, repository-kind classification, ownership checks, and reversible path encoding in `internal/gitmanager/path.go`
-- [ ] T042 [US1] Implement bounded in-process Git configuration reader with safe include resolution and no execution of configured commands in `internal/gitmanager/config.go`
-- [ ] T043 [US1] Implement Git-correct bounded attribute/conversion evaluator and byte-equivalence proof in `internal/gitmanager/attributes.go`
-- [ ] T044 [US1] Implement Git-correct bounded ignore evaluator for `.gitignore`, `.git/info/exclude`, and effective `core.excludesFile` in `internal/gitmanager/ignore.go`
-- [ ] T045 [US1] Implement read-only repository, HEAD, history, index/worktree, refs, Git Flow evidence, toolchain, and filesystem inspection in `internal/gitmanager/inspect.go`
-- [ ] T046 [US1] Add redacted `GitInspection` text/JSON rendering in `internal/report/gitinspection.go`
-- [ ] T047 [US1] Wire `ai-dev init inspect --project-dir PATH --format text|json` without audit-store mutation in `internal/app/gitinit.go` and `cmd/ai-dev/main.go`
+- [x] T041 [US1] Implement descriptor-safe physical path resolution, physical/documentary identity, repository-kind classification, ownership checks, and reversible path encoding in `internal/gitmanager/path.go`
+- [x] T042 [US1] Implement bounded in-process Git configuration reader with safe include resolution and no execution of configured commands in `internal/gitmanager/config.go`
+- [x] T043 [US1] Implement Git-correct bounded attribute/conversion evaluator and byte-equivalence proof in `internal/gitmanager/attributes.go`
+- [x] T044 [US1] Implement Git-correct bounded ignore evaluator for `.gitignore`, `.git/info/exclude`, and effective `core.excludesFile` in `internal/gitmanager/ignore.go`
+- [x] T045 [US1] Implement read-only repository, HEAD, history, index/worktree, refs, Git Flow evidence, toolchain, and filesystem inspection in `internal/gitmanager/inspect.go`
+- [x] T046 [US1] Add redacted `GitInspection` text/JSON rendering in `internal/report/gitinspection.go`
+- [x] T047 [US1] Wire `ai-dev init inspect --project-dir PATH --format text|json` without audit-store mutation in `internal/app/gitinit.go` and `cmd/ai-dev/main.go`
+  - **DEV-T036–T047 (proposed deviation, pending human approval):** Beyond the listed files, the phase adds `wildmatch.go` (a port of Git's matcher shared by the three evaluators), `source.go`/`source_posix.go` (bounded source reads), `toolchain.go`, `gitflow.go`, `projectconfig.go`, `inspect_posix.go`, `inspect_output.go` and the path platform files in `internal/gitmanager`, plus `internal/gitprocess/reader.go` and `locate.go`, `internal/app/gitcompose.go` and the `GitReader` port. Ignore tests live in `configeval_test.go` with the configuration and attribute tests. The per-file `AttributeEvaluation` record is left to planning, which owns the allowlist. Submodule gitlinks and the state-root profile are not observed by inspection (INS-11, INS-13). Decisions INS-01–14 are recorded in `contracts/inspection-plan.md` §15.
 
 **Checkpoint**: US1 independently satisfies AC-001 and the inspection portions of AC-012, AC-014, AC-015, AC-019, AC-022, AC-024, and AC-029.
 
