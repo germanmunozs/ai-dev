@@ -307,6 +307,19 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
   - **DEV-T106–T114 (proposed deviation, pending human approval):** The REC-04 CLI amendment approved by the owner is implemented first (`init reconcile`, `--reconciles-authorization`; `contracts/cli.md` §12). T107 enables apply by composing the production dispatcher whenever the bundle carries a `Runner` (ACT-01). It adds that runner to `DefaultGitManagementDependencies` and leaves `cmd/ai-dev/main.go` unchanged (ACT-02). The fault matrix also changed the claim kernel (FLT-01). The T112 security tests are in the external package so they can build every `gitprocess` row. T114 extends the existing `gitstore` selection test to every Feature 008 package. Decisions ACT-01–03 and FLT-01–02 are recorded in `contracts/authorization-audit.md` §14.
 - [ ] T115 Preserve future native macOS/APFS evidence outside the repository under an operator-approved evidence root with manifests, commands, exits, logs, hashes, limitations, implementer identity, and reviewer identity; any `quickstart.md` change requires separate authorization (AC-001–AC-032)
 - [ ] T116 Preserve future native Linux/ext4 evidence outside the repository with the same source identity and review metadata; treat tmpfs only as non-durable test evidence and do not edit approved design documents (AC-001–AC-032)
+  - **Partial evidence, VM ext4 (2026-11-18; the owner authorized running on ext4 in the VM; the task stays open):**
+    - **Source:** commit `36f1e86`. Its tree digest `41c2f91a…af5254` (sha256 of the `git ls-files` per-file sha256 list) equals the tree that was tested.
+    - **Environment:** Podman VM `podman-machine-default`, Fedora CoreOS arm64, kernel 7.1.10, Git 2.55.0, Go 1.27.1. `TMPDIR` was on ext4 on `/dev/loop0`, a 4 GiB image on xfs mounted `rw,relatime`.
+    - **Results:**
+      - `go vet ./...` exit 0.
+      - `go test -count=1 -timeout 60m -v ./...` exit 0: 1846 PASS, 0 FAIL, 1 SKIP.
+      - The skip is `TestInitialCommitPathEquivalence`, which applies to macOS only.
+      - The real-Git acceptance tests now run instead of skipping: the T106 harness, T109 public CLI, plan export, assistant, initial commit, Git Flow with commit, store integration and the concurrent loser.
+    - **Not verified:**
+      - `go test -race`, exit 2: cgo is unavailable and the VM has no C compiler.
+      - Native ext4. A loop-mounted image inside a VM is not native.
+      - An operator-approved evidence root. The logs and the hashed manifest are only in the agent's session scratchpad.
+      - A reviewer identity. Implementer: Claude Opus 5.5 (agent).
 - [x] T117 Run `gofmt`, `go vet`, full tests, repeated race tests, structural checks, cross-builds, and every declared quality gate from `specs/008-git-management/plan.md`; record exact commands, outputs, and exit codes without claiming completion before execution
 - [ ] T118 Record the implementing agent, independent reviewing agent, findings, resolutions, separation exceptions, FR/AC evidence, residual risks, and authority boundaries in an external or separately authorized review artifact as required by Constitution VIII; do not infer Human Gate, merge, or remote authorization
 
