@@ -49,6 +49,10 @@ type PlanFile struct {
 	// ProjectPath is the project path the file declares. It only says
 	// where to inspect: the regenerated digest proves it.
 	ProjectPath []byte
+	// ExpectedPostconditions are the plan's final postconditions. They are
+	// covered by PlanDigest, so they are authentic exactly when a durable
+	// authorization names that digest.
+	ExpectedPostconditions []Condition
 }
 
 var errPlanFile = errors.New("invalid plan file")
@@ -87,6 +91,7 @@ func DecodePlanFile(data []byte) (PlanFile, error) {
 		d.timestamp(raw)
 	}
 	intent := d.intent(object["immutable_intent"])
+	postconditions := decodeList(d, object["expected_postconditions"], d.condition)
 	planID, _ := object["plan_id"].(string)
 	snapshot := d.object(object["precondition_snapshot"], "precondition snapshot",
 		[]string{"project_identity", "repository_observation", "environment_profile", "tool_identity"}, []string{"development_base"})
@@ -103,7 +108,13 @@ func DecodePlanFile(data []byte) (PlanFile, error) {
 	if err != nil || originalErr != nil || e.err != nil || !bytes.Equal(again, original) {
 		return PlanFile{}, fmt.Errorf("%w: immutable intent does not round-trip", errPlanFile)
 	}
-	return PlanFile{PlanID: PlanID(planID), PlanDigest: PlanDigest(digest), Intent: intent, ProjectPath: project.ReversiblePathBytes()}, nil
+	again, err = MarshalCanonical(canonicalList(postconditions, e.condition))
+	original, originalErr = MarshalCanonical(object["expected_postconditions"])
+	if err != nil || originalErr != nil || e.err != nil || !bytes.Equal(again, original) {
+		return PlanFile{}, fmt.Errorf("%w: expected postconditions do not round-trip", errPlanFile)
+	}
+	return PlanFile{PlanID: PlanID(planID), PlanDigest: PlanDigest(digest), Intent: intent, ProjectPath: project.ReversiblePathBytes(),
+		ExpectedPostconditions: postconditions}, nil
 }
 
 func (d *recordDecoder) stringMap(v any) map[string]string {
@@ -185,4 +196,13 @@ func (d *recordDecoder) intent(v any) ImmutableIntent {
 		d.fail("immutable intent")
 	}
 	return intent
+}
+
+func (d *recordDecoder) condition(v any) Condition {
+	object := d.object(v, "condition", []string{"kind"}, []string{"subject", "expected"})
+	c := Condition{Kind: ConditionKind(d.text(object, "kind")), Subject: d.optionalText(object, "subject"), Expected: d.optionalText(object, "expected")}
+	if d.err == nil && c.Validate() != nil {
+		d.fail("condition")
+	}
+	return c
 }

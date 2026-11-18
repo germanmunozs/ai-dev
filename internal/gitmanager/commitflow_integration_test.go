@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -84,6 +85,10 @@ func newCommitProject(t *testing.T, files map[string]string, includes []string) 
 }
 
 func (p *commitProject) apply(t *testing.T, store gitmanager.GitStore, authorizationID string) gitmanager.GitApplyResult {
+	return p.applyRequest(t, store, authorizationID, true)
+}
+
+func (p *commitProject) applyRequest(t *testing.T, store gitmanager.GitStore, authorizationID string, issue bool) gitmanager.GitApplyResult {
 	var normal, ignored []string
 	for _, file := range p.planned.Plan.ImmutableIntent.AuthorizedFiles() {
 		tuple := file.PathUTF8 + "|" + file.Mode + "|" + string(file.ContentSHA256) + "|blob:" + string(file.BlobOID)
@@ -92,6 +97,10 @@ func (p *commitProject) apply(t *testing.T, store gitmanager.GitStore, authoriza
 		} else {
 			normal = append(normal, tuple)
 		}
+	}
+	var request *gitmanager.IssueRequest
+	if issue {
+		request = &gitmanager.IssueRequest{AuthorizedBy: "operator", ConfirmInitialCommit: true, Approvals: normal, IgnoredApprovals: ignored}
 	}
 	inspect := func(ctx context.Context, _ []byte, candidates [][]byte) (gitmanager.GitInspection, error) {
 		return p.inspectCandidates(ctx, candidates)
@@ -102,8 +111,7 @@ func (p *commitProject) apply(t *testing.T, store gitmanager.GitStore, authoriza
 		Environment: p.environment, Inspect: inspect,
 		Executor: gitmanager.NewOperationDispatcher(gitmanager.DispatcherDependencies{
 			Runner: gitprocess.Runner{}, Commands: gitprocess.Builder{}, Inspect: inspect, Random: rand.Reader}),
-	}, gitmanager.ApplyRequest{PlanFile: p.file, ConfirmPlan: string(p.planned.Plan.PlanDigest), AuthorizationID: authorizationID,
-		Issue: &gitmanager.IssueRequest{AuthorizedBy: "operator", ConfirmInitialCommit: true, Approvals: normal, IgnoredApprovals: ignored}})
+	}, gitmanager.ApplyRequest{PlanFile: p.file, ConfirmPlan: string(p.planned.Plan.PlanDigest), AuthorizationID: authorizationID, Issue: request})
 }
 
 func (p *commitProject) store(t *testing.T) *gitstore.Store {
@@ -183,7 +191,31 @@ func TestInitialCommitFlowWithRealGit(t *testing.T) {
 		t.Fatalf("prepared index storage was not released: %v", entries)
 	}
 
-	// The same authorization is consumed; a new one finds the plan stale.
+	// The same authorization, whose postconditions still hold, is
+	// already_applied: nothing runs and nothing transitions (F008-FR-127).
+	store := p.store(t)
+	before, err := store.LoadAuthorization(context.Background(), p.planned.Plan.PreconditionSnapshot.ProjectIdentity.Digest(), commitAuthorizationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repeated := p.applyRequest(t, store, commitAuthorizationID, false)
+	after, _ := store.LoadAuthorization(context.Background(), p.planned.Plan.PreconditionSnapshot.ProjectIdentity.Digest(), commitAuthorizationID)
+	if repeated.Status != gitmanager.ApplyStatusAlreadyApplied || repeated.ExitCode != 0 || after.StateVersion != before.StateVersion {
+		t.Fatalf("repeated apply %+v", repeated)
+	}
+	// Once the postconditions no longer hold it is only consumed.
+	if err := os.WriteFile(filepath.Join(p.project, "README.md"), []byte("# changed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if changed := p.applyRequest(t, store, commitAuthorizationID, false); changed.Status != gitmanager.ApplyStatusRefused ||
+		changed.Reason != gitmanager.ReasonAuthorizationConsumed {
+		t.Fatalf("apply after a change %+v", changed)
+	}
+	if err := os.WriteFile(filepath.Join(p.project, "README.md"), []byte("# project\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A new authorization finds the plan stale.
 	again := p.apply(t, p.store(t), "123e4567-e89b-42d3-a456-426614174082")
 	if again.Status != gitmanager.ApplyStatusRefused || again.Reason != gitmanager.ReasonPlanStale {
 		t.Fatalf("second apply %+v", again)
@@ -307,5 +339,46 @@ func TestGitFlowNewProjectWithInitialCommit(t *testing.T) {
 	}
 	if status := p.status(t); status != "" {
 		t.Fatalf("status %q", status)
+	}
+}
+
+// T104/AC-005: two real attempts race on one authorization. Exactly one
+// applies; the loser is refused, or, when it rereads after the winner
+// closed, verifies the winner's postconditions and is already_applied.
+func TestConcurrentLoserWithRealGit(t *testing.T) {
+	p := newCommitProject(t, map[string]string{"README.md": "# race\n"}, []string{"README.md"})
+	store := p.store(t)
+	// The first racer issues and consumes; the second consumes the same ID
+	// at the same time. Depending on where it lands it finds no
+	// authorization yet, the lock held, a consumed authorization, a project
+	// already changed (plan_stale), or the closed result.
+	results := make([]gitmanager.GitApplyResult, 2)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			results[i] = p.applyRequest(t, store, commitAuthorizationID, i == 0)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	winner, loser := results[0], results[1]
+	if winner.Status != gitmanager.ApplyStatusApplied {
+		t.Fatalf("issuing attempt %+v", winner)
+	}
+	switch {
+	case loser.Status == gitmanager.ApplyStatusAlreadyApplied && loser.ExitCode == 0:
+	case loser.Status == gitmanager.ApplyStatusRefused && (loser.Reason == gitmanager.ReasonLockConflict ||
+		loser.Reason == gitmanager.ReasonAuthorizationConsumed || loser.Reason == gitmanager.ReasonAuthorizationMissing ||
+		loser.Reason == gitmanager.ReasonPlanStale):
+	default:
+		t.Fatalf("loser %+v", loser)
+	}
+	// Whatever the interleaving, a later attempt is already_applied.
+	if later := p.applyRequest(t, store, commitAuthorizationID, false); later.Status != gitmanager.ApplyStatusAlreadyApplied {
+		t.Fatalf("later attempt %+v", later)
 	}
 }

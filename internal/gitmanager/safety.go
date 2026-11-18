@@ -86,6 +86,10 @@ type claimRequest struct {
 	// orphaned claim produced no effect. Without it an orphan is not
 	// reassigned.
 	proveNoEffects func(context.Context) error
+	// verifyApplied freshly verifies the plan's postconditions. An applied
+	// authorization whose postconditions still hold is already_applied
+	// (F008-FR-127); without it, or when they do not hold, it is consumed.
+	verifyApplied func(context.Context) bool
 }
 
 type operationOutcome string
@@ -158,6 +162,10 @@ func (k safetyKernel) claim(ctx context.Context, req claimRequest) (*mutationSes
 	s.authorization, s.resolved, s.prior = authorization, true, authorization.State
 	if req.planDigest != "" && authorization.PlanDigest != req.planDigest {
 		return refuse(ReasonAuthorizationMismatch, false)
+	}
+	if authorization.State == AuthorizationStateApplied && req.verifyApplied != nil && req.verifyApplied(ctx) {
+		result := s.alreadyApplied(ctx)
+		return nil, &result
 	}
 	request := AuthorizationTransitionRequest{
 		ProjectIdentityDigest: req.project.Digest(), AuthorizationID: req.authorization, ExpectedState: authorization.State,
@@ -326,6 +334,16 @@ func (s *mutationSession) refuse(ctx context.Context, reason Reason, durable Aut
 	return s.finishResult(ctx, GitApplyResultInput{
 		Status: ApplyStatusRefused, Reason: reason, DurableAuthorizationState: durable, RecoveryRequired: recovery,
 		SecondaryFailures: report.Failures,
+	})
+}
+
+// alreadyApplied closes an attempt that found its applied authorization's
+// postconditions still holding: it releases the lock, transitions nothing,
+// mutates nothing and records already_applied.
+func (s *mutationSession) alreadyApplied(ctx context.Context) GitApplyResult {
+	report := releaseOwned(ctx, s.journal, s.ownedResources())
+	return s.finishResult(ctx, GitApplyResultInput{
+		Status: ApplyStatusAlreadyApplied, DurableAuthorizationState: AuthorizationStateApplied, SecondaryFailures: report.Failures,
 	})
 }
 

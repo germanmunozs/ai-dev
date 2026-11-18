@@ -112,6 +112,30 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 		}
 		return refuse(file.PlanID, nil, reject(ReasonPlanStale, "the project could not be inspected"), false)
 	}
+	// An applied authorization of this plan is not regenerated: its effects
+	// make the snapshot stale by construction. Its authentic
+	// postconditions are verified freshly under the apply lock instead.
+	kernel := safetyKernel{store: deps.Store, clock: clockOf(now)}
+	verifyApplied := func(postconditions []Condition) func(context.Context) bool {
+		return func(ctx context.Context) bool {
+			fresh, err := deps.Inspect(ctx, file.ProjectPath, intentCandidates(file.Intent))
+			if err != nil || fresh.ProjectIdentity.Digest() != inspection.ProjectIdentity.Digest() {
+				return false
+			}
+			result, _ := evaluateConditions(postconditions, fresh)
+			return len(postconditions) > 0 && result == conditionHolds
+		}
+	}
+	if req.Issue == nil && AuthorizationID(req.AuthorizationID).Validate() == nil {
+		prior, err := deps.Store.LoadAuthorization(ctx, inspection.ProjectIdentity.Digest(), AuthorizationID(req.AuthorizationID))
+		if err == nil && prior.State == AuthorizationStateApplied && prior.PlanDigest == file.PlanDigest {
+			_, result := kernel.claim(ctx, claimRequest{
+				journal: journal, project: inspection.ProjectIdentity, authorization: prior.AuthorizationID, planDigest: file.PlanDigest,
+				planID: file.PlanID, verifyApplied: verifyApplied(file.ExpectedPostconditions),
+			})
+			return *result
+		}
+	}
 	plan, rejection := RegenerateAuthorized(ctx, deps.Planner, file.Intent, file.PlanDigest, inspection, deps.Environment,
 		PlanMetadata{PlanID: file.PlanID, GeneratedAt: now().UTC().Truncate(time.Second)})
 	if rejection != nil {
@@ -124,12 +148,22 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 	if req.Issue != nil {
 		issue := *req.Issue
 		issue.AuthorizationID = req.AuthorizationID
-		authorization, rejection := newAuthorization(issue, plan, now())
-		if rejection != nil {
-			return refuse(plan.PlanID, nil, rejection, false)
-		}
-		if rejection := issueAuthorization(ctx, deps.Store, journal, authorization); rejection != nil {
-			return refuse(plan.PlanID, nil, rejection, false)
+		if issue.ReconcilesAuthorizationID != "" {
+			in, rejection := newAuthorizationInput(issue, plan, now())
+			if rejection != nil {
+				return refuse(plan.PlanID, nil, rejection, false)
+			}
+			if rejection := reconcileAuthorization(ctx, deps.Store, journal, AuthorizationID(issue.ReconcilesAuthorizationID), in); rejection != nil {
+				return refuse(plan.PlanID, nil, rejection, false)
+			}
+		} else {
+			authorization, rejection := newAuthorization(issue, plan, now())
+			if rejection != nil {
+				return refuse(plan.PlanID, nil, rejection, false)
+			}
+			if rejection := issueAuthorization(ctx, deps.Store, journal, authorization); rejection != nil {
+				return refuse(plan.PlanID, nil, rejection, false)
+			}
 		}
 	} else if AuthorizationID(req.AuthorizationID).Validate() != nil {
 		return refuse(plan.PlanID, nil, reject(ReasonAuthorizationMissing, "no valid --authorization-id"), false)
@@ -157,10 +191,9 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 	}
 
 	// 9. Lock, reread and claim through the kernel.
-	kernel := safetyKernel{store: deps.Store, clock: clockOf(now)}
 	session, refusal := kernel.claim(ctx, claimRequest{
 		journal: journal, project: project, authorization: authorization.AuthorizationID, planDigest: plan.PlanDigest,
-		planID: plan.PlanID, proveNoEffects: deps.ProveNoEffects,
+		planID: plan.PlanID, proveNoEffects: deps.ProveNoEffects, verifyApplied: verifyApplied(plan.ExpectedPostconditions()),
 	})
 	if refusal != nil {
 		return *refusal

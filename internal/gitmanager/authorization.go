@@ -16,6 +16,10 @@ type IssueRequest struct {
 	ConfirmInitialCommit bool
 	Approvals            []string
 	IgnoredApprovals     []string
+	// ReconcilesAuthorizationID names an unresolved prior authorization
+	// this issuance reconciles (F008-FR-180). The new authorization is
+	// linked to it; the prior one is never transitioned.
+	ReconcilesAuthorizationID string
 }
 
 // approval is one parsed PATH|MODE|sha256:DIGEST|blob:OID tuple.
@@ -125,26 +129,40 @@ func planScope(plan GitInitializationPlan) authorizationScope {
 // newAuthorization builds the issued authorization for a regenerated plan
 // (T064). It is a pure domain value; the store alone makes it durable.
 func newAuthorization(req IssueRequest, plan GitInitializationPlan, now time.Time) (GitAuthorization, *PlanRejection) {
+	in, rejection := newAuthorizationInput(req, plan, now)
+	if rejection != nil {
+		return GitAuthorization{}, rejection
+	}
+	authorization, err := NewGitAuthorization(in)
+	if err != nil {
+		return GitAuthorization{}, reject(ReasonAuthorizationInputIncomplete, "the authorization cannot be formed: %v", err)
+	}
+	return authorization, nil
+}
+
+// newAuthorizationInput validates the issuance request against the plan
+// and returns the issued authorization's input.
+func newAuthorizationInput(req IssueRequest, plan GitInitializationPlan, now time.Time) (GitAuthorizationInput, *PlanRejection) {
 	if req.AuthorizationID == "" || req.AuthorizedBy == "" {
-		return GitAuthorization{}, reject(ReasonAuthorizationInputIncomplete, "issuance needs --authorization-id and --authorized-by")
+		return GitAuthorizationInput{}, reject(ReasonAuthorizationInputIncomplete, "issuance needs --authorization-id and --authorized-by")
 	}
 	if AuthorizationID(req.AuthorizationID).Validate() != nil {
-		return GitAuthorization{}, reject(ReasonAuthorizationInputIncomplete, "the authorization ID is not a UUIDv4")
+		return GitAuthorizationInput{}, reject(ReasonAuthorizationInputIncomplete, "the authorization ID is not a UUIDv4")
 	}
 	if validateOpaque("declared operator", req.AuthorizedBy) != nil {
-		return GitAuthorization{}, reject(ReasonAuthorizationInputIncomplete, "the declared operator is empty or contains control characters")
+		return GitAuthorizationInput{}, reject(ReasonAuthorizationInputIncomplete, "the declared operator is empty or contains control characters")
 	}
 	issuedAt := now.UTC().Truncate(time.Second)
 	var expires time.Time
 	if req.ExpiresAt != "" {
 		parsed, err := time.Parse(time.RFC3339, req.ExpiresAt)
 		if err != nil || parsed.Nanosecond() != 0 || !parsed.After(issuedAt) {
-			return GitAuthorization{}, reject(ReasonAuthorizationInputIncomplete, "the expiry must be a whole-second RFC 3339 time after now")
+			return GitAuthorizationInput{}, reject(ReasonAuthorizationInputIncomplete, "the expiry must be a whole-second RFC 3339 time after now")
 		}
 		expires = parsed
 	}
 	if rejection := checkApprovals(plan.ImmutableIntent, req); rejection != nil {
-		return GitAuthorization{}, rejection
+		return GitAuthorizationInput{}, rejection
 	}
 	intent := plan.ImmutableIntent
 	scope := planScope(plan)
@@ -152,18 +170,14 @@ func newAuthorization(req IssueRequest, plan GitInitializationPlan, now time.Tim
 	if req.ConfirmInitialCommit {
 		approved = intent.AuthorizedFiles()
 	}
-	authorization, err := NewGitAuthorization(GitAuthorizationInput{
+	return GitAuthorizationInput{
 		SchemaVersion: GitAuthorizationSchema, AuthorizationID: AuthorizationID(req.AuthorizationID), PlanDigest: plan.PlanDigest,
 		ProjectIdentity: plan.PreconditionSnapshot.ProjectIdentity, AuthorizedOperationIDs: scope.operations,
 		Strategy: intent.Strategy, GitFlowDialect: intent.GitFlowDialect, AuthorizedRefs: scope.refs,
 		AuthorizedConfigKeys: scope.configKeys, InitialCommitAuthorized: req.ConfirmInitialCommit && intent.InitialCommit,
 		ApprovedFiles: approved, DeclaredOperator: req.AuthorizedBy, IssuedAt: issuedAt, ExpiresAt: expires,
 		State: AuthorizationStateIssued, StateVersion: 1,
-	})
-	if err != nil {
-		return GitAuthorization{}, reject(ReasonAuthorizationInputIncomplete, "the authorization cannot be formed: %v", err)
-	}
-	return authorization, nil
+	}, nil
 }
 
 // checkScope binds an authorization to the regenerated plan and the
