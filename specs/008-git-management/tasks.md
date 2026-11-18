@@ -125,21 +125,22 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Tests for User Story 2
 
-- [ ] T048 [P] [US2] Add strategy/branch/prefix/ref validation tests, including no default, rejected `trunk`/`trunk_based`, literal `HEAD`, leading dashes, controls, `@{-1}`, shell metacharacters, and Git Flow reserved-name collisions in `internal/gitmanager/strategy_test.go` (F008-FR-035–049, F008-FR-146, F008-FR-170, F008-FR-181, F008-FR-187; AC-011, AC-023)
-- [ ] T049 [P] [US2] Add plan-time and canonicalization rejection tests for literal path byte `|` in `internal/gitmanager/plan_path_test.go` (F008-FR-087, F008-FR-177; AC-012)
-- [ ] T050 [P] [US2] Add plan regeneration, exact covered fields, prohibited-operation minimum, deterministic operation enumeration, c-01 precedence, rejection of every plan under an interrupted `sequencer_state` (O-103B-1), and untrusted-plan rejection tests in `internal/gitmanager/plan_test.go` (F008-FR-050–058, F008-FR-140–143, F008-FR-164–165, F008-FR-172–173; AC-002, AC-030)
-- [ ] T051 [P] [US2] Add output path alias/symlink/project/Git-area/existing-file, exclusive-create `0600`, fsync, partial external file, and APFS/ext4-profile tests in `internal/gitmanager/planoutput_test.go` (F008-FR-182; AC-013)
-- [ ] T052 [P] [US2] Add plan CLI option-matrix, `--project-dir`, rejection-envelope, exact exit 0/1/2, and structured output tests in `cmd/ai-dev/init_plan_test.go` (AC-022)
+- [x] T048 [P] [US2] Add strategy/branch/prefix/ref validation tests, including no default, rejected `trunk`/`trunk_based`, literal `HEAD`, leading dashes, controls, `@{-1}`, shell metacharacters, and Git Flow reserved-name collisions in `internal/gitmanager/strategy_test.go` (F008-FR-035–049, F008-FR-146, F008-FR-170, F008-FR-181, F008-FR-187; AC-011, AC-023)
+- [x] T049 [P] [US2] Add plan-time and canonicalization rejection tests for literal path byte `|` in `internal/gitmanager/plan_path_test.go` (F008-FR-087, F008-FR-177; AC-012)
+- [x] T050 [P] [US2] Add plan regeneration, exact covered fields, prohibited-operation minimum, deterministic operation enumeration, c-01 precedence, rejection of every plan under an interrupted `sequencer_state` (O-103B-1), and untrusted-plan rejection tests in `internal/gitmanager/plan_test.go` (F008-FR-050–058, F008-FR-140–143, F008-FR-164–165, F008-FR-172–173; AC-002, AC-030)
+- [x] T051 [P] [US2] Add output path alias/symlink/project/Git-area/existing-file, exclusive-create `0600`, fsync, partial external file, and APFS/ext4-profile tests in `internal/gitmanager/planoutput_test.go` (F008-FR-182; AC-013)
+- [x] T052 [P] [US2] Add plan CLI option-matrix, `--project-dir`, rejection-envelope, exact exit 0/1/2, and structured output tests in `cmd/ai-dev/init_plan_test.go` (AC-022)
 
 ### Implementation for User Story 2
 
-- [ ] T053 [US2] Implement canonical strategy, branch, prefix, ref, object-format, and tool-capability validation in `internal/gitmanager/strategy.go`
-- [ ] T054 [US2] Implement immutable intent and complete precondition-snapshot construction, including frozen state-root/environment/config/attribute/ignore/toolchain identities in `internal/gitmanager/snapshot.go`
-- [ ] T055 [US2] Implement planner/regenerator that enumerates every mutation, precondition, effect, postcondition, partial point, recovery instruction, and prohibited operation in `internal/gitmanager/plan.go`
-- [ ] T056 [US2] Implement phase-aware `repository_state_incompatible` → `plan_stale` → `concurrent_change` classifier, including the O-103B-1 interrupted-sequencer rule, in `internal/gitmanager/classify.go`
-- [ ] T057 [US2] Implement safe external plan export with physical-parent validation, exclusive creation, restrictive mode, file/directory sync, and no overwrite in `internal/gitmanager/planoutput.go`
-- [ ] T058 [US2] Add `GitPlanOutput` and `GitPlanRejectionOutput` text/JSON rendering in `internal/report/gitplan.go`
-- [ ] T059 [US2] Wire `ai-dev init plan` and its approved option matrix without `--write-config` in `internal/app/gitinit.go` and `cmd/ai-dev/main.go`
+- [x] T053 [US2] Implement canonical strategy, branch, prefix, ref, object-format, and tool-capability validation in `internal/gitmanager/strategy.go`
+- [x] T054 [US2] Implement immutable intent and complete precondition-snapshot construction, including frozen state-root/environment/config/attribute/ignore/toolchain identities in `internal/gitmanager/snapshot.go`
+- [x] T055 [US2] Implement planner/regenerator that enumerates every mutation, precondition, effect, postcondition, partial point, recovery instruction, and prohibited operation in `internal/gitmanager/plan.go`
+- [x] T056 [US2] Implement phase-aware `repository_state_incompatible` → `plan_stale` → `concurrent_change` classifier, including the O-103B-1 interrupted-sequencer rule, in `internal/gitmanager/classify.go`
+- [x] T057 [US2] Implement safe external plan export with physical-parent validation, exclusive creation, restrictive mode, file/directory sync, and no overwrite in `internal/gitmanager/planoutput.go`
+- [x] T058 [US2] Add `GitPlanOutput` and `GitPlanRejectionOutput` text/JSON rendering in `internal/report/gitplan.go`
+- [x] T059 [US2] Wire `ai-dev init plan` and its approved option matrix without `--write-config` in `internal/app/gitinit.go` and `cmd/ai-dev/main.go`
+  - **DEV-T048–T059 (proposed deviation, pending human approval):** The initial-commit option group is refused with exit 2 until T083–T089 plan it with its allowlist and preflight (PLN-01). Planning of the Git Flow profiles, the project configuration rendering and the development-base CAS is done here; T093–T095 keep their apply-side execution and tests. The phase also adds `planfile.go` (plan file encoding and untrusted decoding), `plan_output_json.go`, `planoutput_posix.go`, `internal/app/gitplan.go`, and the `GitCommandBuilder` port with the `check_ref_format` read row. Decisions PLN-01–09 are recorded in `contracts/inspection-plan.md` §16.
 
 **Checkpoint**: US2 independently satisfies AC-002, AC-013, AC-022, and planning aspects of AC-011, AC-014, AC-015, AC-024, AC-029, and AC-030.
 
