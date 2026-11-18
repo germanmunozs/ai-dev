@@ -165,3 +165,20 @@ An ambient system/global/XDG `core.sharedRepository` value is reported but not r
 ## 10. Authority exclusions
 
 No CLI form authorizes push, fetch, pull, remote changes, merge, rebase, tags, branch delete/rename, checkout/switch, reset, stash, gc, amend, Git Flow finish, Workflow State mutation, Human Gate decision, PR creation, or container use.
+
+## 11. Conventional Commit validator decisions (T097–T102)
+
+A rule is **derived** when the specification fixes it and **proposed** when it fills a gap. Proposed rules need human approval.
+
+| ID | Rule | Basis |
+|---|---|---|
+| CCV-01 | The grammar is the one recorded as COM-03: an ASCII-letter type of any case, an optional non-empty scope, an optional `!`, then `: ` and a description. A body follows one blank line. Footers are the last paragraph (`token: value` or `token #value`), and a footer with an empty value is invalid. Only `!` or an uppercase `BREAKING CHANGE`/`BREAKING-CHANGE` footer is breaking. One final LF is optional for the validator; the initial commit additionally requires exactly one (F008-FR-104). | derived F008-FR-102–107; grammar choices proposed |
+| CCV-02 | `--message` and `--file` are exclusive and one is required. A file must be a regular file and is read up to 1 MiB plus one byte, so an oversized message is invalid rather than truncated. Missing, unreadable or non-regular files, unknown options, extra arguments and an unknown format exit 2 with no stdout. | derived CLI §6; file errors as usage proposed |
+| CCV-03 | The JSON output is one `ai-dev.conventional-commit-validation/v1` object, with `body_lines`, `footers` (`token`, `separator`, `value`), `breaking_change_recognized` and `diagnostics`. Diagnostics are fixed labels and never quote the message. An inconsistent validation is refused instead of rendered (exit 2). | derived data-model §16; schema name and labels proposed |
+| CCV-04 | The command is routed in `internal/app/app.go` (`ai-dev git commit validate`); `cmd/ai-dev/main.go` already routes everything through `app.RunWithDependencies` and is unchanged. The top-level usage line of Features 001–006 is left unchanged. | proposed (AC-020 regression) |
+
+Verification:
+
+- **Grammar and fuzz:** `validate_test.go` covers the corpus. `FuzzConventionalCommitValidator` ran for 30 s (about 2 million executions) without failure. It checks that validation is deterministic and internally consistent, that CR, NUL and invalid UTF-8 are never accepted, and that accepted headers and footers reassemble from the input.
+- **CLI:** `cmd/ai-dev/git_commit_validate_test.go` runs the built binary with a fake `git` on `PATH`. It covers exits 0/1/2 in text and JSON, `--message` versus `--file`, and lowercase `breaking-change`. It proves the fake `git` never ran and that no file changed in the working directory or HOME.
+- **Linux (Fedora CoreOS arm64):** the validator, report and app suites pass, and the Linux binary validates and refuses with exits 0 and 1.

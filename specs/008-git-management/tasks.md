@@ -260,14 +260,15 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 ### Tests for User Story 7
 
 - [x] T097 [P] [US7] Add grammar corpus tests for uppercase types, `Refs #123`, `BREAKING CHANGE`, `BREAKING-CHANGE`, lowercase `breaking-change`, canonical LF, malformed footers, and independent breaking recognition in `internal/conventionalcommit/validate_test.go` (F008-FR-102–107, F008-FR-147; AC-016)
-- [ ] T098 [P] [US7] Create `FuzzConventionalCommitValidator` for UTF-8, headers, bodies, footers, line endings, and deterministic validity in `internal/conventionalcommit/validate_fuzz_test.go` (F008-FR-102–107, F008-FR-147)
-- [ ] T099 [P] [US7] Add CLI tests proving no Git/repository/strategy access and exact text/JSON exits 0/1/2 for `--message` versus `--file` in `cmd/ai-dev/git_commit_validate_test.go` (AC-016, AC-022)
+- [x] T098 [P] [US7] Create `FuzzConventionalCommitValidator` for UTF-8, headers, bodies, footers, line endings, and deterministic validity in `internal/conventionalcommit/validate_fuzz_test.go` (F008-FR-102–107, F008-FR-147)
+- [x] T099 [P] [US7] Add CLI tests proving no Git/repository/strategy access and exact text/JSON exits 0/1/2 for `--message` versus `--file` in `cmd/ai-dev/git_commit_validate_test.go` (AC-016, AC-022)
 
 ### Implementation for User Story 7
 
 - [x] T100 [US7] Implement a pure bounded Conventional Commits 1.0.0 parser with separate validity and breaking-change recognition in `internal/conventionalcommit/validate.go`
-- [ ] T101 [US7] Add validator result rendering in `internal/report/conventionalcommit.go`
-- [ ] T102 [US7] Wire `ai-dev git commit validate` as a read-only command in `internal/app/gitcommit.go` and `cmd/ai-dev/main.go`
+- [x] T101 [US7] Add validator result rendering in `internal/report/conventionalcommit.go`
+- [x] T102 [US7] Wire `ai-dev git commit validate` as a read-only command in `internal/app/gitcommit.go` and `cmd/ai-dev/main.go`
+  - **DEV-T097–T102 (proposed deviation, pending human approval):** T097 and T100 were done in Phase 8 (DEV-T078–T089). The command is routed in `internal/app/app.go`; `cmd/ai-dev/main.go` needed no change (CCV-04). A rendering test `internal/report/conventionalcommit_test.go` is added. Decisions CCV-01–04 are recorded in `contracts/cli.md` §11.
 
 **Checkpoint**: US7 independently satisfies AC-016 and its CLI portions of AC-022.
 
