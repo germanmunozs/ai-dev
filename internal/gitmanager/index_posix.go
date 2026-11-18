@@ -16,6 +16,7 @@ import (
 // (F008-FR-184). Ownership is the successful exclusive creation, the
 // retained descriptor and its device and inode; no token enters the index.
 type indexLock struct {
+	files     fileOps
 	path      string
 	file      *os.File
 	identity  syscall.Stat_t
@@ -24,28 +25,29 @@ type indexLock struct {
 
 // acquireIndexLock is steps 1–4: the planned lock must be absent, is
 // created exclusively without following a symlink, its descriptor
-// identity is recorded and the descriptor is kept open.
-func acquireIndexLock(gitDir string) (*indexLock, error) {
+// identity is recorded and the descriptor is kept open. A lock created
+// but not identified is errCreatedUnverified and stays where it is.
+func acquireIndexLock(files fileOps, gitDir string) (*indexLock, error) {
 	path := gitDir + "/index.lock"
 	if _, err := os.Lstat(path); !errors.Is(err, fs.ErrNotExist) {
 		return nil, errors.New("index.lock exists")
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0o644)
+	file, err := files.openFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0o644)
 	if err != nil {
 		return nil, err
 	}
-	identity, err := descriptorStat(file)
+	identity, err := files.fstat(file)
 	if err != nil {
 		file.Close()
-		return nil, err
+		return nil, errCreatedUnverified
 	}
-	return &indexLock{path: path, file: file, identity: identity}, nil
+	return &indexLock{files: files, path: path, file: file, identity: identity}, nil
 }
 
 // owned reports whether the lock path still names the inode this attempt
 // created and holds open.
 func (l *indexLock) owned() bool {
-	held, err := descriptorStat(l.file)
+	held, err := l.files.fstat(l.file)
 	var named syscall.Stat_t
 	return err == nil && syscall.Lstat(l.path, &named) == nil && sameInode(held, l.identity) && sameInode(named, l.identity)
 }
@@ -58,26 +60,36 @@ func sameInode(a, b syscall.Stat_t) bool {
 // descriptor, sync, reverify ownership, rename the owned lock to index and
 // sync the Git directory.
 func (l *indexLock) install(gitDir string, data []byte) error {
-	if _, err := l.file.Write(data); err != nil {
-		return err
+	if n, err := l.files.write(l.file, data); err != nil || n != len(data) {
+		return errors.Join(errors.New("short index write"), err)
 	}
-	if err := l.file.Sync(); err != nil {
+	if err := l.files.sync(l.file); err != nil {
 		return err
 	}
 	if !l.owned() {
 		return ErrOwnedResourceReplaced
 	}
-	if err := os.Rename(l.path, gitDir+"/index"); err != nil {
+	if err := l.files.rename(l.path, gitDir+"/index"); err != nil {
+		// A rename that reports failure but no longer leaves the owned lock
+		// in place may have installed the index.
+		if !l.owned() {
+			return errors.Join(errCreatedUnverified, err)
+		}
 		return err
 	}
 	l.installed = true
 	l.file.Close()
-	dir, err := os.Open(gitDir)
-	if err != nil {
-		return err
+	return l.files.syncDir(gitDir)
+}
+
+// installOutcome classifies a failed lock acquisition or installation: an
+// installed index, or a lock that was created but cannot be identified, is
+// an effect only a fresh inspection can classify.
+func installOutcome(lock *indexLock, err error) OperationOutcome {
+	if errors.Is(err, errCreatedUnverified) || lock != nil && lock.installed {
+		return OperationIndeterminate
 	}
-	defer dir.Close()
-	return dir.Sync()
+	return OperationFailed
 }
 
 // release is step 13, run by the audited release protocol: an installed
@@ -91,18 +103,19 @@ func (l *indexLock) release(context.Context) error {
 	if !l.owned() {
 		return ErrOwnedResourceReplaced
 	}
-	return os.Remove(l.path)
+	return l.files.remove(l.path)
 }
 
 // preparedIndex is the private external prepared index of one attempt:
 // a fresh 0700 directory below the state root that only Git's read-tree
 // writes into.
 type preparedIndex struct {
+	files     fileOps
 	dir, path string
 	identity  *syscall.Stat_t
 }
 
-func newPreparedIndex(stateRoot []byte, random RandomSource) (*preparedIndex, error) {
+func newPreparedIndex(files fileOps, stateRoot []byte, random RandomSource) (*preparedIndex, error) {
 	name := make([]byte, 16)
 	if random == nil {
 		return nil, errors.New("no random source")
@@ -111,21 +124,24 @@ func newPreparedIndex(stateRoot []byte, random RandomSource) (*preparedIndex, er
 		return nil, errors.New("random source failed")
 	}
 	dir := string(stateRoot) + "/prepared/" + hex.EncodeToString(name)
-	if err := os.Mkdir(dir, 0o700); err != nil {
+	if err := files.mkdir(dir, 0o700); err != nil {
+		// A mkdir that reports failure may still have created the fresh,
+		// randomly named directory; rmdir removes it only while empty.
+		files.remove(dir)
 		return nil, err
 	}
-	return &preparedIndex{dir: dir, path: dir + "/index"}, nil
+	return &preparedIndex{files: files, dir: dir, path: dir + "/index"}, nil
 }
 
 // read reads the index Git wrote, without following a symlink, and
 // records its identity for release.
 func (p *preparedIndex) read() ([]byte, error) {
-	file, err := os.OpenFile(p.path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
+	file, err := p.files.openFile(p.path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	identity, err := descriptorStat(file)
+	identity, err := p.files.fstat(file)
 	if err != nil || identity.Mode&syscall.S_IFMT != syscall.S_IFREG || identity.Size > maxIndexBytes {
 		return nil, errors.New("prepared index is not a bounded regular file")
 	}
@@ -145,11 +161,11 @@ func (p *preparedIndex) release(context.Context) error {
 		if err := syscall.Lstat(p.path, &named); err != nil || !sameInode(named, *p.identity) {
 			return ErrOwnedResourceReplaced
 		}
-		if err := os.Remove(p.path); err != nil {
+		if err := p.files.remove(p.path); err != nil {
 			return err
 		}
 	}
-	if err := os.Remove(p.dir); err != nil {
+	if err := p.files.remove(p.dir); err != nil {
 		return ErrOwnedResourceReplaced
 	}
 	return nil
@@ -173,9 +189,9 @@ func (d *OperationDispatcher) installIndex(ctx context.Context, permit MutationP
 	if permit.authorizesPlanned(plan, operation) != nil {
 		return OperationFailed
 	}
-	lock, err := acquireIndexLock(gitDir)
+	lock, err := acquireIndexLock(d.files(), gitDir)
 	if err != nil {
-		return OperationFailed
+		return installOutcome(nil, err)
 	}
 	if err := permit.own(operation, ResourceRoleIndexLock, lock.release); err != nil {
 		lock.release(ctx)
@@ -184,7 +200,7 @@ func (d *OperationDispatcher) installIndex(ctx context.Context, permit MutationP
 	if data, present, ok := readVerificationFile(gitDir + "/index"); !ok || !normalIndexUnchanged(data, present, absent) {
 		return OperationFailed
 	}
-	prepared, err := newPreparedIndex(snapshot.EnvironmentProfile.StateRoot.Bytes(), d.deps.Random)
+	prepared, err := newPreparedIndex(d.files(), snapshot.EnvironmentProfile.StateRoot.Bytes(), d.deps.Random)
 	if err != nil {
 		return OperationFailed
 	}
@@ -208,10 +224,7 @@ func (d *OperationDispatcher) installIndex(ctx context.Context, permit MutationP
 		return OperationFailed
 	}
 	if err := lock.install(gitDir, data); err != nil {
-		if lock.installed {
-			return OperationIndeterminate
-		}
-		return OperationFailed
+		return installOutcome(lock, err)
 	}
 	return d.postconditions(ctx, plan, operation)
 }

@@ -397,6 +397,22 @@ func (s *mutationSession) render(in GitApplyResultInput) GitApplyResult {
 	if result, err := NewGitApplyResult(in); err == nil {
 		return result
 	}
+	// Once a mutation may have happened, the last resort must not claim that
+	// nothing changed: it is indeterminate and needs reconciliation.
+	if s.resolved && (s.intent || s.intentUnknown || s.started) {
+		durable := s.authorization.State
+		if !resultStateCompatible(ApplyStatusIndeterminate, durable) {
+			durable = AuthorizationStateMutationStarted
+		}
+		if result, err := NewGitApplyResult(GitApplyResultInput{
+			SchemaVersion: GitApplyResultSchema, ApplyID: s.journal.applyID, PlanID: s.planID,
+			AuthorizationID: s.authorization.AuthorizationID, PlanDigest: s.authorization.PlanDigest, PriorAuthorizationState: s.prior,
+			Status: ApplyStatusIndeterminate, Reason: ReasonOperationFailed, DurableAuthorizationState: durable,
+			ExitCode: 1, AuditStatus: in.AuditStatus, RecoveryRequired: true,
+		}); err == nil {
+			return result
+		}
+	}
 	result, _ := NewGitApplyResult(GitApplyResultInput{
 		SchemaVersion: GitApplyResultSchema, ApplyID: s.journal.applyID, Status: ApplyStatusRefused,
 		Reason: ReasonAuditUnavailable, ExitCode: 1, AuditStatus: auditStatusUnavailable,

@@ -371,3 +371,112 @@ func TestAssessAuthorization(t *testing.T) {
 		t.Errorf("unreadable owner trail: %+v", a)
 	}
 }
+
+// T126: abandon is idempotent once closed, and after intent it is a
+// closure, never a release of the claim to issued.
+func TestAbandonAfterClosureAndAfterIntent(t *testing.T) {
+	ctx := context.Background()
+	f := newKernelFixture(t)
+	session := f.claim(testApplyID)
+	first := session.abandon(ctx, ReasonPlanStale)
+	calls := len(f.store.callsSnapshot())
+	if again := session.abandon(ctx, ReasonOperationFailed); again.ApplyID != first.ApplyID || again.Reason != first.Reason ||
+		len(f.store.callsSnapshot()) != calls {
+		t.Fatalf("a second abandon %+v after %+v touched the store", again, first)
+	}
+
+	f = newKernelFixture(t)
+	session = f.claim(testApplyID)
+	mustBegin(t, session, kernelOperations[0])
+	result := session.abandon(ctx, ReasonPlanStale)
+	if result.Status == ApplyStatusRefused || result.DurableAuthorizationState == AuthorizationStateIssued {
+		t.Fatalf("abandon after intent %+v", result)
+	}
+	if durable := f.durable(); durable.State == AuthorizationStateIssued || durable.State == AuthorizationStateClaimed {
+		t.Fatalf("durable %s after intent", durable.State)
+	}
+}
+
+// T126: a refusal whose result record cannot be published is returned as
+// audit_unavailable with the audit status unavailable.
+func TestUnrecordedRefusalIsAuditUnavailable(t *testing.T) {
+	f := newKernelFixture(t)
+	session := f.claim(testApplyID)
+	f.store.faults.failCall("RecordAttemptResult", 0, errInjected, false)
+	result := session.abandon(context.Background(), ReasonPlanStale)
+	if result.Status != ApplyStatusRefused || result.Reason != ReasonAuditUnavailable || result.AuditStatus != auditStatusUnavailable || result.ExitCode != 1 {
+		t.Fatalf("result %+v", result)
+	}
+	if err := result.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// T126: render never returns an invalid result. A combination the model
+// rejects is rendered conservatively: an outcome as operation_failed and a
+// refusal as audit_unavailable. As a last resort it is an unrecorded
+// refusal before any mutation intent, and state_indeterminate needing
+// recovery once a mutation may have happened, never a refusal.
+func TestRenderFallsBackToAValidResult(t *testing.T) {
+	f := newKernelFixture(t)
+	before := f.claim(testApplyID)
+	failed := GitApplyResultInput{Status: ApplyStatusFailed, Reason: "not-a-reason", DurableAuthorizationState: AuthorizationStateFailed}
+	for name, test := range map[string]struct {
+		in     GitApplyResultInput
+		status ApplyStatus
+		reason Reason
+	}{
+		"refusal with an invalid reason": {GitApplyResultInput{Status: ApplyStatusRefused, Reason: "not-a-reason", DurableAuthorizationState: AuthorizationStateClaimed},
+			ApplyStatusRefused, ReasonAuditUnavailable},
+		"failure with an invalid reason": {failed, ApplyStatusFailed, ReasonOperationFailed},
+		"invalid status":                 {GitApplyResultInput{Status: "not-a-status", Reason: ReasonPlanStale}, ApplyStatusRefused, ReasonAuditUnavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := before.render(test.in)
+			if err := result.Validate(); err != nil || result.Status != test.status || result.Reason != test.reason {
+				t.Fatalf("render %+v: %v", result, err)
+			}
+		})
+	}
+	f = newKernelFixture(t)
+	after := f.claim(testApplyID)
+	mustBegin(t, after, kernelOperations[0])
+	for name, in := range map[string]GitApplyResultInput{
+		"invalid status":            {Status: "not-a-status"},
+		"failure without its state": {Status: ApplyStatusFailed, Reason: "not-a-reason"},
+	} {
+		t.Run("after intent "+name, func(t *testing.T) {
+			result := after.render(in)
+			if err := result.Validate(); err != nil || result.Status != ApplyStatusIndeterminate || !result.RecoveryRequired ||
+				result.AuthorizationID != f.authorization.AuthorizationID {
+				t.Fatalf("render %+v: %v", result, err)
+			}
+		})
+	}
+}
+
+// T126: the exit code follows validateResultExit for every rule.
+func TestExitCodeFor(t *testing.T) {
+	for _, test := range []struct {
+		status    ApplyStatus
+		reason    Reason
+		secondary bool
+		want      int
+	}{
+		{ApplyStatusApplied, "", false, 0},
+		{ApplyStatusAlreadyApplied, "", false, 0},
+		{ApplyStatusApplied, "", true, 1},
+		{ApplyStatusApplied, ReasonOutputFailed, false, 2},
+		{ApplyStatusRefused, ReasonInteractiveTerminalRequired, false, 2},
+		{ApplyStatusRefused, ReasonInvalidStrategy, false, 2},
+		{ApplyStatusRefused, ReasonMissingRequiredBranch, false, 2},
+		{ApplyStatusRefused, ReasonOutputExists, false, 2},
+		{ApplyStatusRefused, ReasonUnsafeOutputPath, false, 2},
+		{ApplyStatusRefused, ReasonPlanStale, false, 1},
+		{ApplyStatusIndeterminate, ReasonOperationFailed, false, 1},
+	} {
+		if got := exitCodeFor(test.status, test.reason, test.secondary); got != test.want {
+			t.Errorf("exitCodeFor(%s, %s, %v) = %d, want %d", test.status, test.reason, test.secondary, got, test.want)
+		}
+	}
+}

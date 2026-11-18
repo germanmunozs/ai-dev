@@ -100,7 +100,7 @@ func TestIndexLockProtocol(t *testing.T) {
 
 	// Step 1: a pre-existing lock is a conflict and stays.
 	mustWrite(t, lockPath, "foreign")
-	if _, err := acquireIndexLock(gitDir); err == nil {
+	if _, err := acquireIndexLock(osFiles, gitDir); err == nil {
 		t.Fatal("a pre-existing lock was acquired")
 	}
 	if data, _ := os.ReadFile(lockPath); string(data) != "foreign" {
@@ -109,7 +109,7 @@ func TestIndexLockProtocol(t *testing.T) {
 	os.Remove(lockPath)
 
 	// Steps 2–4 and 13: an abandoned owned lock is unlinked.
-	lock, err := acquireIndexLock(gitDir)
+	lock, err := acquireIndexLock(osFiles, gitDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestIndexLockProtocol(t *testing.T) {
 	}
 
 	// A lock replaced after creation is not installed and not removed.
-	lock, err = acquireIndexLock(gitDir)
+	lock, err = acquireIndexLock(osFiles, gitDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestIndexLockProtocol(t *testing.T) {
 
 	// Steps 7–11: the bytes go through the retained descriptor and the
 	// owned lock is renamed to index; release afterwards does nothing.
-	lock, err = acquireIndexLock(gitDir)
+	lock, err = acquireIndexLock(osFiles, gitDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestIndexLockProtocol(t *testing.T) {
 func TestPreparedIndexStorage(t *testing.T) {
 	root := physicalTempDir(t)
 	mustMkdir(t, filepath.Join(root, "prepared"))
-	prepared, err := newPreparedIndex([]byte(root), newFakeRandomSource(make([]byte, 32)))
+	prepared, err := newPreparedIndex(osFiles, []byte(root), newFakeRandomSource(make([]byte, 32)))
 	if err != nil {
 		t.Fatal(err)
 	}

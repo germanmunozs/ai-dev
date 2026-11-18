@@ -95,6 +95,12 @@ func newGitAppFixture(t *testing.T) *gitAppFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return newGitAppFixtureAt(t, base)
+}
+
+// newGitAppFixtureAt is newGitAppFixture over an existing base directory,
+// so another process can reopen the same project, HOME and state root.
+func newGitAppFixtureAt(t *testing.T, base string) *gitAppFixture {
 	// Plan export and apply need a production filesystem: APFS on macOS,
 	// local ext4 on Linux. A tmpfs temporary directory is correctly refused.
 	if obs, err := gitstore.ObserveFilesystem(base); err != nil || !obs.Local ||

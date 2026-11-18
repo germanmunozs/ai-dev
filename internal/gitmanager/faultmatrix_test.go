@@ -4,6 +4,7 @@ package gitmanager
 
 import (
 	"fmt"
+	"syscall"
 	"testing"
 )
 
@@ -36,6 +37,7 @@ func TestFaultMatrix(t *testing.T) {
 		after bool
 	}{
 		{"fails", errInjected, false},
+		{"no space", syscall.ENOSPC, false},
 		{"unverifiable", ErrStoreOutcomeUnverifiable, false},
 		{"unverifiable after its effect", ErrStoreOutcomeUnverifiable, true},
 	}

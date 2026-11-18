@@ -187,6 +187,62 @@ func TestReplaceFaults(t *testing.T) {
 	}
 }
 
+// T127: exhausted space or quota at any step before publication, including
+// a short write that leaves half a temporary, fails with that errno and
+// leaves no record or an unchanged one; nothing truncated is ever published
+// and no temporary remains.
+func TestRecordWritesUnderExhaustedSpace(t *testing.T) {
+	halfWrite := func(errno error) func(*os.File, []byte) error {
+		return func(f *os.File, data []byte) error {
+			f.Write(data[:len(data)/2])
+			return errno
+		}
+	}
+	accept := func([]byte) ([]byte, error) { return []byte("v2-longer-record"), nil }
+	for _, errno := range []error{syscall.ENOSPC, syscall.EDQUOT} {
+		for _, step := range []string{"open-temporary", "write", "short-write", "sync-file", "close", "link"} {
+			t.Run(fmt.Sprintf("publish %s %v", step, errno), func(t *testing.T) {
+				r, dir, _ := newTestRecords(t)
+				if step == "short-write" {
+					r.ops.write = halfWrite(errno)
+				} else {
+					r.ops = failAtWith(r.ops, step, errno)
+				}
+				if _, err := r.publish("records", "a.json", []byte("complete record")); !errors.Is(err, errno) ||
+					errors.Is(err, gitmanager.ErrStoreOutcomeUnverifiable) {
+					t.Fatalf("publish: %v", err)
+				}
+				if names := entries(t, dir); len(names) != 0 {
+					t.Fatalf("failed publication left %v", names)
+				}
+			})
+		}
+		for _, step := range []string{"open-temporary", "write", "short-write", "sync-file", "close", "rename"} {
+			t.Run(fmt.Sprintf("replace %s %v", step, errno), func(t *testing.T) {
+				r, dir, _ := newTestRecords(t)
+				if _, err := r.publish("records", "auth.json", []byte("v1")); err != nil {
+					t.Fatal(err)
+				}
+				if step == "short-write" {
+					r.ops.write = halfWrite(errno)
+				} else {
+					r.ops = failAtWith(r.ops, step, errno)
+				}
+				if err := r.replace("records", "auth.json", accept); !errors.Is(err, errno) ||
+					errors.Is(err, gitmanager.ErrStoreOutcomeUnverifiable) {
+					t.Fatalf("replace: %v", err)
+				}
+				if got, _ := os.ReadFile(filepath.Join(dir, "auth.json")); string(got) != "v1" {
+					t.Fatalf("record changed to %q", got)
+				}
+				if names := entries(t, dir); len(names) != 1 {
+					t.Fatalf("directory holds %v", names)
+				}
+			})
+		}
+	}
+}
+
 // Concurrent compare-and-swaps against the same expected value: exactly
 // one wins, because the comparison and the swap happen under one lock.
 func TestReplaceSerializesConcurrentWriters(t *testing.T) {
@@ -329,8 +385,11 @@ func TestEnsurePrivateDirectory(t *testing.T) {
 var errInjectedFault = errors.New("injected record fault")
 
 // failAt makes one named step fail; every other step behaves normally.
-func failAt(ops recordOps, step string) recordOps {
-	fail := func() error { return errInjectedFault }
+func failAt(ops recordOps, step string) recordOps { return failAtWith(ops, step, errInjectedFault) }
+
+// failAtWith makes one named step fail with err.
+func failAtWith(ops recordOps, step string, err error) recordOps {
+	fail := func() error { return err }
 	switch step {
 	case "lock":
 		ops.lock = func(*os.File) error { return fail() }

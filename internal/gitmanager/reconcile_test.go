@@ -131,3 +131,71 @@ func TestReconciliationRequiresAnUnresolvedPrior(t *testing.T) {
 		}
 	})
 }
+
+// occurrences counts the calls of method the fake store has recorded, so a
+// fault can name the next one.
+func occurrences(f *kernelFixture, method string) int {
+	n := 0
+	for _, call := range f.store.callsSnapshot() {
+		if call == method {
+			n++
+		}
+	}
+	return n
+}
+
+// T126: every outcome of a linked reconciliation maps to its closed reason.
+func TestReconcileAuthorizationReasons(t *testing.T) {
+	const absentID AuthorizationID = "123e4567-e89b-42d3-a456-426614174099"
+	for name, test := range map[string]struct {
+		setup  func(t *testing.T, f *kernelFixture) AuthorizationID
+		reason Reason
+	}{
+		"invalid prior ID":       {func(t *testing.T, f *kernelFixture) AuthorizationID { return "not-an-id" }, ReasonAuthorizationMismatch},
+		"prior is the new ID":    {func(t *testing.T, f *kernelFixture) AuthorizationID { return reconciliationAuthorizationID }, ReasonAuthorizationMismatch},
+		"missing prior":          {func(t *testing.T, f *kernelFixture) AuthorizationID { return absentID }, ReasonAuthorizationMissing},
+		"prior not reconcilable": {func(t *testing.T, f *kernelFixture) AuthorizationID { return f.authorization.AuthorizationID }, ReasonAuthorizationMismatch},
+		"new ID exists": {func(t *testing.T, f *kernelFixture) AuthorizationID {
+			leaveIndeterminate(t, f)
+			if rejection := reconcileAuthorization(context.Background(), f.store, f.journal(testOtherApplyID), f.authorization.AuthorizationID, reconciliationInput(t, f)); rejection != nil {
+				t.Fatalf("first reconciliation %+v", *rejection)
+			}
+			return f.authorization.AuthorizationID
+		}, ReasonAuthorizationIDExists},
+		"prior unreadable": {func(t *testing.T, f *kernelFixture) AuthorizationID {
+			leaveIndeterminate(t, f)
+			f.store.faults.failCall("LoadAuthorization", occurrences(f, "LoadAuthorization"), errInjected, false)
+			return f.authorization.AuthorizationID
+		}, ReasonAuditUnavailable},
+		"issuance fails": {func(t *testing.T, f *kernelFixture) AuthorizationID {
+			leaveIndeterminate(t, f)
+			f.store.faults.failCall("IssueAuthorization", occurrences(f, "IssueAuthorization"), errInjected, false)
+			return f.authorization.AuthorizationID
+		}, ReasonAuditUnavailable},
+		"issuance audit fails": {func(t *testing.T, f *kernelFixture) AuthorizationID {
+			leaveIndeterminate(t, f)
+			f.store.faults.failCall("AppendAuditEvent", occurrences(f, "AppendAuditEvent"), errInjected, false)
+			return f.authorization.AuthorizationID
+		}, ReasonAuditUnavailable},
+		"prior reread fails": {func(t *testing.T, f *kernelFixture) AuthorizationID {
+			leaveIndeterminate(t, f)
+			f.store.faults.failCall("LoadAuthorization", occurrences(f, "LoadAuthorization")+1, errInjected, false)
+			return f.authorization.AuthorizationID
+		}, ReasonAuditUnavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newKernelFixture(t)
+			prior := test.setup(t, f)
+			journal := f.journal("123e4567-e89b-42d3-a456-426614174033")
+			rejection := reconcileAuthorization(context.Background(), f.store, journal, prior, reconciliationInput(t, f))
+			if rejection == nil || rejection.Reason != test.reason {
+				t.Fatalf("rejection %+v, want %s", rejection, test.reason)
+			}
+		})
+	}
+	f := newKernelFixture(t)
+	leaveIndeterminate(t, f)
+	if rejection := reconcileAuthorization(context.Background(), f.store, f.journal(testOtherApplyID), f.authorization.AuthorizationID, reconciliationInput(t, f)); rejection != nil {
+		t.Fatalf("reconciliation %+v", *rejection)
+	}
+}

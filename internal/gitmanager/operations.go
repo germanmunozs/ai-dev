@@ -24,6 +24,8 @@ type DispatcherDependencies struct {
 // other mutation entrypoint and never rolls back, retries or repairs.
 type OperationDispatcher struct {
 	deps DispatcherDependencies
+	// fileOps substitutes the filesystem steps in tests; nil is the OS.
+	fileOps *fileOps
 }
 
 var _ OperationExecutor = (*OperationDispatcher)(nil)

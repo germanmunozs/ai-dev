@@ -69,15 +69,15 @@ func TestProjectConfigWrite(t *testing.T) {
 	old := syscall.Umask(0o077)
 	defer syscall.Umask(old)
 	root := physicalTempDir(t)
-	if err := createConfigDirectory(root); err != nil {
+	if err := createConfigDirectory(osFiles, root); err != nil {
 		t.Fatal(err)
 	}
-	if err := createConfigDirectory(root); err == nil {
+	if err := createConfigDirectory(osFiles, root); err == nil {
 		t.Fatal("an existing directory was created again")
 	}
 	var owned *configTemporary
 	own := func(temporary *configTemporary) error { owned = temporary; return nil }
-	if err := writeProjectConfig(root, []byte("{}\n"), newFakeRandomSource(make([]byte, 64)), own); err != nil {
+	if err := writeProjectConfig(osFiles, root, []byte("{}\n"), newFakeRandomSource(make([]byte, 64)), own); err != nil {
 		t.Fatal(err)
 	}
 	for path, want := range map[string]os.FileMode{".ai-dev": os.ModeDir | 0o755, ProjectConfigPath: 0o644} {
@@ -90,7 +90,7 @@ func TestProjectConfigWrite(t *testing.T) {
 	}
 	// An existing configuration is never overwritten; the temporary is left
 	// to the audited release, which removes only the owned inode.
-	err := writeProjectConfig(root, []byte("{\"other\":1}\n"), newFakeRandomSource(bytes.Repeat([]byte{1}, 64)), own)
+	err := writeProjectConfig(osFiles, root, []byte("{\"other\":1}\n"), newFakeRandomSource(bytes.Repeat([]byte{1}, 64)), own)
 	if !errors.Is(err, errConfigExists) {
 		t.Fatalf("overwrite: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestProjectConfigWrite(t *testing.T) {
 	if err := os.Symlink(other, filepath.Join(root, "alias")); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeProjectConfig(filepath.Join(root, "alias"), []byte("{}\n"), newFakeRandomSource(make([]byte, 64)), own); err == nil {
+	if err := writeProjectConfig(osFiles, filepath.Join(root, "alias"), []byte("{}\n"), newFakeRandomSource(make([]byte, 64)), own); err == nil {
 		t.Fatal("a configuration was written beneath a symlinked root without .ai-dev")
 	}
 }

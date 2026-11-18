@@ -22,18 +22,24 @@ import (
 // cmd/ai-dev/main.go and injects no executor, so every operation goes
 // through the kernel's permits.
 func newRealEngineFixture(t *testing.T) *gitAppFixture {
+	f := realEngine(t, newGitAppFixture(t))
+	if err := os.WriteFile(filepath.Join(f.project, "README.md"), []byte("# harness\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// realEngine replaces the fixture's fakes with the production Git reader,
+// builder and runner and the production dispatcher.
+func realEngine(t *testing.T, f *gitAppFixture) *gitAppFixture {
 	path, mode, err := gitprocess.LocateGit(os.Getenv("PATH"))
 	if err != nil {
 		t.Skipf("no usable Git: %v", err)
 	}
-	f := newGitAppFixture(t)
 	f.deps.Reader, f.deps.Commands, f.deps.Runner = gitprocess.Reader{Runner: gitprocess.Runner{}}, gitprocess.Builder{}, gitprocess.Runner{}
 	f.deps.RandomSource, f.deps.Executor = rand.Reader, nil
 	f.deps.IdentifyGit = func(ctx context.Context, environment gitmanager.EnvironmentProfile) (gitmanager.GitToolIdentity, error) {
 		return gitprocess.Identify(ctx, mode, path, nil, environment, []byte("/"))
-	}
-	if err := os.WriteFile(filepath.Join(f.project, "README.md"), []byte("# harness\n"), 0o644); err != nil {
-		t.Fatal(err)
 	}
 	return f
 }
