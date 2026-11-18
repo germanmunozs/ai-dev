@@ -11,11 +11,14 @@ import (
 	"ai-dev/internal/gitstore"
 )
 
-// DefaultGitManagementDependencies composes the read-only inspection
-// capabilities from the real implementations. It supplies no store and no
-// mutating port.
+// DefaultGitManagementDependencies composes Git Management from the real
+// implementations (T107). The runner enables apply: every mutation runs
+// through the production OperationDispatcher, which accepts only the
+// safety kernel's MutationPermit, and the kernel's terminal.go remains the
+// sole closer.
 func DefaultGitManagementDependencies() GitManagementDependencies {
 	return GitManagementDependencies{
+		Runner:            gitprocess.Runner{},
 		Reader:            gitprocess.Reader{Runner: gitprocess.Runner{}},
 		Commands:          gitprocess.Builder{},
 		RandomSource:      rand.Reader,

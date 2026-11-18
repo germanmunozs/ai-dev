@@ -29,11 +29,32 @@ type GitManagementDependencies struct {
 	GOOS              string
 
 	// Apply capabilities. OpenStore opens the durable store at the state
-	// root. Executor runs permitted operations; it stays nil until the
-	// mutation operations exist (T107), and apply is then refused before
-	// any record is created.
+	// root. Runner executes Git; with it the composition runs permitted
+	// operations through the production OperationDispatcher. Executor, when
+	// set, replaces that dispatcher (tests only). Without either, apply is
+	// refused before any record is created.
 	OpenStore func(gitmanager.ObservedPath) (gitmanager.GitStore, func(), error)
 	Executor  gitmanager.OperationExecutor
+}
+
+// executor is the composition's operation executor: the injected one, or
+// the production dispatcher over the composed runner and builder, whose
+// fresh inspections use the same user context as every other command. It
+// adds no mutation path: the dispatcher accepts only kernel permits.
+func (deps GitManagementDependencies) executor() gitmanager.OperationExecutor {
+	if deps.Executor != nil {
+		return deps.Executor
+	}
+	if deps.Runner == nil || deps.Commands == nil || deps.RandomSource == nil {
+		return nil
+	}
+	return gitmanager.NewOperationDispatcher(gitmanager.DispatcherDependencies{
+		Runner: deps.Runner, Commands: deps.Commands, Random: deps.RandomSource,
+		Inspect: func(ctx context.Context, projectPath []byte, candidates [][]byte) (gitmanager.GitInspection, error) {
+			inspection, _, err := inspectWithEnvironment(ctx, deps, string(projectPath), candidates)
+			return inspection, err
+		},
+	})
 }
 
 func unavailableGitManagementDependencies() GitManagementDependencies {

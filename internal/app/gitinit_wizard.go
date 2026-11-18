@@ -156,7 +156,7 @@ func (w *wizard) run(projectDir string) (int, error) {
 		return rejection.ExitCode(), nil
 	}
 	fmt.Fprintf(w.out, "Plan written to %s\n", written)
-	if w.deps.Executor == nil {
+	if w.deps.executor() == nil {
 		fmt.Fprintln(w.out, "Apply is not enabled yet in this build; no authorization was issued.")
 		return 0, nil
 	}

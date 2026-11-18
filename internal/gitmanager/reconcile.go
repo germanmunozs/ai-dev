@@ -161,3 +161,35 @@ func InspectReconciliation(ctx context.Context, deps ReconciliationDependencies,
 	}
 	return report, nil
 }
+
+// GitReconciliationReportSchema is the schema of a reconciliation report.
+const GitReconciliationReportSchema = "ai-dev.git-reconciliation-report/v1"
+
+// EncodeReconciliationReport renders the report as one canonical object.
+// It carries identifiers, states, event kinds and conditions only: no
+// operator declaration, path content, token or record bytes.
+func EncodeReconciliationReport(r ReconciliationReport) ([]byte, error) {
+	e := &canonicalEncoder{}
+	prior := map[string]any{
+		"authorization_id": string(r.Prior.AuthorizationID), "state": string(r.Prior.State),
+		"state_version": canonicalInteger(r.Prior.StateVersion), "plan_digest": string(r.Prior.PlanDigest),
+	}
+	optional(prior, "owner_apply_id", string(r.Prior.OwnerApplyID), r.Prior.OwnerApplyID != "")
+	report := map[string]any{
+		"schema_version":            GitReconciliationReportSchema,
+		"project_identity_digest":   string(r.Prior.ProjectIdentity.Digest()),
+		"prior_authorization":       prior,
+		"unresolved":                r.Unresolved,
+		"trail_readable":            r.TrailReadable,
+		"trail_events":              canonicalStrings(r.Trail.Events),
+		"crash_evidence":            r.Trail.CrashEvidence,
+		"applied":                   canonicalList(r.Applied, e.condition),
+		"absent":                    canonicalList(r.Absent, e.condition),
+		"unverifiable":              canonicalList(r.Unverifiable, e.condition),
+		"grants_mutation_authority": r.GrantsMutationAuthority(),
+	}
+	if e.err != nil {
+		return nil, e.err
+	}
+	return MarshalCanonical(report)
+}

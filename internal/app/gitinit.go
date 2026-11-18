@@ -14,11 +14,10 @@ import (
 	"ai-dev/internal/report"
 )
 
-const gitInitUsage = "Usage: ai-dev init [inspect|plan|apply] [options]"
+const gitInitUsage = "Usage: ai-dev init [inspect|plan|apply|reconcile] [options]"
 
-// RunGitInit routes the Git Management "init" commands. Only the read-only
-// inspect command is active; it receives no store, no authorization and no
-// mutating port.
+// RunGitInit routes the Git Management "init" commands: the assistant,
+// inspect, plan, apply and the read-only reconcile.
 func RunGitInit(ctx context.Context, args []string, deps GitManagementDependencies, stdin io.Reader, interactive bool, stdout, stderr io.Writer) int {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return RunGitWizard(ctx, args, deps, stdin, interactive, stdout, stderr)
@@ -28,6 +27,9 @@ func RunGitInit(ctx context.Context, args []string, deps GitManagementDependenci
 	}
 	if len(args) > 0 && args[0] == "apply" {
 		return RunGitApply(ctx, args[1:], deps, stdout, stderr)
+	}
+	if args[0] == "reconcile" {
+		return RunGitReconcile(ctx, args[1:], deps, stdout, stderr)
 	}
 	if len(args) == 0 || args[0] != "inspect" {
 		fmt.Fprintln(stderr, gitInitUsage)

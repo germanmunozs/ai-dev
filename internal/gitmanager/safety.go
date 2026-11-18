@@ -183,6 +183,18 @@ func (k safetyKernel) claim(ctx context.Context, req claimRequest) (*mutationSes
 	}
 	next, err := k.store.TransitionAuthorization(ctx, request)
 	if err != nil {
+		// An unverifiable claim is reread: a claim proven ours is released
+		// cleanly, since no intent exists yet; otherwise the refusal
+		// reports the state actually read.
+		if current, readErr := k.store.LoadAuthorization(ctx, req.project.Digest(), req.authorization); readErr == nil {
+			if current.State == AuthorizationStateClaimed && current.OwnerApplyID == journal.applyID &&
+				current.StateVersion == authorization.StateVersion+1 {
+				s.authorization, s.claimed = current, true
+				result := s.abandon(ctx, ReasonAuditUnavailable)
+				return nil, &result
+			}
+			s.authorization = current
+		}
 		return refuse(ReasonAuditUnavailable, false)
 	}
 	s.authorization, s.claimed = next, true

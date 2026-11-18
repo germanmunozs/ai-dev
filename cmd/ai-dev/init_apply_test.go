@@ -8,8 +8,10 @@ import (
 	"testing"
 )
 
-// Until the mutation operations are wired (T107), public apply is refused
-// before any record exists; the option matrix is enforced already.
+// The public apply option matrix and its refusals before any record: usage
+// errors, issuance-only options without --issue-authorization, an unknown
+// option and an unreadable plan create no state. The enabled flows are in
+// gitmanagement_e2e_test.go (T109).
 func TestInitApplySubprocess(t *testing.T) {
 	repoRoot, _ := filepath.Abs(filepath.Join("..", ".."))
 	base, err := filepath.EvalSymlinks(t.TempDir())
@@ -41,14 +43,16 @@ func TestInitApplySubprocess(t *testing.T) {
 		{"init", "apply", "--plan", "p.json", "--confirm-plan", "sha256:x", "--authorization-id", id, "--path", "x"},
 		{"init", "apply", "--plan", "p.json", "--confirm-plan", "sha256:x", "--authorization-id", id, "--issue-authorization", "--authorized-by", "op"},
 		{"init", "apply", "--plan", "p.json", "--confirm-plan", "sha256:x", "--authorization-id", id},
+		{"init", "apply", "--plan", "p.json", "--confirm-plan", "sha256:x", "--authorization-id", id, "--reconciles-authorization", id},
+		{"init", "reconcile"}, {"init", "reconcile", "--plan", "p.json"}, {"init", "reconcile", "--plan", "p.json", "--authorization-id", id},
 	} {
 		if _, _, code := run(args...); code != 2 {
 			t.Errorf("%v exit %d, want 2", args[1:], code)
 		}
 	}
 	_, stderr, code := run("init", "apply", "--plan", "p.json", "--confirm-plan", "sha256:x", "--authorization-id", id)
-	if code != 2 || !strings.Contains(stderr, "not enabled") {
-		t.Fatalf("disabled apply exit %d %q", code, stderr)
+	if code != 2 || !strings.Contains(stderr, "the plan cannot be read") {
+		t.Fatalf("apply of a missing plan exit %d %q", code, stderr)
 	}
 	_, stderr, code = run("init")
 	if code != 2 || !strings.Contains(stderr, "interactive_terminal_required") {

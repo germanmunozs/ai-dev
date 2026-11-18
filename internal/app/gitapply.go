@@ -12,7 +12,7 @@ import (
 	"ai-dev/internal/report"
 )
 
-const gitApplyUsage = "Usage: ai-dev init apply --plan FILE --confirm-plan sha256:DIGEST --authorization-id UUID [--issue-authorization --authorized-by TEXT [--authorization-expires-at RFC3339] [--confirm-initial-commit] [--approve-file TUPLE]... [--approve-ignored-file TUPLE]...] [--format text|json]"
+const gitApplyUsage = "Usage: ai-dev init apply --plan FILE --confirm-plan sha256:DIGEST --authorization-id UUID [--issue-authorization --authorized-by TEXT [--authorization-expires-at RFC3339] [--confirm-initial-commit] [--approve-file TUPLE]... [--approve-ignored-file TUPLE]... [--reconciles-authorization UUID]] [--format text|json]"
 
 // repeated collects a repeatable string option.
 type repeated []string
@@ -22,7 +22,7 @@ func (r *repeated) Set(v string) error { *r = append(*r, v); return nil }
 
 // issuanceOptions are accepted only with --issue-authorization; the
 // consume form cannot reissue, widen or replace authority.
-var issuanceOptions = []string{"authorized-by", "authorization-expires-at", "confirm-initial-commit", "approve-file", "approve-ignored-file"}
+var issuanceOptions = []string{"authorized-by", "authorization-expires-at", "confirm-initial-commit", "approve-file", "approve-ignored-file", "reconciles-authorization"}
 
 // RunGitApply implements "ai-dev init apply" in its issue-and-consume and
 // consume-existing forms (CLI contract §4–5).
@@ -36,6 +36,7 @@ func RunGitApply(ctx context.Context, args []string, deps GitManagementDependenc
 	authorizedBy := flags.String("authorized-by", "", "")
 	expires := flags.String("authorization-expires-at", "", "")
 	confirmCommit := flags.Bool("confirm-initial-commit", false, "")
+	reconciles := flags.String("reconciles-authorization", "", "")
 	format := flags.String("format", "text", "")
 	var approvals, ignored repeated
 	flags.Var(&approvals, "approve-file", "")
@@ -55,7 +56,7 @@ func RunGitApply(ctx context.Context, args []string, deps GitManagementDependenc
 			}
 		}
 	}
-	if deps.Executor == nil {
+	if deps.executor() == nil {
 		fmt.Fprintln(stderr, "ai-dev: init apply: apply is not enabled yet: the mutation operations are not available in this build")
 		return 2
 	}
@@ -68,6 +69,7 @@ func RunGitApply(ctx context.Context, args []string, deps GitManagementDependenc
 	if *issue {
 		request.Issue = &gitmanager.IssueRequest{
 			AuthorizedBy: *authorizedBy, ExpiresAt: *expires, ConfirmInitialCommit: *confirmCommit, Approvals: approvals, IgnoredApprovals: ignored,
+			ReconcilesAuthorizationID: *reconciles,
 		}
 	}
 	result, err := applyPlan(ctx, deps, request)
@@ -131,7 +133,7 @@ func applyPlan(ctx context.Context, deps GitManagementDependencies, request gitm
 	return gitmanager.Apply(ctx, gitmanager.ApplyDependencies{
 		Store: store, Clock: deps.Clock, Random: deps.RandomSource,
 		Planner: gitmanager.PlannerDependencies{Git: deps.Reader, Commands: deps.Commands, Random: deps.RandomSource},
-		Tool:    tool, Environment: environment, Executor: deps.Executor,
+		Tool:    tool, Environment: environment, Executor: deps.executor(),
 		Inspect: func(ctx context.Context, projectPath []byte, candidates [][]byte) (gitmanager.GitInspection, error) {
 			inspection, _, err := inspectWithEnvironment(ctx, deps, string(projectPath), candidates)
 			return inspection, err

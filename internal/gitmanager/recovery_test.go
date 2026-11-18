@@ -69,15 +69,31 @@ func TestClaimFaults(t *testing.T) {
 		}
 		f.claim(testOtherApplyID)
 	})
-	t.Run("unverifiable CAS", func(t *testing.T) {
+	t.Run("unverifiable CAS proven ours", func(t *testing.T) {
 		f := newKernelFixture(t)
 		f.store.faults.failCall("TransitionAuthorization", 0, ErrStoreOutcomeUnverifiable, true)
+		_, refusal := f.kernel.claim(ctx, f.request(testApplyID))
+		if refusal == nil || refusal.Status != ApplyStatusRefused || refusal.Reason != ReasonAuditUnavailable ||
+			refusal.DurableAuthorizationState != AuthorizationStateIssued {
+			t.Fatalf("refusal %+v", refusal)
+		}
+		// The reread proved the claim ours and no intent exists, so it was
+		// released cleanly and the authorization is usable again.
+		if durable := f.durable(); durable.State != AuthorizationStateIssued || !f.lockFree() {
+			t.Fatalf("durable %+v", durable)
+		}
+		f.claim(testOtherApplyID)
+	})
+	t.Run("unverifiable CAS left claimed", func(t *testing.T) {
+		f := newKernelFixture(t)
+		f.store.faults.failCall("TransitionAuthorization", 0, ErrStoreOutcomeUnverifiable, true)
+		f.store.faults.failCall("TransitionAuthorization", 1, errInjected, false)
 		_, refusal := f.kernel.claim(ctx, f.request(testApplyID))
 		if refusal == nil || refusal.Status != ApplyStatusRefused || refusal.Reason != ReasonAuditUnavailable {
 			t.Fatalf("refusal %+v", refusal)
 		}
-		// The claim may be durable; with no intent it is an orphan whose
-		// reassignment needs a fresh proof of no effects.
+		// The release failed too: with no intent the claim is an orphan
+		// whose reassignment needs a fresh proof of no effects.
 		if durable := f.durable(); durable.State != AuthorizationStateClaimed || durable.OwnerApplyID != testApplyID {
 			t.Fatalf("durable %+v", durable)
 		}
