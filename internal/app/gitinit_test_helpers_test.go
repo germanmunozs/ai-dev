@@ -91,12 +91,15 @@ type gitAppFixture struct {
 }
 
 func newGitAppFixture(t *testing.T) *gitAppFixture {
-	if runtime.GOOS != "darwin" {
-		t.Skip("plan export needs a production filesystem; this acceptance runs on macOS APFS")
-	}
 	base, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Plan export and apply need a production filesystem: APFS on macOS,
+	// local ext4 on Linux. A tmpfs temporary directory is correctly refused.
+	if obs, err := gitstore.ObserveFilesystem(base); err != nil || !obs.Local ||
+		obs.FilesystemType != map[string]string{"darwin": "apfs", "linux": "ext4"}[runtime.GOOS] {
+		t.Skip("the temporary directory is not on a production filesystem")
 	}
 	f := &gitAppFixture{t: t, base: base, project: filepath.Join(base, "project"), home: filepath.Join(base, "home"),
 		random: &countingRandom{}, reader: &appRefReader{}, executor: &recordingExecutor{}}
@@ -105,7 +108,12 @@ func newGitAppFixture(t *testing.T) *gitAppFixture {
 			t.Fatal(err)
 		}
 	}
-	f.stateRoot = filepath.Join(f.home, "Library", "Application Support", "ai-dev", "state", "git")
+	env := map[string]string{"HOME": f.home}
+	root, err := gitmanager.ResolveStateRoot(runtime.GOOS, func(name string) (string, bool) { value, ok := env[name]; return value, ok })
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.stateRoot = string(root.Bytes())
 	tool, err := gitmanager.NewGitToolIdentity(gitmanager.GitToolIdentityInput{
 		InvocationMode: gitmanager.InvocationModeDirect, InvocationPath: "/usr/bin/git",
 		InvocationPathDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", InvocationDevice: "1",
@@ -118,7 +126,6 @@ func newGitAppFixture(t *testing.T) *gitAppFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := map[string]string{"HOME": f.home}
 	f.deps = GitManagementDependencies{
 		Reader: f.reader, Commands: appArgvBuilder{}, RandomSource: f.random, ObserveFilesystem: gitstore.ObserveFilesystem,
 		IdentifyGit: func(context.Context, gitmanager.EnvironmentProfile) (gitmanager.GitToolIdentity, error) {

@@ -8,23 +8,34 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"ai-dev/internal/gitstore"
 )
 
-func TestInitPlanSubprocess(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		// Plan export needs a production filesystem; Linux temporary
-		// directories are tmpfs, which is correctly refused.
-		t.Skip("plan export acceptance runs on macOS APFS here")
+// productionTempDir returns a fresh temporary directory, skipping the test
+// unless it is on a production filesystem: APFS on macOS, local ext4 on
+// Linux. Linux temporary directories are usually tmpfs, which plan export
+// and apply correctly refuse.
+func productionTempDir(t *testing.T) string {
+	t.Helper()
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
+	if obs, err := gitstore.ObserveFilesystem(base); err != nil || !obs.Local ||
+		obs.FilesystemType != map[string]string{"darwin": "apfs", "linux": "ext4"}[runtime.GOOS] {
+		t.Skip("the temporary directory is not on a production filesystem")
+	}
+	return base
+}
+
+func TestInitPlanSubprocess(t *testing.T) {
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		t.Skip("git not available")
 	}
 	repoRoot, _ := filepath.Abs(filepath.Join("..", ".."))
-	base, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	base := productionTempDir(t)
 	bin := filepath.Join(base, "ai-dev")
 	build := exec.Command("go", "build", "-o", bin, "./cmd/ai-dev")
 	build.Dir = repoRoot

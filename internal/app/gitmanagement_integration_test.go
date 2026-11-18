@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -23,9 +22,6 @@ import (
 // cmd/ai-dev/main.go and injects no executor, so every operation goes
 // through the kernel's permits.
 func newRealEngineFixture(t *testing.T) *gitAppFixture {
-	if runtime.GOOS != "darwin" {
-		t.Skip("apply needs a production filesystem; this acceptance runs on macOS APFS")
-	}
 	path, mode, err := gitprocess.LocateGit(os.Getenv("PATH"))
 	if err != nil {
 		t.Skipf("no usable Git: %v", err)

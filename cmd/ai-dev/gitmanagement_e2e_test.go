@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -20,18 +19,12 @@ import (
 // a reused authorization ID and an authorization of another plan. The
 // interactive assistant on a real terminal is covered by the T106 harness.
 func TestGitManagementPublicCLI(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("apply needs a production filesystem; this acceptance runs on macOS APFS")
-	}
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		t.Skip("git not available")
 	}
+	base := productionTempDir(t)
 	bin := buildWorkflowNextBinary(t)
-	base, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
 	home, project, out := filepath.Join(base, "home"), filepath.Join(base, "project"), filepath.Join(base, "out")
 	for _, dir := range []string{home, project, out} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -170,8 +163,10 @@ func TestGitManagementPublicCLI(t *testing.T) {
 	if strings.Contains(outputs.String(), "E2E-SECRET") {
 		t.Fatal("a command printed the credential")
 	}
-	_ = filepath.WalkDir(filepath.Join(home, "Library"), func(path string, entry fs.DirEntry, err error) error {
-		if err == nil && entry.Type().IsRegular() {
+	// The state root is under HOME on both platforms; the only file there
+	// allowed to hold the credential is the user's own configuration.
+	_ = filepath.WalkDir(home, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && entry.Type().IsRegular() && path != filepath.Join(home, ".gitconfig") {
 			if data, _ := os.ReadFile(path); strings.Contains(string(data), "E2E-SECRET") {
 				t.Errorf("credential in %s", path)
 			}
