@@ -42,19 +42,7 @@ func EncodePlanOutput(result PlanResult, planPath string) ([]byte, error) {
 	if tuples == nil {
 		tuples = []any{}
 	}
-	report := map[string]any{
-		"schema_version":            GitStrategyReportSchema,
-		"project_identity_digest":   string(plan.PreconditionSnapshot.ProjectIdentity.Digest()),
-		"selected_strategy":         string(intent.Strategy),
-		"source":                    "plan",
-		"branch_parameters":         canonicalMap(intent.BranchParameters()),
-		"detected_evidence":         []any{e.gitFlow(plan.PreconditionSnapshot.Observation.GitFlowEvidence)},
-		"compatibility":             "compatible",
-		"pending_dependencies":      canonicalStrings(result.PendingDependencies),
-		"warnings":                  canonicalStrings(result.Warnings),
-		"grants_mutation_authority": false,
-	}
-	optional(report, "git_flow_dialect", string(intent.GitFlowDialect), intent.GitFlowDialect != "")
+	report := e.strategyReport(StrategyReportFromPlan(result))
 	if e.err != nil {
 		return nil, e.err
 	}
@@ -86,4 +74,31 @@ func EncodePlanRejection(rejection *PlanRejection, warnings []string) ([]byte, e
 		"warnings":       canonicalStrings(warnings),
 		"retryable":      false,
 	})
+}
+
+func (e *canonicalEncoder) strategyReport(r GitStrategyReport) map[string]any {
+	report := map[string]any{
+		"schema_version":            GitStrategyReportSchema,
+		"project_identity_digest":   string(r.ProjectIdentityDigest),
+		"selected_strategy":         string(r.SelectedStrategy),
+		"source":                    r.Source,
+		"branch_parameters":         canonicalMap(r.BranchParameters),
+		"detected_evidence":         canonicalList(r.DetectedEvidence, e.gitFlow),
+		"compatibility":             r.Compatibility,
+		"pending_dependencies":      canonicalStrings(r.PendingDependencies),
+		"warnings":                  canonicalStrings(r.Warnings),
+		"grants_mutation_authority": r.GrantsMutationAuthority(),
+	}
+	optional(report, "git_flow_dialect", string(r.GitFlowDialect), r.GitFlowDialect != "")
+	return report
+}
+
+// EncodeStrategyReport renders one GitStrategyReport object.
+func EncodeStrategyReport(r GitStrategyReport) ([]byte, error) {
+	e := &canonicalEncoder{}
+	report := e.strategyReport(r)
+	if e.err != nil {
+		return nil, e.err
+	}
+	return MarshalCanonical(report)
 }

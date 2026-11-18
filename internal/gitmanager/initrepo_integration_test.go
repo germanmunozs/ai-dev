@@ -80,7 +80,7 @@ func (g *realGit) apply(store gitmanager.GitStore, file []byte, digest gitmanage
 		Store: store, Clock: fixedTime(time.Unix(1000, 0).UTC()), Random: rand.Reader, Planner: planner, Tool: g.tool,
 		Environment: g.environment, Inspect: inspect,
 		Executor: gitmanager.NewOperationDispatcher(gitmanager.DispatcherDependencies{
-			Runner: gitprocess.Runner{}, Commands: gitprocess.Builder{}, Inspect: inspect}),
+			Runner: gitprocess.Runner{}, Commands: gitprocess.Builder{}, Inspect: inspect, Random: rand.Reader}),
 	}, gitmanager.ApplyRequest{PlanFile: file, ConfirmPlan: string(digest), AuthorizationID: authorizationID,
 		Issue: &gitmanager.IssueRequest{AuthorizedBy: "operator"}})
 }
@@ -136,12 +136,24 @@ func TestDeterministicInitializationUnderHostileAmbientConfiguration(t *testing.
 	}
 	defer store.Close()
 
-	// The initialization completes and verifies; the project configuration
-	// write is not dispatched yet (T093), so the attempt stops there with
-	// its verified effect and never rolls the repository back.
+	// Initialization and the project configuration write complete and
+	// verify.
 	result := g.apply(store, file, planned.Plan.PlanDigest, initAuthorizationID)
-	if result.Status != gitmanager.ApplyStatusPartiallyApplied || result.Reason != gitmanager.ReasonOperationFailed || result.ExitCode != 1 {
+	if result.Status != gitmanager.ApplyStatusApplied || result.ExitCode != 0 {
 		t.Fatalf("result %+v", result)
+	}
+	config, err := os.ReadFile(filepath.Join(g.project, gitmanager.ProjectConfigPath))
+	if err != nil || !strings.Contains(string(config), `"strategy":"basic"`) {
+		t.Fatalf("project configuration %q %v", config, err)
+	}
+	for _, path := range []string{".ai-dev", gitmanager.ProjectConfigPath} {
+		want := map[string]os.FileMode{".ai-dev": os.ModeDir | 0o755, gitmanager.ProjectConfigPath: 0o644}[path]
+		if info, err := os.Lstat(filepath.Join(g.project, path)); err != nil || info.Mode() != want {
+			t.Fatalf("%s mode %v %v", path, info.Mode(), err)
+		}
+	}
+	if entries, _ := os.ReadDir(filepath.Join(g.project, ".ai-dev")); len(entries) != 1 {
+		t.Fatalf("configuration temporaries remain: %v", entries)
 	}
 	gitDir := filepath.Join(g.project, ".git")
 	if head, err := os.ReadFile(filepath.Join(gitDir, "HEAD")); err != nil || string(head) != "ref: refs/heads/trunk-x\n" {
@@ -156,7 +168,7 @@ func TestDeterministicInitializationUnderHostileAmbientConfiguration(t *testing.
 	// ref format extension.
 	allowed := map[string]bool{"repositoryformatversion": true, "filemode": true, "bare": true, "logallrefupdates": true,
 		"ignorecase": true, "precomposeunicode": true, "symlinks": true}
-	config, err := os.ReadFile(filepath.Join(gitDir, "config"))
+	config, err = os.ReadFile(filepath.Join(gitDir, "config"))
 	if err != nil {
 		t.Fatal(err)
 	}

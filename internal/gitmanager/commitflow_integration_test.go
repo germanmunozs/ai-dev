@@ -229,3 +229,83 @@ func TestInitialCommitSecretInLastFile(t *testing.T) {
 		t.Fatalf("planning created .git: %v", err)
 	}
 }
+
+// T090/T091/T095/AC-011/AC-023/AC-028: in a new project one apply writes the
+// eight AVH keys one by one, creates .ai-dev and writes the configuration,
+// commits it with the approved files, and only then creates develop at the
+// planned commit by a separate CAS. No hooks key is written.
+func TestGitFlowNewProjectWithInitialCommit(t *testing.T) {
+	g := newRealGit(t)
+	if err := os.WriteFile(filepath.Join(g.project, "README.md"), []byte("# flow\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	includes := []string{"README.md"}
+	inspection, err := g.inspectCandidates(context.Background(), gitmanager.CommitCandidates(includes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range inspection.Incompatibilities() {
+		if item.Reason == gitmanager.ReasonFilesystemUnsupported {
+			t.Skip("the temporary directory is not on a production filesystem")
+		}
+	}
+	at := time.Date(2026, 11, 18, 9, 0, 0, 0, time.UTC)
+	identity := gitmanager.GitIdentity{Name: "Grace Hopper", Email: "grace@example.org"}
+	planner := gitmanager.PlannerDependencies{Git: g.reader, Commands: gitprocess.Builder{}, Random: rand.Reader}
+	planned, rejection := gitmanager.Plan(context.Background(), planner, gitmanager.StrategyRequest{
+		Strategy: "git-flow", InitializeRepository: true, GitFlowDialect: "avh",
+		Branches: map[string]string{"production-branch": "main", "development-branch": "develop"},
+		Prefixes: map[string]string{"feature": "feature/", "bugfix": "bugfix/", "release": "release/", "hotfix": "hotfix/", "support": "support/", "version_tag": "v"},
+		InitialCommit: &gitmanager.CommitRequest{MessageBytes: []byte("feat: start the project\n"), Includes: includes,
+			Author: identity, Committer: identity, AuthorDate: at, CommitterDate: at},
+	}, inspection, g.environment, gitmanager.PlanMetadata{PlanID: "plan-flow", GeneratedAt: at})
+	if rejection != nil {
+		t.Fatalf("planning refused: %s: %s", rejection.Reason, rejection.Detail)
+	}
+	if len(planned.PendingDependencies) != 0 {
+		t.Fatalf("pending %v", planned.PendingDependencies)
+	}
+	p := &commitProject{realGit: g, planned: planned}
+	if p.file, err = gitmanager.EncodePlanFile(planned.Plan); err != nil {
+		t.Fatal(err)
+	}
+	result := p.apply(t, p.store(t), "123e4567-e89b-42d3-a456-426614174091")
+	if result.Status != gitmanager.ApplyStatusApplied || result.ExitCode != 0 || !result.DevelopmentBranchCreated {
+		t.Fatalf("result %+v", result)
+	}
+	gitDir := filepath.Join(g.project, ".git")
+	main, _ := os.ReadFile(filepath.Join(gitDir, "refs", "heads", "main"))
+	develop, _ := os.ReadFile(filepath.Join(gitDir, "refs", "heads", "develop"))
+	if len(main) != 41 || string(main) != string(develop) || string(main) != string(result.CommitOID)+"\n" {
+		t.Fatalf("main %q develop %q commit %s", main, develop, result.CommitOID)
+	}
+	config, err := os.ReadFile(filepath.Join(gitDir, "config"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Exactly the eight AVH keys under [gitflow ...] sections, no hooks.
+	var gitflow []string
+	section := ""
+	for _, line := range strings.Split(string(config), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			section = line
+			continue
+		}
+		if strings.Contains(strings.ToLower(line), "hooks") {
+			t.Fatalf("a hooks key was written: %q", line)
+		}
+		if strings.HasPrefix(section, "[gitflow") && line != "" {
+			gitflow = append(gitflow, section+" "+line)
+		}
+	}
+	want := []string{`[gitflow "branch"] master = main`, `[gitflow "branch"] develop = develop`, `[gitflow "prefix"] feature = feature/`,
+		`[gitflow "prefix"] bugfix = bugfix/`, `[gitflow "prefix"] release = release/`, `[gitflow "prefix"] hotfix = hotfix/`,
+		`[gitflow "prefix"] support = support/`, `[gitflow "prefix"] versiontag = v`}
+	if strings.Join(gitflow, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("Git Flow configuration:\n%s", strings.Join(gitflow, "\n"))
+	}
+	if status := p.status(t); status != "" {
+		t.Fatalf("status %q", status)
+	}
+}

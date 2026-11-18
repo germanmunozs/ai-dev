@@ -9,3 +9,11 @@ import "context"
 func (d *OperationDispatcher) installIndex(context.Context, MutationPermit, GitInitializationPlan, DerivedOperation) OperationOutcome {
 	return OperationFailed
 }
+
+func (d *OperationDispatcher) createDirectory(context.Context, MutationPermit, GitInitializationPlan, DerivedOperation) OperationOutcome {
+	return OperationFailed
+}
+
+func (d *OperationDispatcher) writeConfig(context.Context, MutationPermit, GitInitializationPlan, DerivedOperation) OperationOutcome {
+	return OperationFailed
+}

@@ -12,7 +12,8 @@ type DispatcherDependencies struct {
 	// Inspect freshly inspects the project at its physical path, observing
 	// the initial-commit candidates.
 	Inspect func(ctx context.Context, projectPath []byte, candidates [][]byte) (GitInspection, error)
-	// Random names the private prepared-index directory.
+	// Random names the private prepared-index directory and the
+	// configuration temporary.
 	Random RandomSource
 }
 
@@ -88,9 +89,11 @@ func (d *OperationDispatcher) Execute(ctx context.Context, permit MutationPermit
 		return d.createObjects(ctx, permit, plan, operation)
 	case OperationKindPreparedIndex:
 		return d.installIndex(ctx, permit, plan, operation)
+	case OperationKindCreateProjectConfigDirectory:
+		return d.createDirectory(ctx, permit, plan, operation)
+	case OperationKindProjectConfigWrite:
+		return d.writeConfig(ctx, permit, plan, operation)
 	}
-	// Project-configuration writes are dispatched by the story that
-	// implements their filesystem protocol (T093); until then nothing runs.
 	return OperationFailed
 }
 
