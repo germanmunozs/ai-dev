@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"ai-dev/internal/gitmanager"
@@ -14,12 +15,10 @@ import (
 
 const gitPlanUsage = "Usage: ai-dev init plan --project-dir PATH --strategy basic|git-flow|github-flow|trunk-based [options] --output FILE [--format text|json]"
 
-// initialCommitOptions belong to the initial-commit group, which is planned
-// together with its allowlist and preflight (T083–T089); until then they
-// are refused explicitly rather than ignored.
-var initialCommitOptions = []string{
-	"initial-commit", "initial-commit-message-file", "include", "author-name", "author-email", "committer-name",
-	"committer-email", "author-date", "committer-date",
+// commitValueOptions belong to the initial-commit group and are accepted
+// only with --initial-commit.
+var commitValueOptions = []string{
+	"initial-commit-message-file", "author-name", "author-email", "committer-name", "committer-email", "author-date", "committer-date",
 }
 
 // RunGitPlan implements "ai-dev init plan". It inspects, plans and exports
@@ -43,23 +42,26 @@ func RunGitPlan(ctx context.Context, args []string, deps GitManagementDependenci
 	for _, name := range []string{"feature", "bugfix", "release", "hotfix", "support", "version-tag"} {
 		prefixes[name] = flags.String(name+"-prefix", "", "")
 	}
-	for _, name := range initialCommitOptions {
-		flags.String(name, "", "")
+	initialCommit := flags.Bool("initial-commit", false, "")
+	commitValues := map[string]*string{}
+	for _, name := range commitValueOptions {
+		commitValues[name] = flags.String(name, "", "")
 	}
+	var includes repeated
+	flags.Var(&includes, "include", "")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || (*format != "text" && *format != "json") {
 		fmt.Fprintln(stderr, gitPlanUsage)
 		return 2
 	}
 	given := map[string]bool{}
 	flags.Visit(func(f *flag.Flag) { given[f.Name] = true })
-	for _, name := range initialCommitOptions {
-		if given[name] {
-			fmt.Fprintf(stderr, "ai-dev: init plan: --%s is not available yet: the initial-commit group is planned with its allowlist and preflight\n", name)
-			return 2
-		}
-	}
 	if *output == "" {
 		fmt.Fprintln(stderr, gitPlanUsage)
+		return 2
+	}
+	commit, usage := commitRequest(*initialCommit, given, commitValues, includes)
+	if usage != "" {
+		fmt.Fprintf(stderr, "ai-dev: init plan: %s\n", usage)
 		return 2
 	}
 	refuse := func(rejection *gitmanager.PlanRejection, warnings []string) int {
@@ -72,7 +74,7 @@ func RunGitPlan(ctx context.Context, args []string, deps GitManagementDependenci
 
 	req := gitmanager.StrategyRequest{
 		Strategy: *strategy, InitializeRepository: *initialize, GitFlowDialect: *dialect, DevelopmentBaseOID: *base,
-		Branches: map[string]string{}, Prefixes: map[string]string{},
+		Branches: map[string]string{}, Prefixes: map[string]string{}, InitialCommit: commit,
 	}
 	for name, value := range branches {
 		if given[name] {
@@ -92,7 +94,11 @@ func RunGitPlan(ctx context.Context, args []string, deps GitManagementDependenci
 		fmt.Fprintln(stderr, "ai-dev: init plan: Git planning is unavailable in this build")
 		return 1
 	}
-	inspection, environment, err := inspectWithEnvironment(ctx, deps, *projectDir)
+	var candidates [][]byte
+	if commit != nil {
+		candidates = gitmanager.CommitCandidates(commit.Includes)
+	}
+	inspection, environment, err := inspectWithEnvironment(ctx, deps, *projectDir, candidates)
 	if err != nil {
 		var inspectErr *gitmanager.InspectError
 		if errors.As(err, &inspectErr) {
@@ -142,4 +148,59 @@ func RunGitPlan(ctx context.Context, args []string, deps GitManagementDependenci
 		return 2
 	}
 	return 0
+}
+
+// commitRequest assembles the explicit initial-commit request. Every value
+// is the operator's: the message is the exact bytes of its file, and
+// identities and dates are never read from Git configuration. Commit
+// options without --initial-commit, a missing message file, an unreadable
+// message or a malformed date are usage errors; empty identities are left
+// to the domain, which refuses them as identity_invalid.
+func commitRequest(requested bool, given map[string]bool, values map[string]*string, includes []string) (*gitmanager.CommitRequest, string) {
+	if !requested {
+		for _, name := range append([]string{"include"}, commitValueOptions...) {
+			if given[name] {
+				return nil, "--" + name + " is only accepted with --initial-commit"
+			}
+		}
+		return nil, ""
+	}
+	path := *values["initial-commit-message-file"]
+	if path == "" {
+		return nil, "--initial-commit needs --initial-commit-message-file"
+	}
+	message, err := readBoundedFile(path, gitmanager.LimitCommitMessageBytes.Max()+1)
+	if err != nil {
+		return nil, "the commit message file cannot be read"
+	}
+	request := &gitmanager.CommitRequest{
+		MessageBytes: message, Includes: append([]string(nil), includes...),
+		Author:    gitmanager.GitIdentity{Name: *values["author-name"], Email: *values["author-email"]},
+		Committer: gitmanager.GitIdentity{Name: *values["committer-name"], Email: *values["committer-email"]},
+	}
+	for name, target := range map[string]*time.Time{"author-date": &request.AuthorDate, "committer-date": &request.CommitterDate} {
+		if *values[name] == "" {
+			continue
+		}
+		at, err := time.Parse(time.RFC3339, *values[name])
+		if err != nil {
+			return nil, "--" + name + " must be RFC 3339"
+		}
+		*target = at
+	}
+	return request, ""
+}
+
+// readBoundedFile reads at most limit bytes of a regular file.
+func readBoundedFile(path string, limit int64) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("not a regular file")
+	}
+	return io.ReadAll(io.LimitReader(file, limit))
 }

@@ -138,4 +138,64 @@ func TestInitPlanSubprocess(t *testing.T) {
 	if entries, _ := os.ReadDir(project); len(entries) != 0 {
 		t.Fatal("planning created files in the project")
 	}
+
+	// The initial-commit group: explicit message, identities, dates and
+	// literal includes; the text plan shows every exact approval argument.
+	commitProject := filepath.Join(base, "commit-project")
+	if err := os.MkdirAll(commitProject, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{"README.md": "# p\n", ".gitignore": "*.log\n", "trace.log": "x\n",
+		"key.pem": "-----BEGIN " + "EC PRIVATE KEY-----\nAAAA\n"} {
+		if err := os.WriteFile(filepath.Join(commitProject, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	message := filepath.Join(out, "message.txt")
+	if err := os.WriteFile(message, []byte("chore: initial commit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commitBefore := treeDigest(t, commitProject)
+	commit := func(extra ...string) []string {
+		return append([]string{"--project-dir", commitProject, "--strategy", "basic", "--initialize-repository", "--initial-branch", "main",
+			"--initial-commit", "--initial-commit-message-file", message, "--author-name", "Ada", "--author-email", "ada@example.org",
+			"--committer-name", "Ada", "--committer-email", "ada@example.org", "--author-date", "2026-11-18T10:30:00+02:00",
+			"--committer-date", "2026-11-18T10:30:00+02:00"}, extra...)
+	}
+	text, stderr, code = run(commit("--include", "README.md", "--include", ".gitignore", "--include", "trace.log", "--output", filepath.Join(out, "commit.json"))...)
+	if code != 0 || !strings.Contains(text, "commit:         ") || !strings.Contains(text, "initial ref:    refs/heads/main") ||
+		!strings.Contains(text, "author:         Ada <ada@example.org> 2026-11-18T10:30:00+02:00\n") ||
+		!strings.Contains(text, "message:        | chore: initial commit\n") ||
+		!strings.Contains(text, "approve:        --approve-file 'README.md|100644|sha256:") ||
+		!strings.Contains(text, "approve:        --approve-file '.ai-dev/config.json|100644|sha256:") ||
+		!strings.Contains(text, "approve:        --approve-ignored-file 'trace.log|100644|sha256:") ||
+		!strings.Contains(text, "screening:      secret screening detects known high-risk patterns only") {
+		t.Fatalf("commit plan exit %d:\n%s%s", code, text, stderr)
+	}
+	stdout, _, code = run(commit("--include", "README.md", "--include", "key.pem", "--output", filepath.Join(out, "secret.json"), "--format", "json")...)
+	var refusal struct {
+		Reason   string `json:"reason"`
+		Findings []struct {
+			Category string `json:"category"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &refusal); err != nil || code != 1 || refusal.Reason != "sensitive_content_suspected" ||
+		len(refusal.Findings) != 1 || refusal.Findings[0].Category != "private_key" || strings.Contains(stdout, "AAAA") {
+		t.Fatalf("secret refusal exit %d: %s", code, stdout)
+	}
+	if _, _, code := run(append(commit("--output", filepath.Join(out, "anon.json")), "--author-name", "")...); code != 1 {
+		t.Errorf("empty author name exit %d, want 1", code)
+	}
+	for _, args := range [][]string{
+		{"--project-dir", commitProject, "--strategy", "basic", "--initialize-repository", "--initial-branch", "main", "--include", "README.md", "--output", filepath.Join(out, "h.json")},
+		{"--project-dir", commitProject, "--strategy", "basic", "--initialize-repository", "--initial-branch", "main", "--initial-commit", "--output", filepath.Join(out, "i.json")},
+		append(commit("--output", filepath.Join(out, "j.json")), "--author-date", "yesterday"),
+	} {
+		if _, _, code := run(args...); code != 2 {
+			t.Errorf("%v exit %d, want 2", args, code)
+		}
+	}
+	if treeDigest(t, commitProject) != commitBefore {
+		t.Fatal("commit planning changed the project")
+	}
 }

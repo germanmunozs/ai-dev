@@ -34,7 +34,7 @@ func newDispatcherFixture(t *testing.T, req StrategyRequest) *dispatcherFixture 
 	f := &dispatcherFixture{planFixture: newPlanFixture(t), runner: &scriptedRunner{}}
 	f.plan = mustPlan(t, f.planFixture, req).Plan
 	f.d = NewOperationDispatcher(DispatcherDependencies{Runner: f.runner, Commands: f.planFixture.deps.Commands,
-		Inspect: func(context.Context, []byte) (GitInspection, error) { return f.inspect(), nil }})
+		Inspect: func(context.Context, []byte, [][]byte) (GitInspection, error) { return f.inspect(), nil }})
 	return f
 }
 
@@ -42,7 +42,16 @@ func newDispatcherFixture(t *testing.T, req StrategyRequest) *dispatcherFixture 
 // whose authorization was issued for plan.
 func plannedPermit(t *testing.T, plan GitInitializationPlan, op OperationID) MutationPermit {
 	t.Helper()
-	authorization, rejection := newAuthorization(IssueRequest{AuthorizationID: issuedID, AuthorizedBy: "op"}, plan, time.Unix(1000, 0))
+	issue := IssueRequest{AuthorizationID: issuedID, AuthorizedBy: "op", ConfirmInitialCommit: plan.ImmutableIntent.InitialCommit}
+	for _, file := range plan.ImmutableIntent.AuthorizedFiles() {
+		tuple := file.PathUTF8 + "|" + file.Mode + "|" + string(file.ContentSHA256) + "|blob:" + string(file.BlobOID)
+		if file.Ignored {
+			issue.IgnoredApprovals = append(issue.IgnoredApprovals, tuple)
+		} else {
+			issue.Approvals = append(issue.Approvals, tuple)
+		}
+	}
+	authorization, rejection := newAuthorization(issue, plan, time.Unix(1000, 0))
 	if rejection != nil {
 		t.Fatalf("authorization: %s", rejection.Detail)
 	}
@@ -181,7 +190,7 @@ func TestDispatcherRevalidation(t *testing.T) {
 	if rejection := f.d.Revalidate(context.Background(), f.plan, init); rejection == nil || rejection.Reason != ReasonConcurrentChange {
 		t.Fatalf("revalidation after .git appeared: %+v", rejection)
 	}
-	failing := NewOperationDispatcher(DispatcherDependencies{Inspect: func(context.Context, []byte) (GitInspection, error) {
+	failing := NewOperationDispatcher(DispatcherDependencies{Inspect: func(context.Context, []byte, [][]byte) (GitInspection, error) {
 		return GitInspection{}, errors.New("unreadable")
 	}})
 	if failing.Revalidate(context.Background(), f.plan, init) == nil {

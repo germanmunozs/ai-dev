@@ -12,6 +12,10 @@ import (
 // planned postconditions. The production executor is the
 // OperationDispatcher (T076).
 type OperationExecutor interface {
+	// Preflight is the initial-commit global preflight (F008-FR-191 Phase
+	// 1), run before the claim and the first mutation; it is a no-op for a
+	// plan without the group.
+	Preflight(ctx context.Context, plan GitInitializationPlan) *PlanRejection
 	Revalidate(ctx context.Context, plan GitInitializationPlan, operation DerivedOperation) *PlanRejection
 	Execute(ctx context.Context, permit MutationPermit, plan GitInitializationPlan, operation DerivedOperation) OperationOutcome
 	Verify(ctx context.Context, plan GitInitializationPlan) ApplyEvidence
@@ -43,8 +47,9 @@ type ApplyDependencies struct {
 	Planner     PlannerDependencies
 	Tool        GitToolIdentity
 	Environment EnvironmentProfile
-	// Inspect freshly inspects the project at the path the plan declares.
-	Inspect  func(ctx context.Context, projectPath []byte) (GitInspection, error)
+	// Inspect freshly inspects the project at the path the plan declares,
+	// observing the initial-commit candidates the intent names.
+	Inspect  func(ctx context.Context, projectPath []byte, candidates [][]byte) (GitInspection, error)
 	Executor OperationExecutor
 	// ProveNoEffects, when set, proves an orphaned claim produced nothing.
 	ProveNoEffects func(context.Context) error
@@ -99,7 +104,7 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 	if req.ConfirmPlan != string(file.PlanDigest) {
 		return refuse(file.PlanID, nil, reject(ReasonAuthorizationMismatch, "--confirm-plan does not name this plan"), false)
 	}
-	inspection, err := deps.Inspect(ctx, file.ProjectPath)
+	inspection, err := deps.Inspect(ctx, file.ProjectPath, intentCandidates(file.Intent))
 	if err != nil {
 		var inspectErr *InspectError
 		if errors.As(err, &inspectErr) {
@@ -139,6 +144,9 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 		return refuse(plan.PlanID, &authorization, reject(assessment.refusal, "the authorization is %s", authorization.State), assessment.unresolved)
 	}
 	if rejection := checkScope(authorization, plan); rejection != nil {
+		return refuse(plan.PlanID, &authorization, rejection, false)
+	}
+	if rejection := deps.Executor.Preflight(ctx, plan); rejection != nil {
 		return refuse(plan.PlanID, &authorization, rejection, false)
 	}
 	operations := plan.DerivedOperations()
@@ -197,6 +205,27 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 		EffectsUnverifiable: evidence.EffectsUnverifiable, VerifiedEffects: evidence.VerifiedEffects,
 		AfterSnapshotDigest: evidence.AfterSnapshotDigest,
 	}
+	// The result names the commit, index tree and development branch only
+	// as far as their effects were verified.
+	verified := map[Condition]bool{}
+	for _, effect := range evidence.VerifiedEffects {
+		verified[effect] = true
+	}
+	for _, operation := range operations {
+		for _, effect := range operation.ExpectedEffects() {
+			if !verified[effect] {
+				continue
+			}
+			switch {
+			case operation.Kind == OperationKindInitialRefCAS:
+				closure.CommitOID = ObjectOID(effect.Expected)
+			case effect.Kind == ConditionIndexTree:
+				closure.IndexTreeOID = ObjectOID(effect.Expected)
+			case operation.Kind == OperationKindDevelopmentRefCAS:
+				closure.DevelopmentBranchCreated = true
+			}
+		}
+	}
 	if primary == "" && evidence.VerifiedComplete && developmentPending(plan) {
 		closure.PrimaryReason = ReasonDevelopmentBranchPendingInitialHistory
 	}
@@ -207,7 +236,7 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 // deferred for lack of history (F008-FR-044–045).
 func developmentPending(plan GitInitializationPlan) bool {
 	intent := plan.ImmutableIntent
-	if intent.Strategy != StrategyGitFlow || !intent.DevelopmentBase.IsZero() {
+	if intent.Strategy != StrategyGitFlow || !intent.DevelopmentBase.IsZero() || intent.InitialCommit {
 		return false
 	}
 	development := "refs/heads/" + intent.BranchParameters()[BranchDevelopment]

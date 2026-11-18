@@ -57,6 +57,15 @@ func (p MutationPermit) authorizesPlanned(plan GitInitializationPlan, operation 
 	return nil
 }
 
+// own registers a resource the permitted operation created and owns, for
+// the planned, audited release at closure (F008-FR-169, 184).
+func (p MutationPermit) own(operation DerivedOperation, role ResourceRole, release func(context.Context) error) error {
+	if p.session == nil || p.authorizes(p.authorizationID, operation.OperationID) != nil {
+		return errMutationNotPermitted
+	}
+	return p.session.addResource(ownedRelease{Role: role, Operation: operation.OperationID, Ordinal: operation.Ordinal, Release: release})
+}
+
 // safetyKernel is the durable safety kernel every Git mutation goes through
 // (T024-T035). Later mutation code consumes it and never reimplements it.
 type safetyKernel struct {

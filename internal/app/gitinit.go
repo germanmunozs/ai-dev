@@ -63,13 +63,14 @@ func RunGitInit(ctx context.Context, args []string, deps GitManagementDependenci
 // the toolchain is identified once, and the in-process evaluators read the
 // user's real HOME and XDG configuration.
 func inspectProject(ctx context.Context, deps GitManagementDependencies, projectDir string) (gitmanager.GitInspection, error) {
-	inspection, _, err := inspectWithEnvironment(ctx, deps, projectDir)
+	inspection, _, err := inspectWithEnvironment(ctx, deps, projectDir, nil)
 	return inspection, err
 }
 
-// inspectWithEnvironment inspects and also returns the private Git
-// environment profile the inspection used.
-func inspectWithEnvironment(ctx context.Context, deps GitManagementDependencies, projectDir string) (gitmanager.GitInspection, gitmanager.EnvironmentProfile, error) {
+// inspectWithEnvironment inspects, observing any initial-commit
+// candidates, and also returns the private Git environment profile the
+// inspection used.
+func inspectWithEnvironment(ctx context.Context, deps GitManagementDependencies, projectDir string, candidates [][]byte) (gitmanager.GitInspection, gitmanager.EnvironmentProfile, error) {
 	fail := func(err error) (gitmanager.GitInspection, gitmanager.EnvironmentProfile, error) {
 		return gitmanager.GitInspection{}, gitmanager.EnvironmentProfile{}, err
 	}
@@ -115,7 +116,7 @@ func inspectWithEnvironment(ctx context.Context, deps GitManagementDependencies,
 	inspection, err := gitmanager.Inspect(ctx, gitmanager.InspectorDependencies{Git: deps.Reader, ObserveFilesystem: deps.ObserveFilesystem},
 		gitmanager.InspectRequest{
 			ProjectDir: projectDir, WorkingDir: workingDir, Tool: tool, Environment: environment, User: user,
-			InspectionID: id, InspectedAt: now().UTC().Truncate(time.Second),
+			InspectionID: id, InspectedAt: now().UTC().Truncate(time.Second), Candidates: candidates,
 		})
 	return inspection, environment, err
 }

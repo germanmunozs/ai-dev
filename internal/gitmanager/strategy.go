@@ -39,6 +39,9 @@ type StrategyRequest struct {
 	Prefixes           map[string]string
 	GitFlowDialect     string
 	DevelopmentBaseOID string
+	// InitialCommit requests the optional initial-commit group; nil plans
+	// none.
+	InitialCommit *CommitRequest
 }
 
 // PlanRejection is a planning refusal with one closed reason.

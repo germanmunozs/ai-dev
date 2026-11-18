@@ -1,6 +1,4 @@
 // Package conventionalcommit provides Git-independent Conventional Commits
-// validation.
-//
-// The package is intentionally empty until the validator work authorized by a
-// later Feature 008 phase is implemented.
+// 1.0.0 validation. It imports only the standard library and never touches
+// Git, a repository or a strategy.
 package conventionalcommit

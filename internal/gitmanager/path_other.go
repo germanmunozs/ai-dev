@@ -41,3 +41,7 @@ var errUnsupportedPlatform = inspectFailure(ReasonPlatformUnsupported, "platform
 func WritePlanOutput(PlanOutputRequest, []byte) (string, *PlanRejection) {
 	return "", reject(ReasonPlatformUnsupported, "plan output requires macOS or Linux")
 }
+
+func readLiteralFile([]byte, string, int64) (FileContent, error) {
+	return FileContent{}, errUnsupportedPlatform
+}

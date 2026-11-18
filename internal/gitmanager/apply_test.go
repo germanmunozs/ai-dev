@@ -22,6 +22,8 @@ type fakeExecutor struct {
 	revalidated  int
 }
 
+func (e *fakeExecutor) Preflight(context.Context, GitInitializationPlan) *PlanRejection { return nil }
+
 func (e *fakeExecutor) Revalidate(_ context.Context, _ GitInitializationPlan, operation DerivedOperation) *PlanRejection {
 	e.revalidated++
 	return e.revalidation[int(operation.Ordinal)]
@@ -69,7 +71,7 @@ func (f *applyFixture) deps() ApplyDependencies {
 	return ApplyDependencies{
 		Store: f.store, Clock: fixedClock{f.now}, Random: rand.Reader, Planner: f.planFixture.deps, Tool: f.request.Tool,
 		Environment: validEnvironmentProfile(), Executor: f.executor,
-		Inspect: func(context.Context, []byte) (GitInspection, error) { return f.inspect(), nil },
+		Inspect: func(context.Context, []byte, [][]byte) (GitInspection, error) { return f.inspect(), nil },
 	}
 }
 

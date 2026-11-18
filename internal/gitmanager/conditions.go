@@ -1,8 +1,15 @@
 package gitmanager
 
 import (
+	"bytes"
+	"compress/zlib"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"os"
+	"strconv"
 	"strings"
 )
 
@@ -101,13 +108,17 @@ func evaluateCondition(c Condition, inspection GitInspection) conditionResult {
 			return known(octalMode(observed.Identity.Mode) == c.Expected)
 		}
 	case ConditionIndexAbsent, ConditionIndexEmpty:
-		if !normal || o.Index.Presence == IndexUnreadable {
+		// Read directly: once HEAD has a commit, status reports an absent
+		// or empty index as staged deletions, which the observation does
+		// not reconcile.
+		if !normal {
 			return conditionUnverifiable
 		}
-		if c.Kind == ConditionIndexAbsent {
-			return known(o.Index.Presence == IndexAbsent)
+		data, present, ok := readVerificationFile(string(o.GitDir.Bytes()) + "/index")
+		if !ok {
+			return conditionUnverifiable
 		}
-		return known(o.Index.Presence == IndexPresent && o.Index.EntryCountDecimal == "0")
+		return known(normalIndexUnchanged(data, present, c.Kind == ConditionIndexAbsent))
 	case ConditionLockFileAbsent:
 		if !normal || o.Index.LockState == LockFileUnobservable {
 			return conditionUnverifiable
@@ -136,11 +147,116 @@ func evaluateCondition(c Condition, inspection GitInspection) conditionResult {
 			return conditionUnverifiable
 		}
 		return known(last.ValueRedacted == c.Expected)
+	case ConditionObjectType:
+		if absent {
+			return conditionFails
+		}
+		if !normal {
+			return conditionUnverifiable
+		}
+		return looseObjectType(string(o.CommonDir.Bytes()), ObjectOID(c.Subject), o.ObjectFormat, c.Expected)
+	case ConditionIndexTree:
+		if absent {
+			return conditionFails
+		}
+		if !normal {
+			return conditionUnverifiable
+		}
+		data, present, ok := readVerificationFile(string(o.GitDir.Bytes()) + "/index")
+		if !ok {
+			return conditionUnverifiable
+		}
+		return known(present && indexHoldsTree(data, o.ObjectFormat, ObjectOID(c.Expected)))
+	case ConditionPathStatusClean:
+		path, ok := decodedSubject(c)
+		if !ok || !normal || (o.WorktreeObservationState != ObservationObserved && o.WorktreeObservationState != ObservationObservedEmpty) ||
+			o.Index.Presence == IndexUnreadable {
+			return conditionUnverifiable
+		}
+		for _, change := range o.Index.Changes() {
+			if string(change.Path.Bytes()) == path {
+				return conditionFails
+			}
+		}
+		for _, change := range o.WorktreeChanges() {
+			if strings.TrimSuffix(string(change.Path.Bytes()), "/") == path {
+				return conditionFails
+			}
+		}
+		return known(o.Index.Presence == IndexPresent)
 	}
-	// Object types, index trees and per-path status are not observed by
-	// the inspection; the stories that plan them add their evidence.
 	return conditionUnverifiable
 }
+
+// normalIndexUnchanged is step 5: the normal index still matches the
+// authorized empty state, absent or an index without entries.
+func normalIndexUnchanged(data []byte, present, absent bool) bool {
+	if absent {
+		return !present
+	}
+	return present && len(data) >= 12 && string(data[:4]) == "DIRC" && binary.BigEndian.Uint32(data[8:12]) == 0
+}
+
+// maxObjectBytes bounds a verified loose object: the largest authorized
+// file plus its header.
+const maxObjectBytes = 64<<20 + 64
+
+// looseObjectType verifies one object in process from its loose file: the
+// inflated bytes must hash to the OID and carry the expected type. An
+// object that is not loose is unverifiable when packs exist, since only a
+// loose object can have been written by this attempt's plumbing.
+func looseObjectType(commonDir string, oid ObjectOID, format ObjectFormat, want string) conditionResult {
+	if !strings.HasPrefix(commonDir, "/") || oid.ValidateFor(format) != nil {
+		return conditionUnverifiable
+	}
+	data, present, ok := readVerificationFile(commonDir + "/objects/" + string(oid[:2]) + "/" + string(oid[2:]))
+	switch {
+	case !ok:
+		return conditionUnverifiable
+	case !present:
+		if packs, err := os.ReadDir(commonDir + "/objects/pack"); err == nil && len(packs) == 0 || errors.Is(err, fs.ErrNotExist) {
+			return conditionFails
+		}
+		return conditionUnverifiable
+	}
+	reader, err := zlib.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return conditionUnverifiable
+	}
+	raw, err := io.ReadAll(io.LimitReader(reader, maxObjectBytes+1))
+	if err != nil || len(raw) > maxObjectBytes {
+		return conditionUnverifiable
+	}
+	header, content, found := bytes.Cut(raw, []byte{0})
+	kind, size, _ := strings.Cut(string(header), " ")
+	if !found || size != strconv.Itoa(len(content)) || objectOID(format, kind, content) != oid {
+		return conditionUnverifiable
+	}
+	if kind == want {
+		return conditionHolds
+	}
+	return conditionFails
+}
+
+// readVerificationFile reads one regular file inside the Git directory, without
+// following a final symlink. present is false only for a proven absence.
+func readVerificationFile(path string) (data []byte, present, ok bool) {
+	info, err := os.Lstat(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil, false, true
+	case err != nil || !info.Mode().IsRegular() || info.Size() > maxIndexReadBytes:
+		return nil, false, false
+	}
+	data, err = os.ReadFile(path)
+	if err != nil || int64(len(data)) != info.Size() {
+		return nil, false, false
+	}
+	return data, true, true
+}
+
+// maxIndexReadBytes bounds a file read for verification.
+const maxIndexReadBytes = 128 << 20
 
 func orUnverifiable(ok bool, result conditionResult) conditionResult {
 	if !ok {

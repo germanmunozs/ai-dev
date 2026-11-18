@@ -9,8 +9,11 @@ import (
 type DispatcherDependencies struct {
 	Runner   GitRunner
 	Commands GitCommandBuilder
-	// Inspect freshly inspects the project at its physical path.
-	Inspect func(ctx context.Context, projectPath []byte) (GitInspection, error)
+	// Inspect freshly inspects the project at its physical path, observing
+	// the initial-commit candidates.
+	Inspect func(ctx context.Context, projectPath []byte, candidates [][]byte) (GitInspection, error)
+	// Random names the private prepared-index directory.
+	Random RandomSource
 }
 
 // OperationDispatcher is the production OperationExecutor (T076). It runs
@@ -32,7 +35,15 @@ func (d *OperationDispatcher) inspect(ctx context.Context, plan GitInitializatio
 	if d.deps.Inspect == nil {
 		return GitInspection{}, fmt.Errorf("no inspector")
 	}
-	return d.deps.Inspect(ctx, plan.PreconditionSnapshot.ProjectIdentity.ReversiblePathBytes())
+	return d.deps.Inspect(ctx, plan.PreconditionSnapshot.ProjectIdentity.ReversiblePathBytes(), intentCandidates(plan.ImmutableIntent))
+}
+
+// Preflight runs Phase 1 of the initial-commit procedure over every
+// approved file and the in-memory project configuration before anything
+// is claimed or mutated (F008-FR-085, 191).
+func (d *OperationDispatcher) Preflight(_ context.Context, plan GitInitializationPlan) *PlanRejection {
+	_, rejection := approvedBytes(plan, false)
+	return rejection
 }
 
 // Revalidate checks the operation's complete precondition set against a
@@ -64,23 +75,43 @@ func (d *OperationDispatcher) Execute(ctx context.Context, permit MutationPermit
 	case OperationKindVerification:
 		// The preconditions it verifies were just revalidated.
 		return OperationCompleted
-	case OperationKindRepositoryInit, OperationKindGitConfigWrite, OperationKindDevelopmentRefCAS:
+	case OperationKindRepositoryInit, OperationKindGitConfigWrite, OperationKindDevelopmentRefCAS, OperationKindInitialRefCAS:
 		invocation, ok := d.invocation(plan, operation)
-		if !ok || d.deps.Runner == nil || permit.authorizesPlanned(plan, operation) != nil {
+		if !ok {
 			return OperationFailed
 		}
-		result, err := d.deps.Runner.Run(ctx, invocation)
-		switch {
-		case err != nil:
-			return OperationIndeterminate
-		case result.ExitCode != 0:
-			return OperationFailed
+		if outcome, ran := d.run(ctx, permit, plan, operation, invocation, ""); !ran {
+			return outcome
 		}
 		return d.postconditions(ctx, plan, operation)
+	case OperationKindInitialCommit:
+		return d.createObjects(ctx, permit, plan, operation)
+	case OperationKindPreparedIndex:
+		return d.installIndex(ctx, permit, plan, operation)
 	}
 	// Project-configuration writes are dispatched by the story that
 	// implements their filesystem protocol (T093); until then nothing runs.
 	return OperationFailed
+}
+
+// run executes one rebuilt invocation under a permit rechecked just before
+// it. When want is set, Git's output must be exactly that OID. ran is
+// false when the outcome is already decided.
+func (d *OperationDispatcher) run(ctx context.Context, permit MutationPermit, plan GitInitializationPlan, operation DerivedOperation,
+	invocation GitInvocation, want ObjectOID) (outcome OperationOutcome, ran bool) {
+	if d.deps.Runner == nil || permit.authorizesPlanned(plan, operation) != nil {
+		return OperationFailed, false
+	}
+	result, err := d.deps.Runner.Run(ctx, invocation)
+	switch {
+	case err != nil:
+		return OperationIndeterminate, false
+	case result.ExitCode != 0:
+		return OperationFailed, false
+	case want != "" && string(result.Stdout) != string(want)+"\n":
+		return OperationFailed, false
+	}
+	return "", true
 }
 
 // planned reports whether operation is, byte for byte, an operation of the
@@ -114,11 +145,26 @@ func (d *OperationDispatcher) invocation(plan GitInitializationPlan, operation D
 		}
 		command = GitCommand{Kind: GitCommandConfigWrite, ConfigKey: keys[0], ConfigValue: effects[0].Expected}
 	case OperationKindDevelopmentRefCAS:
-		if intent.DevelopmentBase.IsZero() {
+		target := intent.DevelopmentBase.BaseOID
+		if intent.InitialCommit {
+			objects, err := planCommit(intent)
+			if err != nil {
+				return GitInvocation{}, false
+			}
+			target = objects.commit.oid
+		}
+		if target == "" {
 			return GitInvocation{}, false
 		}
 		ref := "refs/heads/" + intent.BranchParameters()[BranchDevelopment]
-		command = GitCommand{Kind: GitCommandUpdateRef, RefName: []byte(ref), ObjectOID: intent.DevelopmentBase.BaseOID}
+		command = GitCommand{Kind: GitCommandUpdateRef, RefName: []byte(ref), ObjectOID: target}
+	case OperationKindInitialRefCAS:
+		ref, rejection := initialCommitRef(intent.Strategy, intent.BranchParameters(), snapshot.Observation)
+		objects, err := planCommit(intent)
+		if rejection != nil || err != nil {
+			return GitInvocation{}, false
+		}
+		command = GitCommand{Kind: GitCommandUpdateRef, RefName: []byte(ref), ObjectOID: objects.commit.oid}
 	default:
 		return GitInvocation{}, false
 	}
@@ -127,6 +173,50 @@ func (d *OperationDispatcher) invocation(plan GitInitializationPlan, operation D
 		return GitInvocation{}, false
 	}
 	return invocation, true
+}
+
+// createObjects is the object phase of the initial-commit group
+// (F008-FR-110–111, 191 Phase 2 steps 1–4). The second barrier rereads
+// every approved file immediately before the first blob, so a difference
+// stops with zero blobs; then each blob, each tree and the commit is
+// written from the approved bytes and Git's OID must equal the planned
+// one. Objects already written stay: unreachable objects are an accepted
+// risk, never cleaned up.
+func (d *OperationDispatcher) createObjects(ctx context.Context, permit MutationPermit, plan GitInitializationPlan, operation DerivedOperation) OperationOutcome {
+	intent, snapshot := plan.ImmutableIntent, plan.PreconditionSnapshot
+	objects, err := planCommit(intent)
+	if err != nil {
+		return OperationFailed
+	}
+	commit, rejection := buildCommand(d.deps.Commands, intent, snapshot, commitTreeCommand(intent, objects.rootTree()))
+	if rejection != nil || !equalLists(commit.Args, operation.ExactArgv()) || contentDigest(commit.Stdin) != operation.StdinDigest {
+		return OperationFailed
+	}
+	approved, rejection := approvedBytes(plan, true)
+	if rejection != nil {
+		return OperationFailed
+	}
+	write := func(command GitCommand, want ObjectOID) (OperationOutcome, bool) {
+		invocation, rejection := buildCommand(d.deps.Commands, intent, snapshot, command)
+		if rejection != nil {
+			return OperationFailed, false
+		}
+		return d.run(ctx, permit, plan, operation, invocation, want)
+	}
+	for _, file := range objects.blobs {
+		if outcome, ok := write(GitCommand{Kind: GitCommandHashBlob, Stdin: approved[file.PathUTF8]}, ObjectOID(file.BlobOID)); !ok {
+			return outcome
+		}
+	}
+	for _, tree := range objects.trees {
+		if outcome, ok := write(GitCommand{Kind: GitCommandHashTree, Stdin: tree.content}, tree.oid); !ok {
+			return outcome
+		}
+	}
+	if outcome, ok := d.run(ctx, permit, plan, operation, commit, objects.commit.oid); !ok {
+		return outcome
+	}
+	return d.postconditions(ctx, plan, operation)
 }
 
 // postconditions inspects the operation's complete expected postconditions

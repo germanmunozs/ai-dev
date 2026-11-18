@@ -359,9 +359,13 @@ type GitReader interface {
 type GitCommandKind string
 
 const (
-	GitCommandInit        GitCommandKind = "init"
-	GitCommandConfigWrite GitCommandKind = "config_write_local"
-	GitCommandUpdateRef   GitCommandKind = "update_ref"
+	GitCommandInit          GitCommandKind = "init"
+	GitCommandConfigWrite   GitCommandKind = "config_write_local"
+	GitCommandUpdateRef     GitCommandKind = "update_ref"
+	GitCommandHashBlob      GitCommandKind = "hash_blob"
+	GitCommandHashTree      GitCommandKind = "hash_tree"
+	GitCommandCommitTree    GitCommandKind = "commit_tree"
+	GitCommandPreparedIndex GitCommandKind = "prepared_index"
 )
 
 // GitCommand is one mutating row with its typed parameters. Building it
@@ -379,6 +383,16 @@ type GitCommand struct {
 	ExpectedOldOID ObjectOID
 	ConfigKey      string
 	ConfigValue    string
+	TreeOID        ObjectOID
+	// IndexFile is the private external prepared index; it reaches only
+	// the environment, never the argv.
+	IndexFile     []byte
+	Author        GitIdentity
+	Committer     GitIdentity
+	AuthorDate    time.Time
+	CommitterDate time.Time
+	// Stdin is the exact object content or message bytes of an object row.
+	Stdin []byte
 }
 
 // GitCommandBuilder builds the exact invocation of one mutating row from

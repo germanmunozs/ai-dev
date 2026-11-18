@@ -20,7 +20,7 @@ type Store struct {
 }
 
 // Open creates or validates the private state layout: the root and its
-// attempts, environment, locks and projects directories are mode 0700 and owned by
+// attempts, environment, locks, prepared and projects directories are mode 0700 and owned by
 // this user, and both environment leaves are absent.
 func Open(stateRoot gitmanager.ObservedPath) (*Store, error) {
 	refuse := func(detail string) (*Store, error) {
@@ -43,7 +43,7 @@ func Open(stateRoot gitmanager.ObservedPath) (*Store, error) {
 	if err != nil {
 		return refuse("open state root: " + err.Error())
 	}
-	for _, dir := range []string{"attempts", "environment", "locks", "projects"} {
+	for _, dir := range []string{"attempts", "environment", "locks", "prepared", "projects"} {
 		if err := ensurePrivateDirectory(root, dir); err != nil {
 			root.Close()
 			return nil, asAuditUnavailable(err)

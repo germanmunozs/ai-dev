@@ -47,7 +47,7 @@ func Plan(ctx context.Context, deps PlannerDependencies, req StrategyRequest, in
 		}
 		projectID = id
 	}
-	intent, rejection := buildIntent(decision, inspection, projectID)
+	intent, rejection := buildIntent(decision, inspection, projectID, req.InitialCommit)
 	if rejection != nil {
 		return PlanResult{}, rejection
 	}
@@ -56,7 +56,7 @@ func Plan(ctx context.Context, deps PlannerDependencies, req StrategyRequest, in
 		return PlanResult{}, rejection
 	}
 	result := PlanResult{Plan: plan, Warnings: append(decision.warnings, inspection.Warnings()...)}
-	if decision.developmentPending {
+	if decision.developmentPending && !intent.InitialCommit {
 		result.PendingDependencies = []Reason{ReasonDevelopmentBranchPendingInitialHistory}
 	}
 	return result, nil
@@ -262,31 +262,45 @@ func deriveOperations(commands GitCommandBuilder, intent ImmutableIntent, snapsh
 		return nil, nil, reject(ReasonRepositoryStateIncompatible, ".ai-dev/config.json cannot be read")
 	}
 
-	// 5. The development ref of existing history, created only from the
-	// explicit base equal to the frozen production tip (F008-FR-046).
-	if !intent.DevelopmentBase.IsZero() {
-		ref := "refs/heads/" + branches[BranchDevelopment]
-		base := intent.DevelopmentBase
-		argv, rejection := build(GitCommand{Kind: GitCommandUpdateRef, RefName: []byte(ref), ObjectOID: base.BaseOID})
+	// The optional initial-commit group (F008-FR-188, 192).
+	if intent.InitialCommit {
+		group, rejection := commitGroup(commands, intent, snapshot)
 		if rejection != nil {
 			return nil, nil, rejection
 		}
-		created := Condition{Kind: ConditionRefTarget, Subject: refSubject(ref), Expected: string(base.BaseOID)}
-		mutation(DerivedOperationInput{
-			Kind: OperationKindDevelopmentRefCAS, ExactArgv: argv, EnvironmentProfile: snapshot.EnvironmentProfile.Version,
-			TargetIdentity: "ref:" + ref, AffectedRefs: []ObservedRef{NewObservedRef([]byte(ref))},
-			Preconditions: []Condition{repositoryNormal, {Kind: ConditionRefAbsent, Subject: refSubject(ref)},
-				{Kind: ConditionRefTarget, Subject: EncodeReversiblePath(base.ProductionRef.Bytes()), Expected: string(base.ProductionTipOID)},
-				{Kind: ConditionObjectType, Subject: string(base.BaseOID), Expected: "commit"}},
-			ExpectedEffects:        []Condition{created},
-			ExpectedPostconditions: []Condition{created, {Kind: ConditionReflogAbsent, Subject: refSubject(ref)}},
-			FailureOutcomes:        []Reason{ReasonOperationFailed, ReasonConcurrentChange},
-		})
+		for _, operation := range group {
+			if operation.Kind == OperationKindVerification {
+				verification(operation)
+			} else {
+				mutation(operation)
+			}
+		}
+		// A Git Flow development branch is a separate CAS after the group,
+		// at the planned commit (F008-FR-192).
+		if intent.Strategy == StrategyGitFlow {
+			objects, err := planCommit(intent)
+			if err != nil {
+				return nil, nil, reject(ReasonPlanInvalid, "the initial commit cannot be encoded: %v", err)
+			}
+			production := "refs/heads/" + branches[BranchProduction]
+			if rejection := developmentCAS(build, mutation, snapshot, branches[BranchDevelopment], objects.commit.oid,
+				Condition{Kind: ConditionRefTarget, Subject: refSubject(production), Expected: string(objects.commit.oid)}); rejection != nil {
+				return nil, nil, rejection
+			}
+		}
+	}
+
+	// 5. The development ref of existing history, created only from the
+	// explicit base equal to the frozen production tip (F008-FR-046).
+	if base := intent.DevelopmentBase; !base.IsZero() {
+		if rejection := developmentCAS(build, mutation, snapshot, branches[BranchDevelopment], base.BaseOID,
+			Condition{Kind: ConditionRefTarget, Subject: EncodeReversiblePath(base.ProductionRef.Bytes()), Expected: string(base.ProductionTipOID)}); rejection != nil {
+			return nil, nil, rejection
+		}
 	}
 
 	var operations []DerivedOperation
 	var postconditions []Condition
-	seen := map[Condition]bool{}
 	for ordinal, draft := range drafts {
 		draft.Ordinal = uint64(ordinal)
 		id, err := DeriveOperationID(draft, snapshot.EnvironmentProfile)
@@ -304,13 +318,75 @@ func deriveOperations(commands GitCommandBuilder, intent ImmutableIntent, snapsh
 			conditions = draft.Preconditions
 		}
 		for _, condition := range conditions {
-			if !seen[condition] {
-				seen[condition] = true
-				postconditions = append(postconditions, condition)
-			}
+			postconditions = supersede(postconditions, condition)
 		}
 	}
 	return operations, postconditions, nil
+}
+
+// supersede adds a later operation's condition to the plan's final
+// postconditions, replacing any earlier one about the same state it
+// contradicts: an unborn HEAD becomes attached, an absent ref or index is
+// created, an absent path is written. The plan-level list therefore
+// describes the final state rather than every intermediate one.
+func supersede(conditions []Condition, next Condition) []Condition {
+	kept := conditions[:0:0]
+	for _, earlier := range conditions {
+		if earlier == next {
+			return conditions
+		}
+		if !conflicting(earlier, next) {
+			kept = append(kept, earlier)
+		}
+	}
+	return append(kept, next)
+}
+
+func conflicting(a, b Condition) bool {
+	group := func(c Condition) string {
+		switch c.Kind {
+		case ConditionRepositoryAbsent, ConditionRepositoryKind:
+			return "repository"
+		case ConditionHeadState:
+			return "head"
+		case ConditionRefAbsent, ConditionRefTarget:
+			return "ref:" + c.Subject
+		case ConditionIndexAbsent, ConditionIndexEmpty, ConditionIndexTree:
+			return "index"
+		}
+		return ""
+	}
+	if g := group(a); g != "" {
+		return g == group(b)
+	}
+	// An absent path conflicts with every condition that the path exists.
+	pathKinds := map[ConditionKind]bool{ConditionPathAbsent: true, ConditionPathIdentity: true, ConditionPathContent: true,
+		ConditionPathMode: true, ConditionPathStatusClean: true}
+	return a.Subject == b.Subject && pathKinds[a.Kind] && pathKinds[b.Kind] &&
+		(a.Kind == ConditionPathAbsent) != (b.Kind == ConditionPathAbsent)
+}
+
+// developmentCAS appends the target-absent CAS creating the development
+// branch at target, anchored on the production ref that already points
+// there.
+func developmentCAS(build func(GitCommand) ([]string, *PlanRejection), mutation func(DerivedOperationInput), snapshot PreconditionSnapshot,
+	development string, target ObjectOID, anchor Condition) *PlanRejection {
+	ref := "refs/heads/" + development
+	argv, rejection := build(GitCommand{Kind: GitCommandUpdateRef, RefName: []byte(ref), ObjectOID: target})
+	if rejection != nil {
+		return rejection
+	}
+	created := Condition{Kind: ConditionRefTarget, Subject: refSubject(ref), Expected: string(target)}
+	mutation(DerivedOperationInput{
+		Kind: OperationKindDevelopmentRefCAS, ExactArgv: argv, EnvironmentProfile: snapshot.EnvironmentProfile.Version,
+		TargetIdentity: "ref:" + ref, AffectedRefs: []ObservedRef{NewObservedRef([]byte(ref))},
+		Preconditions: []Condition{{Kind: ConditionRepositoryKind, Expected: string(RepositoryKindNormal)}, {Kind: ConditionRefAbsent, Subject: refSubject(ref)},
+			anchor, {Kind: ConditionObjectType, Subject: string(target), Expected: "commit"}},
+		ExpectedEffects:        []Condition{created},
+		ExpectedPostconditions: []Condition{created, {Kind: ConditionReflogAbsent, Subject: refSubject(ref)}},
+		FailureOutcomes:        []Reason{ReasonOperationFailed, ReasonConcurrentChange},
+	})
+	return nil
 }
 
 // buildCommand builds one mutating row under the frozen toolchain, the

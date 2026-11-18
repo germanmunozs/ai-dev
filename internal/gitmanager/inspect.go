@@ -30,6 +30,9 @@ type InspectRequest struct {
 	User         UserContext
 	InspectionID InspectionID
 	InspectedAt  time.Time
+	// Candidates are literal repository-relative paths an initial commit
+	// names; their identities, ancestors and ignore status are frozen.
+	Candidates [][]byte
 }
 
 // InspectorDependencies are the read-only ports an inspection uses.
@@ -90,6 +93,7 @@ func Inspect(ctx context.Context, deps InspectorDependencies, req InspectRequest
 	config := s.evaluateConfig(layout, budget)
 	ignore, attributes := s.evaluators(config, layout, budget)
 	s.observeRepository(config, ignore, attributes, layoutKnown)
+	s.observeCandidates(ignore, attributes)
 	s.observeSources(config, ignore, attributes)
 	s.observeProjectConfig()
 	s.observeFilesystems()
@@ -817,6 +821,46 @@ func conversionSettings(config ConfigEvaluation, attributes *AttributeEvaluator)
 		})
 	}
 	return settings
+}
+
+// observeCandidates freezes each literal initial-commit candidate: the
+// identity of the path and of every ancestor, its ignore status, and the
+// attribute sources that apply to it, so conversion evidence covers it. A
+// candidate that is not a literal path is not touched; planning refuses it.
+func (s *inspection) observeCandidates(ignore *IgnoreEvaluator, attributes *AttributeEvaluator) {
+	for _, candidate := range s.req.Candidates {
+		path := string(candidate)
+		if !literalPath(path) {
+			continue
+		}
+		parts := strings.Split(path, "/")
+		for i := 1; i <= len(parts); i++ {
+			if rel := strings.Join(parts[:i], "/"); pathExists(s.root + "/" + rel) {
+				s.addPathIdentity(rel)
+			}
+		}
+		attributes.Attributes(candidate)
+		if !ignore.Usable() {
+			continue
+		}
+		if value, err := NewIgnoreEvaluation(ignore.Evaluate(candidate, false)); err == nil {
+			s.addIgnoreEvaluation(value)
+		}
+	}
+}
+
+// addIgnoreEvaluation records one evaluation per path, in path order.
+func (s *inspection) addIgnoreEvaluation(evaluation IgnoreEvaluation) {
+	for _, existing := range s.obs.IgnoreEvaluations {
+		if bytes.Equal(existing.Path.Bytes(), evaluation.Path.Bytes()) {
+			return
+		}
+	}
+	s.obs.IgnoreEvaluations = append(s.obs.IgnoreEvaluations, evaluation)
+	sort.Slice(s.obs.IgnoreEvaluations, func(i, j int) bool {
+		return bytes.Compare(s.obs.IgnoreEvaluations[i].Path.Bytes(), s.obs.IgnoreEvaluations[j].Path.Bytes()) < 0
+	})
+	s.obs.IgnoreEvaluationsObservationState = ObservationObserved
 }
 
 // observeProjectConfig observes .ai-dev/config.json without trusting it.

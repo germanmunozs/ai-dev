@@ -39,6 +39,10 @@ func (argvBuilder) BuildCommand(c gitmanager.GitCommand) (gitmanager.GitInvocati
 
 type completingExecutor struct{ executed int }
 
+func (e *completingExecutor) Preflight(context.Context, gitmanager.GitInitializationPlan) *gitmanager.PlanRejection {
+	return nil
+}
+
 func (e *completingExecutor) Revalidate(context.Context, gitmanager.GitInitializationPlan, gitmanager.DerivedOperation) *gitmanager.PlanRejection {
 	return nil
 }
@@ -121,7 +125,7 @@ func newIntegration(t *testing.T) *integration {
 	return &integration{t: t, stateRoot: stateRoot, store: store, inspection: inspect, executor: &completingExecutor{},
 		deps: gitmanager.ApplyDependencies{Store: store, Clock: fixedTime(time.Unix(1000, 0).UTC()), Random: rand.Reader, Planner: planner,
 			Tool: tool, Environment: environment, Executor: nil,
-			Inspect: func(context.Context, []byte) (gitmanager.GitInspection, error) { return inspect(), nil }}}
+			Inspect: func(context.Context, []byte, [][]byte) (gitmanager.GitInspection, error) { return inspect(), nil }}}
 }
 
 func (it *integration) planBasic() {

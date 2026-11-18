@@ -95,7 +95,7 @@ func (w *wizard) confirm(prompt string) error {
 }
 
 func (w *wizard) run(projectDir string) (int, error) {
-	inspection, environment, err := inspectWithEnvironment(w.ctx, w.deps, projectDir)
+	inspection, environment, err := inspectWithEnvironment(w.ctx, w.deps, projectDir, nil)
 	if err != nil {
 		return 0, err
 	}

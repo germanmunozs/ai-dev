@@ -61,14 +61,21 @@ func newRealGit(t *testing.T) *realGit {
 }
 
 func (g *realGit) inspect(ctx context.Context) (gitmanager.GitInspection, error) {
+	return g.inspectCandidates(ctx, nil)
+}
+
+func (g *realGit) inspectCandidates(ctx context.Context, candidates [][]byte) (gitmanager.GitInspection, error) {
 	return gitmanager.Inspect(ctx, gitmanager.InspectorDependencies{Git: g.reader, ObserveFilesystem: gitstore.ObserveFilesystem},
 		gitmanager.InspectRequest{ProjectDir: g.project, WorkingDir: "/", Tool: g.tool, Environment: g.environment,
-			User: gitmanager.UserContext{Home: []byte(g.home)}, InspectionID: "inspection-1", InspectedAt: time.Unix(100, 0).UTC()})
+			User: gitmanager.UserContext{Home: []byte(g.home)}, InspectionID: "inspection-1", InspectedAt: time.Unix(100, 0).UTC(),
+			Candidates: candidates})
 }
 
 func (g *realGit) apply(store gitmanager.GitStore, file []byte, digest gitmanager.PlanDigest, authorizationID string) gitmanager.GitApplyResult {
 	planner := gitmanager.PlannerDependencies{Git: g.reader, Commands: gitprocess.Builder{}, Random: rand.Reader}
-	inspect := func(ctx context.Context, _ []byte) (gitmanager.GitInspection, error) { return g.inspect(ctx) }
+	inspect := func(ctx context.Context, _ []byte, candidates [][]byte) (gitmanager.GitInspection, error) {
+		return g.inspectCandidates(ctx, candidates)
+	}
 	return gitmanager.Apply(context.Background(), gitmanager.ApplyDependencies{
 		Store: store, Clock: fixedTime(time.Unix(1000, 0).UTC()), Random: rand.Reader, Planner: planner, Tool: g.tool,
 		Environment: g.environment, Inspect: inspect,

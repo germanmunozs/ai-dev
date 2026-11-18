@@ -132,8 +132,8 @@ func applyPlan(ctx context.Context, deps GitManagementDependencies, request gitm
 		Store: store, Clock: deps.Clock, Random: deps.RandomSource,
 		Planner: gitmanager.PlannerDependencies{Git: deps.Reader, Commands: deps.Commands, Random: deps.RandomSource},
 		Tool:    tool, Environment: environment, Executor: deps.Executor,
-		Inspect: func(ctx context.Context, projectPath []byte) (gitmanager.GitInspection, error) {
-			inspection, _, err := inspectWithEnvironment(ctx, deps, string(projectPath))
+		Inspect: func(ctx context.Context, projectPath []byte, candidates [][]byte) (gitmanager.GitInspection, error) {
+			inspection, _, err := inspectWithEnvironment(ctx, deps, string(projectPath), candidates)
 			return inspection, err
 		},
 	}, request), nil

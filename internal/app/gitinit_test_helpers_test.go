@@ -58,6 +58,10 @@ type recordingExecutor struct {
 	executed int
 }
 
+func (e *recordingExecutor) Preflight(context.Context, gitmanager.GitInitializationPlan) *gitmanager.PlanRejection {
+	return nil
+}
+
 func (e *recordingExecutor) Revalidate(context.Context, gitmanager.GitInitializationPlan, gitmanager.DerivedOperation) *gitmanager.PlanRejection {
 	return nil
 }

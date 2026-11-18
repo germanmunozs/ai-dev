@@ -44,7 +44,10 @@ func (fakeCommandBuilder) BuildCommand(c GitCommand) (GitInvocation, error) {
 	if c.RefName != nil {
 		args = append(args, string(c.RefName), string(c.ObjectOID), string(c.ExpectedOldOID))
 	}
-	return GitInvocation{Args: args}, nil
+	if c.TreeOID != "" {
+		args = append(args, string(c.TreeOID))
+	}
+	return GitInvocation{Args: args, Stdin: c.Stdin}, nil
 }
 
 type planFixture struct {

@@ -50,9 +50,13 @@ func (r Reader) Read(ctx context.Context, request gitmanager.GitReadRequest) (gi
 
 // commandRows maps the manager's closed mutating rows onto matrix rows.
 var commandRows = map[gitmanager.GitCommandKind]Operation{
-	gitmanager.GitCommandInit:        OpInit,
-	gitmanager.GitCommandConfigWrite: OpConfigWriteLocal,
-	gitmanager.GitCommandUpdateRef:   OpUpdateRef,
+	gitmanager.GitCommandInit:          OpInit,
+	gitmanager.GitCommandConfigWrite:   OpConfigWriteLocal,
+	gitmanager.GitCommandUpdateRef:     OpUpdateRef,
+	gitmanager.GitCommandHashBlob:      OpHashBlob,
+	gitmanager.GitCommandHashTree:      OpHashTree,
+	gitmanager.GitCommandCommitTree:    OpCommitTree,
+	gitmanager.GitCommandPreparedIndex: OpPreparedIndex,
 }
 
 // Builder implements gitmanager.GitCommandBuilder. It only builds.
@@ -68,6 +72,7 @@ func (Builder) BuildCommand(command gitmanager.GitCommand) (gitmanager.GitInvoca
 	return Build(op, Context{Tool: command.Tool, Environment: command.Environment, Directory: command.Directory}, Parameters{
 		BranchName: command.BranchName, PhysicalRoot: command.PhysicalRoot, RefName: command.RefName,
 		ObjectOID: command.ObjectOID, ExpectedOldOID: command.ExpectedOldOID, ConfigKey: command.ConfigKey,
-		ConfigValue: command.ConfigValue,
+		ConfigValue: command.ConfigValue, TreeOID: command.TreeOID, IndexFile: command.IndexFile, Author: command.Author,
+		Committer: command.Committer, AuthorDate: command.AuthorDate, CommitterDate: command.CommitterDate, Stdin: command.Stdin,
 	})
 }
