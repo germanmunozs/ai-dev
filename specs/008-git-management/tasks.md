@@ -387,7 +387,7 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
 | `reconcileAuthorization` | 55.6 % |
 | `InspectReconciliation` | 62.1 % |
 
-- [ ] T123 [P] Add `internal/app/gitmanagement_crash_test.go`, modeled on `internal/gatestore/crash_posix_test.go`.
+- [x] T123 [P] Add `internal/app/gitmanagement_crash_test.go`, modeled on `internal/gatestore/crash_posix_test.go`.
   - It re-executes the test binary and kills it with SIGKILL at every durable step of a real apply, with the real `gitstore` and real Git.
   - The steps are: attempt record, issuance, claim CAS, mutation intent, every operation start and result, release, prepared result, terminal CAS and result record.
   - After each kill it asserts:
@@ -396,7 +396,7 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
     - `init reconcile` reports the crash evidence;
     - a linked reconciliation authorization with a fresh plan completes or refuses with a typed reason.
   - Requires a production filesystem; it skips on tmpfs.
-- [ ] T124 [P] Add `internal/gitmanager/iofault_test.go`.
+- [x] T124 [P] Add `internal/gitmanager/iofault_test.go`.
   - Inject a failure, and an outcome that cannot be verified, at every open, write, fsync, chmod, rename, link, close and directory-sync step of the following functions:
     - `installIndex`, `newPreparedIndex` and `acquireIndexLock` in `index_posix.go`;
     - `createConfigDirectory`, `createDirectory` and `writeProjectConfig` in `projectconfig_posix.go`.
@@ -404,11 +404,34 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
     - the operation outcome is completed, failed with zero effects proven, or indeterminate, and never assumed successful;
     - no temporary or lock owned by ai-dev survives except as reported crash evidence;
     - no existing file is overwritten.
-- [ ] T125 After T124, add an injectable I/O operations seam for the files named in T124, following the existing `ops` struct of `internal/gatestore`. Production behavior is unchanged. Each mutating helper still takes the `MutationPermit` (checked by `security_boundary_test.go`).
-- [ ] T126 [P] Cover the remaining branches of these functions, with no production change unless a test exposes a defect:
+- [x] T125 After T124, add an injectable I/O operations seam for the files named in T124, following the existing `ops` struct of `internal/gatestore`. Production behavior is unchanged. Each mutating helper still takes the `MutationPermit` (checked by `security_boundary_test.go`).
+- [x] T126 [P] Cover the remaining branches of these functions, with no production change unless a test exposes a defect:
   - `reconcileAuthorization`, `InspectReconciliation` and `EncodeReconciliationReport` in `internal/gitmanager/reconcile_test.go`;
   - `abandon`, `render` and `finishResult` in `internal/gitmanager/recovery_test.go`.
-- [ ] T127 [P] Using the T125 seam, inject ENOSPC and EDQUOT at every write to the state root and the project in `internal/gitmanager/iofault_test.go` and `internal/gitstore/store_posix_test.go`. Assert typed refusals or indeterminate outcomes, and that no durable record is truncated.
+- [x] T127 [P] Using the T125 seam, inject ENOSPC and EDQUOT at every write to the state root and the project in `internal/gitmanager/iofault_test.go` and `internal/gitstore/store_posix_test.go`. Assert typed refusals or indeterminate outcomes, and that no durable record is truncated.
+  - **DEV-T123–T127 (proposed deviation, pending human approval):**
+    - **Where the work went:**
+      - T125's seam is `fileOps` in `internal/gitmanager/fileops_posix.go`. The dispatcher holds it in an unexported field; nil means the OS.
+      - T127's store side extends the existing `recordOps` faults in `internal/gitstore/record_test.go`, not `store_posix_test.go`. ENOSPC is also a fault class of every durable step in `TestFaultMatrix`.
+      - T126's guards are in `iofault_test.go`, `reconcile_test.go` and a new `reconcile_posix_test.go`. The fixtures these tests need exist only on POSIX.
+    - **Defects the tests exposed, now fixed:**
+      1. If the descriptor `fstat` failed after `index.lock` or the configuration temporary was created exclusively, the entry stayed in the project unregistered and the operation reported `failed`. It is now `errCreatedUnverified`: the outcome is indeterminate and the entry is left in place, so reconciliation reports it.
+      2. A rename of the owned lock to `index` that reported failure after taking effect was `failed` with the index installed. It is now indeterminate whenever the lock is no longer owned.
+      3. A prepared-index `mkdir` that reported failure after creating the directory left it behind. It is now removed by `rmdir`, and only while it is empty.
+      4. When `own` failed, the configuration temporary was removed by name. It is now removed only while it is still the inode that was created.
+      5. As a last resort, `render` reported `refused` even after a mutation intent. It is now `state_indeterminate` with `recovery_required`.
+      - Each fix was checked by reverting it and seeing the new test fail.
+    - **Results:**
+      - The I/O matrices have 95 cases. The kernel fault matrix gained 26 ENOSPC cases. There are 24 store ENOSPC/EDQUOT cases, including short writes.
+      - T123 kills the issuing apply with SIGKILL before and after each of its 46 durable steps: 92 cases.
+    - **Coverage:** `installIndex` is at 80 %. Its remaining branches are guards that cannot be reached within one single-threaded attempt:
+      - `planCommit` failing on a regenerated plan;
+      - an argv that differs from the planned one;
+      - an `own` refusal right after the same permit authorized the operation;
+      - a permit revoked between `read-tree` and installation.
+
+      Every other function listed for this phase is at 91.7–100 %.
+    - **Finding of T123:** the safety invariants held in all 92 cases, but 53 of them left an unresolved authorization that supervised reconciliation cannot continue; see T136.
 
 ### Earlier refusals and hostile-repository proofs
 
@@ -431,6 +454,22 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
   - a check that the Linux `TMPDIR` is local ext4, so the real-Git suites do not skip.
   - CI logs are evidence for T116 only once the owner approves them as the evidence root.
 - [ ] T134 **(optional; needs owner authorization)** Verify power-loss durability of the store and project-config publication sequences. Use `dm-log-writes` or `dm-flakey` on a Linux ext4 device: replay every write prefix and assert that the recovered state is a consistent prefix that T123 classifies. Record the result as T116 evidence.
+
+### Recovery after a crash
+
+- [ ] T136 **(needs owner decision)** Make supervised reconciliation able to continue after a crash in the middle of an initialization (F008-FR-180).
+  - **What T123 found:** a crash of the issuing apply after `.ai-dev/config.json` is written, and before the attempt closes, leaves an unresolved authorization whose recovery path ai-dev refuses. In the measured `basic` case this was 53 of 92 crash points.
+    - Planning the initialization again is `invalid_strategy` or `repository_state_incompatible`, because the repository now exists.
+    - Planning against the existing repository is `configuration_conflict`. For `basic` and `github-flow`, a plan over an existing repository records no `initial-branch`, so its rendered configuration differs from the one the crashed attempt wrote.
+    - Once the commit exists, a plan with the commit group is `repository_state_incompatible`.
+    - A left `index.lock` is `lock_conflict`.
+
+    Each refusal is typed, and nothing is executed again. Recovery is still possible only by removing files by hand, which is what supervised reconciliation exists to avoid.
+  - **Options:**
+    - (a) A plan over an existing repository adopts the branch parameters of a valid existing configuration when the repository is consistent with them.
+    - (b) A reconciliation plan may declare the configuration and objects the prior plan made as already applied.
+    - (c) An explicit supervised removal of the entries the prior attempt is proven to own, recorded in its audit trail.
+  - The decision fixes the option and the reasons. After approval, add the tests to `internal/app/gitmanagement_crash_test.go`, so that every crash point there ends in a reconciliation that is applied or that refuses only for an external cause.
 
 ### Operational policy
 
@@ -467,6 +506,7 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
   - T123, T126, T130 and T131 are independent test files.
   - T132–T134 run only under owner authorization and feed T115/T116.
   - T135 is decision-only.
+  - T136 follows T123 and needs an owner decision.
 
 ### User Story Dependency Graph
 
@@ -489,6 +529,7 @@ Phase 13 (after Phase 12)
     T123 real crashes | T126 coverage | T130 hook sentinels | T131 git-flow-next   (parallel)
     T132 version matrix | T133 CI | T134 power loss ──► T115/T116 evidence   (owner-authorized)
     T135 retention proposal (decision only)
+    T123 real crashes ──► T136 reconciliation after a crash (owner decision)
 ```
 
 ### Within Each User Story
