@@ -22,6 +22,7 @@ func readTreeSource(scope string, path []byte, precedence uint64, _ *Budget) sou
 
 func currentEUID() uint32                             { return 0 }
 func pathExists(string) bool                          { return false }
+func pathPresence(string) (bool, bool)                { return false, false }
 func fileOwner(string) (uint32, error)                { return 0, errUnsupportedPlatform }
 func headBranch(string) []byte                        { return nil }
 func sequencerState(string) SequencerState            { return SequencerUnknown }

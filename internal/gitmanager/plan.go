@@ -151,16 +151,8 @@ func deriveOperations(commands GitCommandBuilder, intent ImmutableIntent, snapsh
 		drafts = append(drafts, in)
 	}
 	build := func(command GitCommand) ([]string, *PlanRejection) {
-		command.Tool, command.Environment, command.Directory = intent.ToolIdentity, snapshot.EnvironmentProfile, root
-		invocation, err := commands.BuildCommand(command)
-		if err != nil {
-			type reasoned interface{ ClosedReason() Reason }
-			if r, ok := err.(reasoned); ok {
-				return nil, reject(r.ClosedReason(), "%v", err)
-			}
-			return nil, reject(ReasonPlanInvalid, "%v", err)
-		}
-		return invocation.Args, nil
+		invocation, rejection := buildCommand(commands, intent, snapshot, command)
+		return invocation.Args, rejection
 	}
 	repositoryNormal := Condition{Kind: ConditionRepositoryKind, Expected: string(RepositoryKindNormal)}
 
@@ -170,6 +162,9 @@ func deriveOperations(commands GitCommandBuilder, intent ImmutableIntent, snapsh
 		initial := initialBranchOf(intent.Strategy, branches)
 		argv, rejection := build(GitCommand{Kind: GitCommandInit, BranchName: []byte(initial), PhysicalRoot: root})
 		if rejection != nil {
+			return nil, nil, rejection
+		}
+		if rejection := checkInitArgv(intent, root, argv); rejection != nil {
 			return nil, nil, rejection
 		}
 		headRef := Condition{Kind: ConditionHeadSymbolicRef, Subject: refSubject("refs/heads/" + initial)}
@@ -316,6 +311,26 @@ func deriveOperations(commands GitCommandBuilder, intent ImmutableIntent, snapsh
 		}
 	}
 	return operations, postconditions, nil
+}
+
+// buildCommand builds one mutating row under the frozen toolchain, the
+// snapshot's environment and the project root. Planning records its argv;
+// the dispatcher rebuilds it and runs it only when the argv is unchanged.
+func buildCommand(commands GitCommandBuilder, intent ImmutableIntent, snapshot PreconditionSnapshot, command GitCommand) (GitInvocation, *PlanRejection) {
+	if commands == nil {
+		return GitInvocation{}, reject(ReasonGitCapabilityMissing, "no Git command builder")
+	}
+	command.Tool, command.Environment = intent.ToolIdentity, snapshot.EnvironmentProfile
+	command.Directory = snapshot.ProjectIdentity.ReversiblePathBytes()
+	invocation, err := commands.BuildCommand(command)
+	if err != nil {
+		type reasoned interface{ ClosedReason() Reason }
+		if r, ok := err.(reasoned); ok {
+			return GitInvocation{}, reject(r.ClosedReason(), "%v", err)
+		}
+		return GitInvocation{}, reject(ReasonPlanInvalid, "%v", err)
+	}
+	return invocation, nil
 }
 
 func initialBranchOf(strategy Strategy, branches map[string]string) string {

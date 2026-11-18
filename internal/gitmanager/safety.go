@@ -40,6 +40,23 @@ func (p MutationPermit) authorizes(authorization AuthorizationID, operation Oper
 	return nil
 }
 
+// authorizesPlanned reports whether the permit allows operation of plan to
+// run now: it is the open operation of a live session whose authorization
+// was issued for this plan and lists this operation.
+func (p MutationPermit) authorizesPlanned(plan GitInitializationPlan, operation DerivedOperation) error {
+	if p.session == nil {
+		return errMutationNotPermitted
+	}
+	authorization := p.session.authorization
+	if err := p.authorizes(authorization.AuthorizationID, operation.OperationID); err != nil {
+		return err
+	}
+	if authorization.PlanDigest != plan.PlanDigest || !containsValue(authorization.AuthorizedOperationIDs(), operation.OperationID) {
+		return errMutationNotPermitted
+	}
+	return nil
+}
+
 // safetyKernel is the durable safety kernel every Git mutation goes through
 // (T024-T035). Later mutation code consumes it and never reimplements it.
 type safetyKernel struct {

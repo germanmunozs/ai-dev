@@ -9,11 +9,11 @@ import (
 // OperationExecutor runs the regenerated operations of an authorized plan.
 // Revalidate is read-only and runs before each operation; Execute runs one
 // operation only under its MutationPermit; Verify freshly inspects the
-// planned postconditions. The real executor is the operation dispatcher
-// (T076); until it exists only test executors are supplied.
+// planned postconditions. The production executor is the
+// OperationDispatcher (T076).
 type OperationExecutor interface {
-	Revalidate(ctx context.Context, operation DerivedOperation) *PlanRejection
-	Execute(ctx context.Context, permit MutationPermit, operation DerivedOperation) OperationOutcome
+	Revalidate(ctx context.Context, plan GitInitializationPlan, operation DerivedOperation) *PlanRejection
+	Execute(ctx context.Context, permit MutationPermit, plan GitInitializationPlan, operation DerivedOperation) OperationOutcome
 	Verify(ctx context.Context, plan GitInitializationPlan) ApplyEvidence
 }
 
@@ -143,7 +143,7 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 	}
 	operations := plan.DerivedOperations()
 	if len(operations) > 0 {
-		if rejection := deps.Executor.Revalidate(ctx, operations[0]); rejection != nil {
+		if rejection := deps.Executor.Revalidate(ctx, plan, operations[0]); rejection != nil {
 			return refuse(plan.PlanID, &authorization, reject(ClassifyRepositoryReason(PhaseApplyDrift, rejection.Reason), "%s", rejection.Detail), false)
 		}
 	}
@@ -163,7 +163,7 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 	var primary Reason
 	for i, operation := range operations {
 		if i > 0 {
-			if rejection := deps.Executor.Revalidate(ctx, operation); rejection != nil {
+			if rejection := deps.Executor.Revalidate(ctx, plan, operation); rejection != nil {
 				primary = ClassifyRepositoryReason(PhaseRevalidated, rejection.Reason)
 				break
 			}
@@ -172,7 +172,7 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 		if err != nil {
 			break
 		}
-		outcome := deps.Executor.Execute(ctx, permit, operation)
+		outcome := deps.Executor.Execute(ctx, permit, plan, operation)
 		if err := session.finish(ctx, permit, outcome); err != nil {
 			break
 		}

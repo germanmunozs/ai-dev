@@ -29,6 +29,9 @@ func WriteGitPlanText(w io.Writer, result gitmanager.PlanResult, planPath string
 	fmt.Fprintf(&b, "plan:           %s\n", planPath)
 	fmt.Fprintf(&b, "plan digest:    %s\n", plan.PlanDigest)
 	fmt.Fprintf(&b, "strategy:       %s\n", plan.ImmutableIntent.Strategy)
+	for _, line := range initializationLines(plan) {
+		b.WriteString(line + "\n")
+	}
 	for _, operation := range plan.DerivedOperations() {
 		fmt.Fprintf(&b, "operation %-4d %s %s\n", operation.Ordinal, operation.Kind, operation.TargetIdentity)
 	}

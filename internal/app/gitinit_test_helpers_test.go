@@ -45,6 +45,10 @@ func (r *appRefReader) Read(_ context.Context, request gitmanager.GitReadRequest
 type appArgvBuilder struct{}
 
 func (appArgvBuilder) BuildCommand(c gitmanager.GitCommand) (gitmanager.GitInvocation, error) {
+	if c.Kind == gitmanager.GitCommandInit {
+		return gitmanager.GitInvocation{Args: []string{"init", "--template=", "--object-format=sha1", "--ref-format=files",
+			"--initial-branch=" + string(c.BranchName), "--", string(c.PhysicalRoot)}}, nil
+	}
 	return gitmanager.GitInvocation{Args: []string{string(c.Kind), string(c.BranchName), c.ConfigKey, c.ConfigValue}}, nil
 }
 
@@ -54,10 +58,10 @@ type recordingExecutor struct {
 	executed int
 }
 
-func (e *recordingExecutor) Revalidate(context.Context, gitmanager.DerivedOperation) *gitmanager.PlanRejection {
+func (e *recordingExecutor) Revalidate(context.Context, gitmanager.GitInitializationPlan, gitmanager.DerivedOperation) *gitmanager.PlanRejection {
 	return nil
 }
-func (e *recordingExecutor) Execute(context.Context, gitmanager.MutationPermit, gitmanager.DerivedOperation) gitmanager.OperationOutcome {
+func (e *recordingExecutor) Execute(context.Context, gitmanager.MutationPermit, gitmanager.GitInitializationPlan, gitmanager.DerivedOperation) gitmanager.OperationOutcome {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.executed++

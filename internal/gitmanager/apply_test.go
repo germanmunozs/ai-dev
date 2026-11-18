@@ -22,12 +22,12 @@ type fakeExecutor struct {
 	revalidated  int
 }
 
-func (e *fakeExecutor) Revalidate(_ context.Context, operation DerivedOperation) *PlanRejection {
+func (e *fakeExecutor) Revalidate(_ context.Context, _ GitInitializationPlan, operation DerivedOperation) *PlanRejection {
 	e.revalidated++
 	return e.revalidation[int(operation.Ordinal)]
 }
 
-func (e *fakeExecutor) Execute(_ context.Context, permit MutationPermit, operation DerivedOperation) OperationOutcome {
+func (e *fakeExecutor) Execute(_ context.Context, permit MutationPermit, _ GitInitializationPlan, operation DerivedOperation) OperationOutcome {
 	if err := permit.authorizes(e.authorized, operation.OperationID); err != nil {
 		e.t.Fatalf("operation %d executed without its permit: %v", operation.Ordinal, err)
 	}

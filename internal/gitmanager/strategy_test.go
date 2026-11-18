@@ -34,10 +34,10 @@ func (r *planGitReader) Read(ctx context.Context, request GitReadRequest) (GitRu
 type fakeCommandBuilder struct{}
 
 func (fakeCommandBuilder) BuildCommand(c GitCommand) (GitInvocation, error) {
-	args := []string{"-c", "baseline", string(c.Kind)}
-	if c.BranchName != nil {
-		args = append(args, "--initial-branch="+string(c.BranchName), "--", string(c.PhysicalRoot))
+	if c.Kind == GitCommandInit {
+		return GitInvocation{Args: append([]string{"-c", "baseline"}, initArgv(string(c.BranchName), c.PhysicalRoot)...)}, nil
 	}
+	args := []string{"-c", "baseline", string(c.Kind)}
 	if c.ConfigKey != "" {
 		args = append(args, "--", c.ConfigKey, c.ConfigValue)
 	}

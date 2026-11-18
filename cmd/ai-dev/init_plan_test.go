@@ -86,6 +86,14 @@ func TestInitPlanSubprocess(t *testing.T) {
 	if err != nil || statErr != nil || info.Mode().Perm() != 0o600 || !strings.Contains(string(plan), output.PlanDigest) {
 		t.Fatalf("plan file %v %v", info, err)
 	}
+	// The text plan shows the frozen toolchain and the exact
+	// initialization before any authorization.
+	text, _, code := run("--strategy", "basic", "--initialize-repository", "--initial-branch", "main", "--output", filepath.Join(out, "text.json"))
+	if code != 0 || !strings.Contains(text, "toolchain:      git ") ||
+		!strings.Contains(text, "initialize:     git init --template= --object-format=sha1 --ref-format=files --initial-branch=main -- "+project+"\n") ||
+		!strings.Contains(text, "formats:        object sha1, refs files\n") {
+		t.Fatalf("text plan exit %d:\n%s", code, text)
+	}
 	if treeDigest(t, project) != before {
 		t.Fatal("planning changed the project")
 	}

@@ -30,15 +30,19 @@ func (refFormatReader) Read(context.Context, gitmanager.GitReadRequest) (gitmana
 type argvBuilder struct{}
 
 func (argvBuilder) BuildCommand(c gitmanager.GitCommand) (gitmanager.GitInvocation, error) {
+	if c.Kind == gitmanager.GitCommandInit {
+		return gitmanager.GitInvocation{Args: []string{"init", "--template=", "--object-format=sha1", "--ref-format=files",
+			"--initial-branch=" + string(c.BranchName), "--", string(c.PhysicalRoot)}}, nil
+	}
 	return gitmanager.GitInvocation{Args: []string{string(c.Kind), string(c.BranchName), c.ConfigKey, c.ConfigValue}}, nil
 }
 
 type completingExecutor struct{ executed int }
 
-func (e *completingExecutor) Revalidate(context.Context, gitmanager.DerivedOperation) *gitmanager.PlanRejection {
+func (e *completingExecutor) Revalidate(context.Context, gitmanager.GitInitializationPlan, gitmanager.DerivedOperation) *gitmanager.PlanRejection {
 	return nil
 }
-func (e *completingExecutor) Execute(context.Context, gitmanager.MutationPermit, gitmanager.DerivedOperation) gitmanager.OperationOutcome {
+func (e *completingExecutor) Execute(context.Context, gitmanager.MutationPermit, gitmanager.GitInitializationPlan, gitmanager.DerivedOperation) gitmanager.OperationOutcome {
 	e.executed++
 	return gitmanager.OperationCompleted
 }

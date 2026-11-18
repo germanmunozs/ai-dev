@@ -23,6 +23,19 @@ const maxIndexBytes = 64 << 20
 
 func currentEUID() uint32 { return uint32(os.Geteuid()) }
 
+// pathPresence reports whether path exists, without following a final
+// symlink. ok is false when neither presence nor absence is proven.
+func pathPresence(path string) (present, ok bool) {
+	_, err := os.Lstat(path)
+	switch {
+	case err == nil:
+		return true, true
+	case errors.Is(err, fs.ErrNotExist):
+		return false, true
+	}
+	return false, false
+}
+
 func pathExists(path string) bool {
 	_, err := os.Lstat(path)
 	return err == nil
