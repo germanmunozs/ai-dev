@@ -206,21 +206,22 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Tests for User Story 5
 
-- [ ] T078 [P] [US5] Add literal allowlist, mandatory config, normal/ignored approvals, safe-open metadata barriers, size limits, Unicode/case collisions, and ignored-global-file tests in `internal/gitmanager/allowlist_test.go` (F008-FR-080–090, F008-FR-159–161, F008-FR-183; AC-003, AC-008, AC-012)
-- [ ] T079 [P] [US5] Add high-risk synthetic-secret corpus, secret-last, finding-redaction, and scanner-limitation tests in `internal/gitmanager/secrets_test.go` (F008-FR-085, F008-FR-091–093, F008-FR-191; AC-008, AC-028)
-- [ ] T080 [P] [US5] Add identity/date/message-byte/signing and Conventional Commit integration tests for object creation in `internal/gitmanager/commit_test.go` (F008-FR-096–110; AC-016, AC-027)
-- [ ] T081 [P] [US5] Add blob/tree/commit verification, initial-ref CAS, unreachable-object reporting, index failure, unauthorized-file preservation, and exact final status tests in `internal/gitmanager/commitflow_test.go` (F008-FR-110–129, F008-FR-188–189, F008-FR-191–192; AC-009–010, AC-028–030)
-- [ ] T082 [P] [US5] Add autonomous index-v2 parser/checksum/entry/extension tests and all 13 `index.lock` ownership/race/replacement steps in `internal/gitmanager/index_test.go` (F008-FR-115–124, F008-FR-157–158, F008-FR-184, F008-FR-188; AC-010, AC-017, AC-025)
+- [x] T078 [P] [US5] Add literal allowlist, mandatory config, normal/ignored approvals, safe-open metadata barriers, size limits, Unicode/case collisions, and ignored-global-file tests in `internal/gitmanager/allowlist_test.go` (F008-FR-080–090, F008-FR-159–161, F008-FR-183; AC-003, AC-008, AC-012)
+- [x] T079 [P] [US5] Add high-risk synthetic-secret corpus, secret-last, finding-redaction, and scanner-limitation tests in `internal/gitmanager/secrets_test.go` (F008-FR-085, F008-FR-091–093, F008-FR-191; AC-008, AC-028)
+- [x] T080 [P] [US5] Add identity/date/message-byte/signing and Conventional Commit integration tests for object creation in `internal/gitmanager/commit_test.go` (F008-FR-096–110; AC-016, AC-027)
+- [x] T081 [P] [US5] Add blob/tree/commit verification, initial-ref CAS, unreachable-object reporting, index failure, unauthorized-file preservation, and exact final status tests in `internal/gitmanager/commitflow_test.go` (F008-FR-110–129, F008-FR-188–189, F008-FR-191–192; AC-009–010, AC-028–030)
+- [x] T082 [P] [US5] Add autonomous index-v2 parser/checksum/entry/extension tests and all 13 `index.lock` ownership/race/replacement steps in `internal/gitmanager/index_test.go` (F008-FR-115–124, F008-FR-157–158, F008-FR-184, F008-FR-188; AC-010, AC-017, AC-025)
 
 ### Implementation for User Story 5
 
-- [ ] T083 [US5] Implement literal per-file approval validation, safe descriptor reads, metadata barriers, ignored-file reinforcement, and exact config inclusion in `internal/gitmanager/allowlist.go`
-- [ ] T084 [US5] Implement bounded in-process high-risk secret screening that records only path/category in `internal/gitmanager/secrets.go`
-- [ ] T085 [US5] Implement the two-phase global preflight over every allowlisted file and in-memory `.ai-dev/config.json`, prohibiting blobs until all files pass in `internal/gitmanager/preflight.go`
-- [ ] T086 [US5] Implement controlled no-filter blob hashing/writes, exact tree construction, unsigned commit creation, and object verification in `internal/gitmanager/commit.go`
-- [ ] T087 [US5] Implement absent-old initial-ref CAS and non-rollback partial-effect handling in `internal/gitmanager/refs.go`
-- [ ] T088 [US5] Implement autonomous prepared index-v2 construction/parsing and the descriptor-owned 13-step `index.lock` installation protocol in `internal/gitmanager/index.go`
-- [ ] T089 [US5] Implement complete HEAD/ref/commit/tree/index/status verification and preservation of unauthorized paths in `internal/gitmanager/postconditions.go`
+- [x] T083 [US5] Implement literal per-file approval validation, safe descriptor reads, metadata barriers, ignored-file reinforcement, and exact config inclusion in `internal/gitmanager/allowlist.go`
+- [x] T084 [US5] Implement bounded in-process high-risk secret screening that records only path/category in `internal/gitmanager/secrets.go`
+- [x] T085 [US5] Implement the two-phase global preflight over every allowlisted file and in-memory `.ai-dev/config.json`, prohibiting blobs until all files pass in `internal/gitmanager/preflight.go`
+- [x] T086 [US5] Implement controlled no-filter blob hashing/writes, exact tree construction, unsigned commit creation, and object verification in `internal/gitmanager/commit.go`
+- [x] T087 [US5] Implement absent-old initial-ref CAS and non-rollback partial-effect handling in `internal/gitmanager/refs.go`
+- [x] T088 [US5] Implement autonomous prepared index-v2 construction/parsing and the descriptor-owned 13-step `index.lock` installation protocol in `internal/gitmanager/index.go`
+- [x] T089 [US5] Implement complete HEAD/ref/commit/tree/index/status verification and preservation of unauthorized paths in `internal/gitmanager/postconditions.go`
+  - **DEV-T078–T089 (proposed deviation, pending human approval):** T097 (grammar corpus) and T100 (the validator) of US7 are done here, because the commit message must be a Conventional Commit; T098, T099 and T101 stay in Phase 10. Added files: `allowlist_posix.go` (descriptor reads), `index_posix.go`/`index_other.go` (the `index.lock` protocol and prepared storage), and the real-Git `commitflow_integration_test.go`. The initial-ref CAS (T087) is planned in `postconditions.go` and dispatched in `operations.go`, so no `refs.go` exists. `OperationExecutor` gains `Preflight`, and the `Inspect` ports take the commit candidates (COM-05, COM-10). Plan-level postconditions now supersede contradicted earlier ones (COM-08). The store creates `prepared`. Decisions COM-01–14 are recorded in `contracts/apply-strategy.md` §10.
 
 **Checkpoint**: US5 independently satisfies AC-003, AC-008–010, AC-012, AC-017, AC-025, AC-027–030, and initial-commit portions of AC-032.
 
@@ -257,13 +258,13 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Tests for User Story 7
 
-- [ ] T097 [P] [US7] Add grammar corpus tests for uppercase types, `Refs #123`, `BREAKING CHANGE`, `BREAKING-CHANGE`, lowercase `breaking-change`, canonical LF, malformed footers, and independent breaking recognition in `internal/conventionalcommit/validate_test.go` (F008-FR-102–107, F008-FR-147; AC-016)
+- [x] T097 [P] [US7] Add grammar corpus tests for uppercase types, `Refs #123`, `BREAKING CHANGE`, `BREAKING-CHANGE`, lowercase `breaking-change`, canonical LF, malformed footers, and independent breaking recognition in `internal/conventionalcommit/validate_test.go` (F008-FR-102–107, F008-FR-147; AC-016)
 - [ ] T098 [P] [US7] Create `FuzzConventionalCommitValidator` for UTF-8, headers, bodies, footers, line endings, and deterministic validity in `internal/conventionalcommit/validate_fuzz_test.go` (F008-FR-102–107, F008-FR-147)
 - [ ] T099 [P] [US7] Add CLI tests proving no Git/repository/strategy access and exact text/JSON exits 0/1/2 for `--message` versus `--file` in `cmd/ai-dev/git_commit_validate_test.go` (AC-016, AC-022)
 
 ### Implementation for User Story 7
 
-- [ ] T100 [US7] Implement a pure bounded Conventional Commits 1.0.0 parser with separate validity and breaking-change recognition in `internal/conventionalcommit/validate.go`
+- [x] T100 [US7] Implement a pure bounded Conventional Commits 1.0.0 parser with separate validity and breaking-change recognition in `internal/conventionalcommit/validate.go`
 - [ ] T101 [US7] Add validator result rendering in `internal/report/conventionalcommit.go`
 - [ ] T102 [US7] Wire `ai-dev git commit validate` as a read-only command in `internal/app/gitcommit.go` and `cmd/ai-dev/main.go`
 
