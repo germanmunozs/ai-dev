@@ -57,6 +57,13 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]")
 		return 2
 	}
+	if args[0] == "git" {
+		if len(args) >= 3 && args[1] == "commit" && args[2] == "validate" {
+			return RunGitCommitValidate(args[3:], stdout, stderr)
+		}
+		fmt.Fprintln(stderr, gitCommitValidateUsage)
+		return 2
+	}
 	if args[0] == "init" {
 		return RunGitInit(ctx, args[1:], deps.Git, stdin, isTerminal(stdin), stdout, stderr)
 	}
