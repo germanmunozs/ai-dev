@@ -165,3 +165,57 @@ func TestWorkflowGuideBinaryOutcomesAndUsage(t *testing.T) {
 		}
 	}
 }
+
+// TestNoAutonomousCapabilityExists covers US2 and F007-FR-014: no command
+// or option can plan, authorize or start an agent chain, and the existing
+// usage failures stay unchanged.
+func TestNoAutonomousCapabilityExists(t *testing.T) {
+	bin := buildWorkflowNextBinary(t)
+	specified := `{"state":"specified"}`
+	repo := makeWorkflowNextRepo(t, &specified, "spec.md")
+	marker := filepath.Join(t.TempDir(), "agent-ran")
+	env := []string{"PATH=" + guideAgentPath(t, marker, "claude", "codex"), "HOME=" + t.TempDir()}
+	const (
+		workflowUsage = "Usage: ai-dev workflow <state|transition> [options]\n"
+		topUsage      = "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]\n"
+		guideUsage    = "Usage: ai-dev workflow guide [--format text|json] <feature-id>\n"
+	)
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"workflow", "run", "f"}, workflowUsage},
+		{[]string{"workflow", "chain", "f"}, workflowUsage},
+		{[]string{"workflow", "orchestrate", "f"}, workflowUsage},
+		{[]string{"workflow", "auto", "f"}, workflowUsage},
+		{[]string{"orchestrate", "f"}, topUsage},
+		{[]string{"guide", "f"}, topUsage},
+		{[]string{"workflow", "guide", "--autonomous", "f"}, guideUsage},
+		{[]string{"workflow", "guide", "--execute", "f"}, guideUsage},
+		{[]string{"workflow", "guide", "--run", "f"}, guideUsage},
+		{[]string{"workflow", "guide", "--approve", "f"}, guideUsage},
+	}
+	before := guideRepoDigest(t, repo)
+	for _, tc := range cases {
+		cmd := exec.Command(bin, tc.args...)
+		cmd.Dir, cmd.Env = repo, env
+		stdout, stderr, code := runCommand(cmd)
+		if code != 2 || stdout != "" || stderr != tc.want {
+			t.Fatalf("args=%v code/stdout/stderr = %d/%q/%q, want 2/empty/%q", tc.args, code, stdout, stderr, tc.want)
+		}
+	}
+	for _, variable := range []string{"AI_DEV_AUTONOMOUS=1", "AI_DEV_MODE=autonomous", "AI_DEV_EXECUTE=1"} {
+		cmd := exec.Command(bin, "workflow", "guide", "f")
+		cmd.Dir, cmd.Env = repo, append(append([]string{}, env...), variable)
+		stdout, stderr, code := runCommand(cmd)
+		if code != 0 || stderr != "" || !strings.Contains(stdout, "(instruction)") {
+			t.Fatalf("%s: code/stdout/stderr = %d/%q/%q, want the ordinary report", variable, code, stdout, stderr)
+		}
+	}
+	if after := guideRepoDigest(t, repo); !reflect.DeepEqual(before, after) {
+		t.Fatalf("repository changed:\nbefore %v\nafter  %v", before, after)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("a coding agent ran")
+	}
+}

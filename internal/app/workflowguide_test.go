@@ -181,3 +181,28 @@ func TestRunDispatchesWorkflowGuide(t *testing.T) {
 		t.Fatalf("workflow guide reached a process: runs=%d launches=%d", executor.runs, launcher.launches)
 	}
 }
+
+// TestRunUsageTextsUnchangedWithGuide is the F007-FR-013 regression: adding
+// workflow guide changes neither the workflow group usage nor the top-level
+// usage.
+func TestRunUsageTextsUnchangedWithGuide(t *testing.T) {
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"workflow"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
+		{[]string{"workflow", "run", "f"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
+		{[]string{"workflow", "Guide", "f"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
+		{nil, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]\n"},
+		{[]string{"orchestrate", "f"}, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]\n"},
+	}
+	for _, tc := range cases {
+		code, stdout, stderr, executor, launcher := runDispatcher(t, tc.args, workflowFixture(nil))
+		if code != 2 || stdout != "" || stderr != tc.want {
+			t.Fatalf("args=%v exit=%d stdout=%q stderr=%q, want 2/empty/%q", tc.args, code, stdout, stderr, tc.want)
+		}
+		if executor.lookups != 0 || executor.runs != 0 || launcher.launches != 0 {
+			t.Fatalf("args=%v reached an executor or launcher", tc.args)
+		}
+	}
+}

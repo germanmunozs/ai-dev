@@ -140,15 +140,15 @@ It executes, writes and derives nothing.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T020 [P] [US2] Subprocess test in `cmd/ai-dev/workflowguide_test.go`:
+- [X] T020 [P] [US2] Subprocess test in `cmd/ai-dev/workflowguide_test.go`:
   - `workflow run x`, `workflow chain x`, `workflow orchestrate x` and `orchestrate x` each exit 2 with exactly the existing usage line and an empty stdout;
   - `workflow guide --autonomous x` and `workflow guide --execute x` are usage failures (F007-FR-014);
   - none of them creates or changes a file in the fixture tree.
-- [ ] T021 [P] [US2] Regression assertion in `internal/app/workflowguide_test.go` that `RunWithDependencies` prints exactly `Usage: ai-dev workflow <state|transition> [options]` for an unknown `workflow` subcommand, and the unchanged top-level usage for an unknown command (F007-FR-013).
+- [X] T021 [P] [US2] Regression assertion in `internal/app/workflowguide_test.go` that `RunWithDependencies` prints exactly `Usage: ai-dev workflow <state|transition> [options]` for an unknown `workflow` subcommand, and the unchanged top-level usage for an unknown command (F007-FR-013).
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Confirm that T018 added no other route or flag. If T020 or T021 fail, correct `internal/app/app.go` or `internal/app/workflowguide.go`, without adding any autonomous surface.
+- [X] T022 [US2] Confirm that T018 added no other route or flag. If T020 or T021 fail, correct `internal/app/app.go` or `internal/app/workflowguide.go`, without adding any autonomous surface.
 
 **Checkpoint**: US2 is complete. `quickstart.md` scenario 6 passes.
 
@@ -156,16 +156,16 @@ It executes, writes and derives nothing.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T023 [P] Document `ai-dev workflow guide` in `README.md`:
+- [X] T023 [P] Document `ai-dev workflow guide` in `README.md`:
   - add it to the command reference table (read-only);
   - change the 007 status row to "guided mode implemented; autonomous mode deferred";
   - add a short section on the templates and the `(slot)` rule.
-- [ ] T024 Run the plan's Quality Gates and record the exact commands and results:
+- [X] T024 Run the plan's Quality Gates and record the exact commands and results:
   - `gofmt -l .` and `go vet ./...`, plus `GOOS=linux go vet ./...`;
   - the six-platform cross-build;
   - `go test -count=1 ./...`;
   - `go test -race -count=3 ./internal/guide ./internal/report ./internal/app ./cmd/ai-dev`.
-- [ ] T025 Run `quickstart.md` scenarios 1–7 against a fresh build, and confirm that `git status` is unchanged after each read-only command.
+- [X] T025 Run `quickstart.md` scenarios 1–7 against a fresh build, and confirm that `git status` is unchanged after each read-only command.
 - [ ] T026 Independent review of the implementation diff by a separate read-only agent. Record the implementing and reviewing agents, the findings and the resolutions in the PR description (constitution VIII). Fix every blocking or high finding before requesting merge.
 - [ ] T027 Open the PR to `dev`, with CI green on macOS and Ubuntu. The owner decides the merge (constitution IX).
 
