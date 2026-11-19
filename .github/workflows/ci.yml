@@ -1,0 +1,62 @@
+# Quality gates of plan.md (T117/T133). macOS runs on APFS; the Linux job
+# runs its temporary directories on the runner's local ext4 disk, so the
+# real-Git acceptance suites run there instead of skipping on tmpfs.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Production filesystem for temporary directories
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$RUNNER_TEMP/go-tmp"
+          echo "TMPDIR=$RUNNER_TEMP/go-tmp" >> "$GITHUB_ENV"
+          fstype=$(findmnt -n -o FSTYPE -T "$RUNNER_TEMP/go-tmp")
+          echo "temporary filesystem: $fstype"
+          test "$fstype" = ext4
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+
+      - name: go vet
+        run: |
+          go vet ./...
+          GOOS=linux go vet ./...
+
+      - name: Cross-builds
+        run: |
+          for target in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 freebsd/amd64; do
+            GOOS=${target%/*} GOARCH=${target#*/} go build ./...
+          done
+
+      - name: Tests
+        run: go test -count=1 ./...
+
+      - name: Race detector
+        run: go test -race -count=3 -timeout 60m ./internal/gitstore ./internal/gitmanager ./internal/gitprocess ./internal/app ./cmd/ai-dev
+
+      - name: Fuzz
+        run: |
+          go test -run '^$' -fuzz '^FuzzConventionalCommitValidator$' -fuzztime 20s ./internal/conventionalcommit
+          for target in FuzzWildmatch FuzzCanonicalWriter FuzzAttributeParser FuzzPlanDecoder; do
+            go test -run '^$' -fuzz "^${target}\$" -fuzztime 20s ./internal/gitmanager
+          done
