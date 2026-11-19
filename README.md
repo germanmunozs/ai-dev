@@ -52,7 +52,8 @@ Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas
 ## Instalación y requisitos
 
 - **Go 1.27.1** (ver [`go.mod`](go.mod)). El módulo no tiene dependencias externas: solo la biblioteca estándar.
-- **Plataformas:** macOS y Linux. Las operaciones con estado duradero fallan de forma cerrada (`platform_unsupported`) en Windows, iOS y Android.
+- **Plataformas:** macOS y Linux. Las operaciones con estado duradero fallan de forma cerrada (`platform_unsupported`) en Windows nativo (incluido PowerShell), iOS y Android.
+- **Windows:** usa ai-dev dentro de **WSL2**, con una distribución Linux y el Git de esa distribución. El proyecto y `HOME` deben estar en el filesystem de Linux (por ejemplo `~/proyectos/…`, que es ext4). Un proyecto en `/mnt/c/…` se monta como `9p` (drvfs) y Git Management lo rechaza (`filesystem_unsupported`), porque no es un filesystem local de producción.
 - **Git ≥ 2.45** para Git Management (usa `init --ref-format` y `config --end-of-options`).
   - Instalaciones de Git verificadas: Apple (Xcode o Command Line Tools), `/usr` y Debian/Ubuntu (`/usr/lib/git-core`), `/usr/local` y Homebrew. Con cualquier otra disposición, la inspección se rechaza (`attributes_incompatible`), porque ai-dev no puede evaluar con exactitud la configuración que ese Git lleva compilada.
 - Opcionales, según lo que se use: `specify` (Spec Kit), `claude` (Claude Code), `codex` (Codex CLI).
@@ -705,7 +706,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 
 ## Limitaciones conocidas
 
-- **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management.
+- **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management. Windows nativo no está soportado; en Windows se usa WSL2, con el proyecto en el filesystem de Linux. El uso en WSL2 no tiene evidencia propia: se apoya en la de Linux/ext4.
 - **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
 - **Versión mínima de Git (2.45):** está declarada, pero no se ha ejecutado la suite con esa versión (VER-01).
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
