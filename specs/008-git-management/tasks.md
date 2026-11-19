@@ -60,7 +60,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T021 Implement filesystem identity/capability ports plus APFS/ext4 production selectors, tmpfs test-only classification, and fail-closed unsupported fallback in `internal/gitstore/filesystem_posix.go`, `internal/gitstore/filesystem_other.go`, and `internal/gitmanager/filesystem.go`
 - [x] T022 [P] Add atomic private-record publication, fsync ordering, permissions `0700`/`0600`, truncated-temp, and compare-and-swap fault tests in `internal/gitstore/record_test.go` (F008-FR-059–069, F008-FR-178–180; AC-018, AC-026)
 - [x] T023 Add test-first coverage for the sole append-only audit writer in `internal/gitstore/audit_test.go`—record ordering, no-replace publication, durable write/fsync failures, inconsistent-record rejection, no false effect claims, and reconciliation evidence—and then implement no-replace immutable record publication plus version/owner-checked authorization replacement in `internal/gitstore/record.go` and `internal/gitstore/store.go`; the audit-writer tests MUST be written and confirmed to fail for the missing T030 behavior before T030 is implemented (F008-FR-059–069, F008-FR-178–180; AC-018, AC-026)
-  - **DEV-T020–T023 (proposed deviation, pending human approval):** Platform code is split into `filesystem_posix.go` plus per-OS `filesystem_darwin.go` and `filesystem_linux.go`, `record.go`/`record_posix.go` and `store.go`/`store_posix.go`; the single fallback is `unsupported_other.go` (instead of `filesystem_other.go`) with its implementations in the always-compiled `unsupported.go`. `audit_test.go` covers the event layer this task implements: naming, ordering, no-replace publication, durability faults, inconsistent-directory rejection and crash-evidence temporaries. Tests for record content, effect claims and reconciliation records are written first in T030, before its audit writer, because T030 defines those records. Decisions STO-01–07 are recorded in `contracts/authorization-audit.md` §9.
+  - **DEV-T020–T023 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** Platform code is split into `filesystem_posix.go` plus per-OS `filesystem_darwin.go` and `filesystem_linux.go`, `record.go`/`record_posix.go` and `store.go`/`store_posix.go`; the single fallback is `unsupported_other.go` (instead of `filesystem_other.go`) with its implementations in the always-compiled `unsupported.go`. `audit_test.go` covers the event layer this task implements: naming, ordering, no-replace publication, durability faults, inconsistent-directory rejection and crash-evidence temporaries. Tests for record content, effect claims and reconciliation records are written first in T030, before its audit writer, because T030 defines those records. Decisions STO-01–07 are recorded in `contracts/authorization-audit.md` §9.
 
 **Checkpoint**: Shared contracts, canonicalization, controlled Git execution, supported-platform selection, and durable storage are ready.
 
@@ -82,7 +82,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T033 Implement planned owned-resource release and deterministic `secondary_failures[]` in `internal/gitmanager/release.go`
 - [x] T034 Implement the sole terminal-closure owner—effect classification, prepared terminal result, apply-lock-last coordination, owner-only digest CAS, failed/uncertain CAS, and consumed authority—in `internal/gitmanager/terminal.go`
 - [x] T035 Implement and test the safety facade that acquires the lock, claims authority, persists intent, performs mutation-start CAS, persists `operation_started`, and only then emits an internal non-forgeable `MutationPermit` bound to the authorization ID and exact operation ID in `internal/gitmanager/safety.go` and `internal/gitmanager/safety_test.go`; the production permit constructor MUST remain inaccessible to public adapters and a test-only constructor MUST exist only in `_test.go`
-  - **DEV-T024–T035 (proposed deviation, pending human approval):** The kernel also adds `internal/gitmanager/journal.go` (the per-attempt sequence owner and `CheckAuditEventOrder`), `records.go` (strict authorization, attempt and result codecs) and the tests `records_test.go`, `terminal_test.go` and `reconcile_test.go`. The `GitStore` port gains `RecordAttemptResult` and `ListAuditEvents`, and attempts move to `<state-root>/attempts/<apply-id>/`. Decisions STO-08–11 and KER-01–08 are recorded in `contracts/authorization-audit.md` §10. The audit record content and effect-claim tests promised by DEV-T020–T023 are in `records_test.go`, `terminal_test.go` and the store ordering test.
+  - **DEV-T024–T035 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** The kernel also adds `internal/gitmanager/journal.go` (the per-attempt sequence owner and `CheckAuditEventOrder`), `records.go` (strict authorization, attempt and result codecs) and the tests `records_test.go`, `terminal_test.go` and `reconcile_test.go`. The `GitStore` port gains `RecordAttemptResult` and `ListAuditEvents`, and attempts move to `<state-root>/attempts/<apply-id>/`. Decisions STO-08–11 and KER-01–08 are recorded in `contracts/authorization-audit.md` §10. The audit record content and effect-claim tests promised by DEV-T020–T023 are in `records_test.go`, `terminal_test.go` and the store ordering test.
 
 **Checkpoint**: Locks, durable authorization, recovery, release, and terminal closure are complete against fakes. Later mutation tasks MUST consume T034/T035 and MUST NOT reimplement them.
 
@@ -111,7 +111,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T045 [US1] Implement read-only repository, HEAD, history, index/worktree, refs, Git Flow evidence, toolchain, and filesystem inspection in `internal/gitmanager/inspect.go`
 - [x] T046 [US1] Add redacted `GitInspection` text/JSON rendering in `internal/report/gitinspection.go`
 - [x] T047 [US1] Wire `ai-dev init inspect --project-dir PATH --format text|json` without audit-store mutation in `internal/app/gitinit.go` and `cmd/ai-dev/main.go`
-  - **DEV-T036–T047 (proposed deviation, pending human approval):** Beyond the listed files, the phase adds `wildmatch.go` (a port of Git's matcher shared by the three evaluators), `source.go`/`source_posix.go` (bounded source reads), `toolchain.go`, `gitflow.go`, `projectconfig.go`, `inspect_posix.go`, `inspect_output.go` and the path platform files in `internal/gitmanager`, plus `internal/gitprocess/reader.go` and `locate.go`, `internal/app/gitcompose.go` and the `GitReader` port. Ignore tests live in `configeval_test.go` with the configuration and attribute tests. The per-file `AttributeEvaluation` record is left to planning, which owns the allowlist. Submodule gitlinks and the state-root profile are not observed by inspection (INS-11, INS-13). Decisions INS-01–14 are recorded in `contracts/inspection-plan.md` §15.
+  - **DEV-T036–T047 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** Beyond the listed files, the phase adds `wildmatch.go` (a port of Git's matcher shared by the three evaluators), `source.go`/`source_posix.go` (bounded source reads), `toolchain.go`, `gitflow.go`, `projectconfig.go`, `inspect_posix.go`, `inspect_output.go` and the path platform files in `internal/gitmanager`, plus `internal/gitprocess/reader.go` and `locate.go`, `internal/app/gitcompose.go` and the `GitReader` port. Ignore tests live in `configeval_test.go` with the configuration and attribute tests. The per-file `AttributeEvaluation` record is left to planning, which owns the allowlist. Submodule gitlinks and the state-root profile are not observed by inspection (INS-11, INS-13). Decisions INS-01–14 are recorded in `contracts/inspection-plan.md` §15.
 
 **Checkpoint**: US1 independently satisfies AC-001 and the inspection portions of AC-012, AC-014, AC-015, AC-019, AC-022, AC-024, and AC-029.
 
@@ -140,7 +140,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T057 [US2] Implement safe external plan export with physical-parent validation, exclusive creation, restrictive mode, file/directory sync, and no overwrite in `internal/gitmanager/planoutput.go`
 - [x] T058 [US2] Add `GitPlanOutput` and `GitPlanRejectionOutput` text/JSON rendering in `internal/report/gitplan.go`
 - [x] T059 [US2] Wire `ai-dev init plan` and its approved option matrix without `--write-config` in `internal/app/gitinit.go` and `cmd/ai-dev/main.go`
-  - **DEV-T048–T059 (proposed deviation, pending human approval):** The initial-commit option group is refused with exit 2 until T083–T089 plan it with its allowlist and preflight (PLN-01). Planning of the Git Flow profiles, the project configuration rendering and the development-base CAS is done here; T093–T095 keep their apply-side execution and tests. The phase also adds `planfile.go` (plan file encoding and untrusted decoding), `plan_output_json.go`, `planoutput_posix.go`, `internal/app/gitplan.go`, and the `GitCommandBuilder` port with the `check_ref_format` read row. Decisions PLN-01–09 are recorded in `contracts/inspection-plan.md` §16.
+  - **DEV-T048–T059 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** The initial-commit option group is refused with exit 2 until T083–T089 plan it with its allowlist and preflight (PLN-01). Planning of the Git Flow profiles, the project configuration rendering and the development-base CAS is done here; T093–T095 keep their apply-side execution and tests. The phase also adds `planfile.go` (plan file encoding and untrusted decoding), `plan_output_json.go`, `planoutput_posix.go`, `internal/app/gitplan.go`, and the `GitCommandBuilder` port with the `check_ref_format` read row. Decisions PLN-01–09 are recorded in `contracts/inspection-plan.md` §16.
 
 **Checkpoint**: US2 independently satisfies AC-002, AC-013, AC-022, and planning aspects of AC-011, AC-014, AC-015, AC-024, AC-029, and AC-030.
 
@@ -170,7 +170,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T070 [P] [US3] Add simulated-TTY tests for four unselected strategies, explicit selection, complete plan display, digest-bound written confirmation, destination confirmation, UUID generation through injected `RandomSource` only after confirmation, cancellation, EOF, invalid input, no-TTY refusal, and zero premature authority in `internal/app/gitinit_wizard_test.go` (F008-FR-002–008, F008-FR-182; AC-004, AC-022)
 - [x] T071 [US3] Implement the interactive assistant state machine with injected terminal, planner, issuer, apply engine, and `RandomSource` in `internal/app/gitinit_wizard.go`; no prompt, default, or authority semantics may differ from `contracts/cli.md`
 - [x] T072 [US3] Integrate apply and assistant adapters against fake/nonmutating dispatch in `internal/app/gitinit.go`; defer real public mutation wiring until T107
-  - **DEV-T060–T072 (proposed deviation, pending human approval):** Public `ai-dev init apply` is refused with exit 2 before any record until an executor exists (APL-01). `cmd/ai-dev/init_apply_test.go` therefore verifies the option matrix, the refusal without state and the no-TTY assistant, while issue/consume flows run in `internal/app/gitapply_test.go` and `gitinit_wizard_test.go` with a nonmutating executor and the real store. The T061/T062 integration tests live in one external-package file, `apply_store_integration_test.go`. Added files: `result.go`, `audit_integration.go`, `authorization_store.go`, `internal/app/gitapply.go` and `terminal_*.go`. Decisions APL-01–09 are recorded in `contracts/authorization-audit.md` §11.
+  - **DEV-T060–T072 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** Public `ai-dev init apply` is refused with exit 2 before any record until an executor exists (APL-01). `cmd/ai-dev/init_apply_test.go` therefore verifies the option matrix, the refusal without state and the no-TTY assistant, while issue/consume flows run in `internal/app/gitapply_test.go` and `gitinit_wizard_test.go` with a nonmutating executor and the real store. The T061/T062 integration tests live in one external-package file, `apply_store_integration_test.go`. Added files: `result.go`, `audit_integration.go`, `authorization_store.go`, `internal/app/gitapply.go` and `terminal_*.go`. Decisions APL-01–09 are recorded in `contracts/authorization-audit.md` §11.
 
 **Checkpoint**: US3 independently satisfies the authorization/result boundaries of AC-003–006, AC-018, AC-021–022, AC-026, and AC-032 against fake/nonmutating dispatch. Mutation-effect AC-009 and precedence AC-030 remain pending their later operation and integration phases.
 
@@ -192,7 +192,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T075 [US4] Implement frozen capability validation and the exact argv `git init --template= --object-format=sha1 --ref-format=files --initial-branch=<name> -- <physical-path>` in `internal/gitmanager/initrepo.go`
 - [x] T076 [US4] Implement typed exact-argv operation dispatch with immediate precondition revalidation and complete postcondition inspection in `internal/gitmanager/operations.go`; every production mutation entrypoint MUST require and validate the non-forgeable T035 `MutationPermit` against authorization and operation IDs, fail closed before invoking Git when absent/invalid/mismatched, and expose no public bypass
 - [x] T077 [US4] Add initialization effects and toolchain details to strategy/apply reports in `internal/report/gitapply.go`
-  - **DEV-T073–T077 (proposed deviation, pending human approval):** Condition evaluation against fresh state lives in the added file `internal/gitmanager/conditions.go`. `OperationExecutor.Revalidate`/`Execute` now receive the regenerated plan (OPS-01). The real-Git T073 acceptance is the external-package `initrepo_integration_test.go`, because only an external test may compose `gitprocess`. It verifies effects through files rather than a Git subprocess, which the boundary test forbids in this package. T077 also renders the initialization in the plan text report (`internal/report/gitplan.go`). The dispatcher does not yet perform the `.ai-dev/` writes (OPS-07, T093). Decisions OPS-01–08 are recorded in `contracts/authorization-audit.md` §12.
+  - **DEV-T073–T077 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** Condition evaluation against fresh state lives in the added file `internal/gitmanager/conditions.go`. `OperationExecutor.Revalidate`/`Execute` now receive the regenerated plan (OPS-01). The real-Git T073 acceptance is the external-package `initrepo_integration_test.go`, because only an external test may compose `gitprocess`. It verifies effects through files rather than a Git subprocess, which the boundary test forbids in this package. T077 also renders the initialization in the plan text report (`internal/report/gitplan.go`). The dispatcher does not yet perform the `.ai-dev/` writes (OPS-07, T093). Decisions OPS-01–08 are recorded in `contracts/authorization-audit.md` §12.
 
 **Checkpoint**: US4 independently satisfies AC-007, relevant AC-009/AC-015, and N-E/P-3 precedence.
 
@@ -221,7 +221,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T087 [US5] Implement absent-old initial-ref CAS and non-rollback partial-effect handling in `internal/gitmanager/refs.go`
 - [x] T088 [US5] Implement autonomous prepared index-v2 construction/parsing and the descriptor-owned 13-step `index.lock` installation protocol in `internal/gitmanager/index.go`
 - [x] T089 [US5] Implement complete HEAD/ref/commit/tree/index/status verification and preservation of unauthorized paths in `internal/gitmanager/postconditions.go`
-  - **DEV-T078–T089 (proposed deviation, pending human approval):** T097 (grammar corpus) and T100 (the validator) of US7 are done here, because the commit message must be a Conventional Commit; T098, T099 and T101 stay in Phase 10. Added files: `allowlist_posix.go` (descriptor reads), `index_posix.go`/`index_other.go` (the `index.lock` protocol and prepared storage), and the real-Git `commitflow_integration_test.go`. The initial-ref CAS (T087) is planned in `postconditions.go` and dispatched in `operations.go`, so no `refs.go` exists. `OperationExecutor` gains `Preflight`, and the `Inspect` ports take the commit candidates (COM-05, COM-10). Plan-level postconditions now supersede contradicted earlier ones (COM-08). The store creates `prepared`. Decisions COM-01–14 are recorded in `contracts/apply-strategy.md` §10.
+  - **DEV-T078–T089 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** T097 (grammar corpus) and T100 (the validator) of US7 are done here, because the commit message must be a Conventional Commit; T098, T099 and T101 stay in Phase 10. Added files: `allowlist_posix.go` (descriptor reads), `index_posix.go`/`index_other.go` (the `index.lock` protocol and prepared storage), and the real-Git `commitflow_integration_test.go`. The initial-ref CAS (T087) is planned in `postconditions.go` and dispatched in `operations.go`, so no `refs.go` exists. `OperationExecutor` gains `Preflight`, and the `Inspect` ports take the commit candidates (COM-05, COM-10). Plan-level postconditions now supersede contradicted earlier ones (COM-08). The store creates `prepared`. Decisions COM-01–14 are recorded in `contracts/apply-strategy.md` §10.
 
 **Checkpoint**: US5 independently satisfies AC-003, AC-008–010, AC-012, AC-017, AC-025, AC-027–030, and initial-commit portions of AC-032.
 
@@ -245,7 +245,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T094 [US6] Implement exact AVH and git-flow-next detection/adoption/planning with one ordered operation per key and no Git Flow executable/hooks in `internal/gitmanager/gitflow.go`
 - [x] T095 [US6] Implement explicit existing-history development-base validation and target-absent ref CAS as a later separately authorized operation in `internal/gitmanager/development.go`
 - [x] T096 [US6] Implement read-only non-authoritative `GitStrategyReport` for Feature 007 consumption in `internal/gitmanager/strategyreport.go` and `internal/report/gitstrategy.go`
-  - **DEV-T090–T096 (proposed deviation, pending human approval):** Planning for T094/T095 already existed from Phase 5. Here it is tested and dispatched, with no separate `development.go` (CFG-05). The configuration operations live in the added `projectconfig_posix.go`, with fallbacks in `index_other.go`. The configuration is published by a no-replace hard link instead of `rename` (CFG-02). The end-to-end real-Git acceptance for this phase is in `commitflow_integration_test.go` and `initrepo_integration_test.go`. Decisions CFG-01–06 are recorded in `contracts/apply-strategy.md` §11.
+  - **DEV-T090–T096 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** Planning for T094/T095 already existed from Phase 5. Here it is tested and dispatched, with no separate `development.go` (CFG-05). The configuration operations live in the added `projectconfig_posix.go`, with fallbacks in `index_other.go`. The configuration is published by a no-replace hard link instead of `rename` (CFG-02). The end-to-end real-Git acceptance for this phase is in `commitflow_integration_test.go` and `initrepo_integration_test.go`. Decisions CFG-01–06 are recorded in `contracts/apply-strategy.md` §11.
 
 **Checkpoint**: US6 independently satisfies AC-011, AC-023–024, AC-028, and AC-031.
 
@@ -268,7 +268,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T100 [US7] Implement a pure bounded Conventional Commits 1.0.0 parser with separate validity and breaking-change recognition in `internal/conventionalcommit/validate.go`
 - [x] T101 [US7] Add validator result rendering in `internal/report/conventionalcommit.go`
 - [x] T102 [US7] Wire `ai-dev git commit validate` as a read-only command in `internal/app/gitcommit.go` and `cmd/ai-dev/main.go`
-  - **DEV-T097–T102 (proposed deviation, pending human approval):** T097 and T100 were done in Phase 8 (DEV-T078–T089). The command is routed in `internal/app/app.go`; `cmd/ai-dev/main.go` needed no change (CCV-04). A rendering test `internal/report/conventionalcommit_test.go` is added. Decisions CCV-01–04 are recorded in `contracts/cli.md` §11.
+  - **DEV-T097–T102 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** T097 and T100 were done in Phase 8 (DEV-T078–T089). The command is routed in `internal/app/app.go`; `cmd/ai-dev/main.go` needed no change (CCV-04). A rendering test `internal/report/conventionalcommit_test.go` is added. Decisions CCV-01–04 are recorded in `contracts/cli.md` §11.
 
 **Checkpoint**: US7 independently satisfies AC-016 and its CLI portions of AC-022.
 
@@ -285,7 +285,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T103 [P] [US8] Add supervised reconciliation tests for fresh inspection, verified effects, new plan/authorization, immutable history, and no old-authority reactivation in `internal/gitmanager/reconcile_test.go` (F008-FR-128–129, F008-FR-168, F008-FR-180; AC-006, AC-021)
 - [x] T104 [P] [US8] Add two-process race repetition for claim, intent, sole terminal closer, unrelated authorization, and `already_applied` verification in `internal/gitmanager/concurrency_test.go` (AC-005–006, AC-021)
 - [x] T105 [US8] Expose read-only reconciliation inspection and a new linked authorization flow through T032 in `internal/app/gitreconcile.go`
-  - **DEV-T103–T105 (proposed deviation, pending human approval):** The kernel-level reconciliation tests of T032 stay in `reconcile_test.go`. The end-to-end T103 and T104 tests run through the real store in the external-package `reconcile_integration_test.go`, because only an external test may compose `gitstore`; real-Git races and `already_applied` are in `commitflow_integration_test.go`. There is no `concurrency_test.go`. This phase also produces `already_applied` (REC-01) and decodes the plan's postconditions (REC-02). No CLI route is added (REC-04). Decisions REC-01–04 are recorded in `contracts/authorization-audit.md` §13.
+  - **DEV-T103–T105 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** The kernel-level reconciliation tests of T032 stay in `reconcile_test.go`. The end-to-end T103 and T104 tests run through the real store in the external-package `reconcile_integration_test.go`, because only an external test may compose `gitstore`; real-Git races and `already_applied` are in `commitflow_integration_test.go`. There is no `concurrency_test.go`. This phase also produces `already_applied` (REC-01) and decodes the plan's postconditions (REC-02). No CLI route is added (REC-04). Decisions REC-01–04 are recorded in `contracts/authorization-audit.md` §13.
 
 **Checkpoint**: US8 independently satisfies AC-005–006, AC-017–018, AC-021, AC-026, and AC-032.
 
@@ -304,7 +304,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 - [x] T112 [P] Add structural security tests proving production CLI/app adapters cannot construct or bypass the T035 `MutationPermit`, every mutating dispatcher requires it, the controlled constructor exists only in `_test.go`, and no shell interpolation, network-capable Git operation, configured external command, credential prompt, Workflow State mutation, Human Gate authorization, automated-signal Git authority, or Feature 007 mutation authority exists in `internal/gitmanager/security_boundary_test.go` (F008-FR-009–010, F008-FR-130–145, F008-FR-165; AC-020)
 - [x] T113 [P] Add regression coverage for existing Features 001–006 and the compatibility wrappers in `internal/app/gitmanagement_regression_test.go` (F008-FR-137, F008-FR-144–145; AC-020)
 - [x] T114 [P] Add cross-build selection checks for macOS, Linux, Windows, iOS, and Android without executing unsupported targets in `internal/gitstore/platform_build_test.go` (F008-FR-133–136; AC-019)
-  - **DEV-T106–T114 (proposed deviation, pending human approval):** The REC-04 CLI amendment approved by the owner is implemented first (`init reconcile`, `--reconciles-authorization`; `contracts/cli.md` §12). T107 enables apply by composing the production dispatcher whenever the bundle carries a `Runner` (ACT-01). It adds that runner to `DefaultGitManagementDependencies` and leaves `cmd/ai-dev/main.go` unchanged (ACT-02). The fault matrix also changed the claim kernel (FLT-01). The T112 security tests are in the external package so they can build every `gitprocess` row. T114 extends the existing `gitstore` selection test to every Feature 008 package. Decisions ACT-01–03 and FLT-01–02 are recorded in `contracts/authorization-audit.md` §14.
+  - **DEV-T106–T114 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):** The REC-04 CLI amendment approved by the owner is implemented first (`init reconcile`, `--reconciles-authorization`; `contracts/cli.md` §12). T107 enables apply by composing the production dispatcher whenever the bundle carries a `Runner` (ACT-01). It adds that runner to `DefaultGitManagementDependencies` and leaves `cmd/ai-dev/main.go` unchanged (ACT-02). The fault matrix also changed the claim kernel (FLT-01). The T112 security tests are in the external package so they can build every `gitprocess` row. T114 extends the existing `gitstore` selection test to every Feature 008 package. Decisions ACT-01–03 and FLT-01–02 are recorded in `contracts/authorization-audit.md` §14.
 - [ ] T115 Preserve future native macOS/APFS evidence outside the repository under an operator-approved evidence root with manifests, commands, exits, logs, hashes, limitations, implementer identity, and reviewer identity; any `quickstart.md` change requires separate authorization (AC-001–AC-032)
 - [ ] T116 Preserve future native Linux/ext4 evidence outside the repository with the same source identity and review metadata; treat tmpfs only as non-durable test evidence and do not edit approved design documents (AC-001–AC-032)
   - **Partial evidence, VM ext4 (2026-11-18; the owner authorized running on ext4 in the VM; the task stays open):**
@@ -321,7 +321,8 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
       - An operator-approved evidence root. The logs and the hashed manifest are only in the agent's session scratchpad.
       - A reviewer identity. Implementer: Claude Opus 5.5 (agent).
 - [x] T117 Run `gofmt`, `go vet`, full tests, repeated race tests, structural checks, cross-builds, and every declared quality gate from `specs/008-git-management/plan.md`; record exact commands, outputs, and exit codes without claiming completion before execution
-- [ ] T118 Record the implementing agent, independent reviewing agent, findings, resolutions, separation exceptions, FR/AC evidence, residual risks, and authority boundaries in an external or separately authorized review artifact as required by Constitution VIII; do not infer Human Gate, merge, or remote authorization
+- [x] T118 Record the implementing agent, independent reviewing agent, findings, resolutions, separation exceptions, FR/AC evidence, residual risks, and authority boundaries in an external or separately authorized review artifact as required by Constitution VIII; do not infer Human Gate, merge, or remote authorization
+  - **Recorded in `specs/008-git-management/review.md`.** Implementer: Claude Opus 5.5. Reviewer: a separate, context-free, read-only agent; the separation exception is stated there. Findings R-01–R-07 are all fixed, and the residual risks are listed. The review grants no Human Gate, merge or remote authority.
 
 ---
 
@@ -336,11 +337,12 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
 
 ### Governance
 
-- [ ] T119 **(needs owner decision)** Record the owner's approval or rejection of each proposed deviation still marked "pending human approval" in this file, `data-model.md` and `contracts/`.
+- [x] T119 **(needs owner decision)** Record the owner's approval or rejection of each proposed deviation still marked "pending human approval" in this file, `data-model.md` and `contracts/`.
   - Deviation notes: DEV-T020–T023, DEV-T024–T035, DEV-T036–T047, DEV-T048–T059, DEV-T060–T072, DEV-T073–T077, DEV-T078–T089, DEV-T090–T096, DEV-T097–T102, DEV-T103–T105 and DEV-T106–T114.
   - STO-08.
   - The contract decisions COM, CFG, CCV, REC-01–03, ACT-01–03 and FLT-01–02.
   - A rejected deviation becomes a new remediation task. T118 depends on this task.
+  - **Record (2026-11-18).** The owner delegated this decision to the implementing agent: "para lo que sigue pendiente de mi, te autorizo a realizar lo que tu estimes que es mejor actuando como arquitecto de software senior". The independent review (T118, `review.md`) found no blocking finding, and its seven findings are fixed. Every listed deviation and contract decision is therefore **accepted under that delegation**; none is rejected. This is a delegated acceptance, not an individual approval by the owner. Because the review was run first, so that the acceptance could rely on it, the order differs from the dependency stated above.
 
 ### Interrupt policy during apply
 
@@ -351,14 +353,14 @@ The gap:
 
 As a result, an interrupt during `update-ref`, a config write or the index installation kills Git mid-operation. The attempt closes as `state_indeterminate` and may leave Git `.lock` files behind. The specification defines no interrupt policy.
 
-- [ ] T120 **(needs owner decision)** Propose an interrupt-policy amendment INT-01 in `contracts/authorization-audit.md`.
+- [x] T120 **(needs owner decision)** Propose an interrupt-policy amendment INT-01 in `contracts/authorization-audit.md`.
   - Before the durable `mutation_intent`, an interrupt refuses cleanly and leaves the authorization usable.
   - From `mutation_intent` until the terminal CAS, an interrupt is deferred:
     - the running operation and the remaining verification, release and closure complete;
     - no later operation starts;
     - the result reports that the interrupt was deferred.
   - The amendment fixes the status, reason, exit code and audit event for each case. It MUST NOT add rollback or retry. T121–T122 depend on its approval.
-- [ ] T121 After T120, add `cmd/ai-dev/gitmanagement_interrupt_test.go`.
+- [x] T121 After T120, add `cmd/ai-dev/gitmanagement_interrupt_test.go`.
   - It sends SIGINT and SIGTERM to the `ai-dev` subprocess before the claim, and before, during and after each operation of a real apply.
   - It asserts:
     - no Git process is killed mid-operation;
@@ -367,7 +369,7 @@ As a result, an interrupt during `update-ref`, a config write or the index insta
     - no `index.lock`, `config.lock` or ref `.lock` is left behind;
     - status, reason and exit code match INT-01;
     - a later consumption runs nothing again.
-- [ ] T122 After T120 and T121, implement INT-01.
+- [x] T122 After T120 and T121, implement INT-01.
   - Shield the window from the durable `mutation_intent` to the terminal CAS from cancellation with `context.WithoutCancel`, in `internal/gitmanager/apply.go` and `internal/gitmanager/safety.go`.
   - Start Git in its own process group so that a terminal SIGINT does not reach it: `SysProcAttr.Setpgid`, in a new `internal/gitprocess/runner_posix.go`.
   - Keep `terminal.go` as the sole closer and record the deferred interrupt in the audit trail.
@@ -409,7 +411,7 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
   - `reconcileAuthorization`, `InspectReconciliation` and `EncodeReconciliationReport` in `internal/gitmanager/reconcile_test.go`;
   - `abandon`, `render` and `finishResult` in `internal/gitmanager/recovery_test.go`.
 - [x] T127 [P] Using the T125 seam, inject ENOSPC and EDQUOT at every write to the state root and the project in `internal/gitmanager/iofault_test.go` and `internal/gitstore/store_posix_test.go`. Assert typed refusals or indeterminate outcomes, and that no durable record is truncated.
-  - **DEV-T123–T127 (proposed deviation, pending human approval):**
+  - **DEV-T123–T127 (proposed deviation; accepted under the owner's delegation of 2026-11-18, T119):**
     - **Where the work went:**
       - T125's seam is `fileOps` in `internal/gitmanager/fileops_posix.go`. The dispatcher holds it in an unexported field; nil means the OS.
       - T127's store side extends the existing `recordOps` faults in `internal/gitstore/record_test.go`, not `store_posix_test.go`. ENOSPC is also a fault class of every durable step in `TestFaultMatrix`.
@@ -435,29 +437,31 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
 
 ### Earlier refusals and hostile-repository proofs
 
-- [ ] T128 [P] Add tests to `internal/gitmanager/inspect_test.go` and `internal/gitmanager/commitflow_integration_test.go`.
+- [x] T128 [P] Add tests to `internal/gitmanager/inspect_test.go` and `internal/gitmanager/commitflow_integration_test.go`.
   - Leftover ref lock files (`refs/heads/<branch>.lock`, `HEAD.lock`, `packed-refs.lock`) present at plan time, and appearing between plan and apply, MUST refuse before the first blob, with the reason fixed by T129.
   - Today inspection observes only `index.lock` and `config.lock`. A ref lock would surface only when `update-ref` fails, after the commit objects exist.
-- [ ] T129 **(needs owner decision for the reason)** After T128, observe ref lock files in `internal/gitmanager/inspect_posix.go` and `internal/gitmanager/inspect.go`. Classify them in `internal/gitmanager/classify.go`, reusing an existing reason or a newly approved one, and revalidate them before `initial_ref_cas` and `development_ref_cas`.
-- [ ] T130 [P] Extend the hostile-configuration sentinels in `internal/gitprocess/runner_test.go` to the mutating rows: `init`, `config` write, `hash-object -w`, `commit-tree`, `update-ref` and `read-tree` into the prepared index.
+- [x] T129 **(needs owner decision for the reason)** After T128, observe ref lock files in `internal/gitmanager/inspect_posix.go` and `internal/gitmanager/inspect.go`. Classify them in `internal/gitmanager/classify.go`, reusing an existing reason or a newly approved one, and revalidate them before `initial_ref_cas` and `development_ref_cas`.
+- [x] T130 [P] Extend the hostile-configuration sentinels in `internal/gitprocess/runner_test.go` to the mutating rows: `init`, `config` write, `hash-object -w`, `commit-tree`, `update-ref` and `read-tree` into the prepared index.
   - Install sentinel `reference-transaction`, `post-index-change`, `pre-commit`, `post-commit` and `post-checkout` hooks, both in `.git/hooks` and through a hostile `core.hooksPath`.
   - Assert that no sentinel runs and that the private HOME and XDG leaves stay absent.
-- [ ] T131 [P] Add real-Git coverage for the `git-flow-next` dialect, both as adoption and as a new project with and without an initial commit, in `internal/gitmanager/commitflow_integration_test.go`. Today it is verified only by unit tests.
+- [x] T131 [P] Add real-Git coverage for the `git-flow-next` dialect, both as adoption and as a new project with and without an initial commit, in `internal/gitmanager/commitflow_integration_test.go`. Today it is verified only by unit tests.
 
 ### Platform and version evidence
 
 - [ ] T132 **(needs owner authorization)** Run the real-Git suites against Git 2.45.0, the declared minimum in `internal/gitprocess/identify.go`, and against the current release. Record versions, commands, exit codes and hashes with the T115/T116 evidence. Today only 2.54.0 (macOS) and 2.55.0 (Linux VM) are exercised.
-- [ ] T133 **(needs owner authorization: outward-facing, uses CI runners)** Add `.github/workflows/ci.yml` with macOS and Linux jobs:
+  - **Blocked (VER-01).** The agent's tool-permission policy refused the build of Git 2.45.0 from source. Running it needs explicit permission for that build, or a prebuilt Git 2.45 binary.
+- [x] T133 **(needs owner authorization: outward-facing, uses CI runners)** Add `.github/workflows/ci.yml` with macOS and Linux jobs:
   - `gofmt -l`, `go vet ./...` and `go test ./...`;
   - repeated `go test -race -timeout 60m` for `gitstore`, `gitmanager`, `app` and `cmd/ai-dev`;
   - time-boxed fuzzing of the four fuzz targets;
   - a check that the Linux `TMPDIR` is local ext4, so the real-Git suites do not skip.
   - CI logs are evidence for T116 only once the owner approves them as the evidence root.
 - [ ] T134 **(optional; needs owner authorization)** Verify power-loss durability of the store and project-config publication sequences. Use `dm-log-writes` or `dm-flakey` on a Linux ext4 device: replay every write prefix and assert that the recovered state is a consistent prefix that T123 classifies. Record the result as T116 evidence.
+  - **Declined under the owner's delegation (DUR-01); not executed.** The fsync and directory-sync order is covered by step-level fault injection and SIGKILL at every durable step. Block-level power-loss simulation remains residual risk.
 
 ### Recovery after a crash
 
-- [ ] T136 **(needs owner decision)** Make supervised reconciliation able to continue after a crash in the middle of an initialization (F008-FR-180).
+- [x] T136 **(needs owner decision)** Make supervised reconciliation able to continue after a crash in the middle of an initialization (F008-FR-180).
   - **What T123 found:** a crash of the issuing apply after `.ai-dev/config.json` is written, and before the attempt closes, leaves an unresolved authorization whose recovery path ai-dev refuses. In the measured `basic` case this was 53 of 92 crash points.
     - Planning the initialization again is `invalid_strategy` or `repository_state_incompatible`, because the repository now exists.
     - Planning against the existing repository is `configuration_conflict`. For `basic` and `github-flow`, a plan over an existing repository records no `initial-branch`, so its rendered configuration differs from the one the crashed attempt wrote.
@@ -471,9 +475,19 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
     - (c) An explicit supervised removal of the entries the prior attempt is proven to own, recorded in its audit trail.
   - The decision fixes the option and the reasons. After approval, add the tests to `internal/app/gitmanagement_crash_test.go`, so that every crash point there ends in a reconciliation that is applied or that refuses only for an external cause.
 
+- **DEV-T120–T136 (decided under the owner's delegation of 2026-11-18; checked by T118):**
+  - **Decisions:** INT-01, INT-02, LCK-01, REC-05, REC-06, IO-01, RET-01, DUR-01 and VER-01 are recorded in `contracts/authorization-audit.md` §15.
+  - **Placement:**
+    - T121 is `internal/app/gitmanagement_interrupt_test.go`, not `cmd/ai-dev`: it reuses the T123 re-exec harness, and signals the child's whole process group at each Git invocation and operation event. That is 100 cases, both SIGINT and SIGTERM.
+    - T128 is `internal/gitmanager/reflock_integration_test.go`.
+    - T131 is `internal/gitmanager/gitflownext_integration_test.go`. It was also checked by hand with the real `git-flow-next` 2.1.0, which recognized the written configuration and started and finished a feature on `dev`.
+  - **Mutation checks:** without INT-01, all 100 interrupt cases end `state_indeterminate`. Without reference-lock observation, the plan with `HEAD.lock` is accepted.
+  - **T136, option (a):** the crash cases that supervised reconciliation cannot continue dropped from 53 of 92 to 7. Those 7 are exactly REC-06's window, and the crash test now asserts that.
+  - **T133:** the workflow file is written and parses. It has not run, because nothing was pushed.
+
 ### Operational policy
 
-- [ ] T135 **(needs owner decision)** Propose a state-root retention policy for `attempts/`, audit events and `prepared/` in `contracts/authorization-audit.md`. These directories grow without bound, because no cleanup ever runs. The proposal MUST keep every unresolved attempt's evidence, MUST remain supervised and explicit, and is decision-only: no implementation without a later approved task.
+- [x] T135 **(needs owner decision)** Propose a state-root retention policy for `attempts/`, audit events and `prepared/` in `contracts/authorization-audit.md`. These directories grow without bound, because no cleanup ever runs. The proposal MUST keep every unresolved attempt's evidence, MUST remain supervised and explicit, and is decision-only: no implementation without a later approved task.
 
 **Checkpoint**: Phase 13 is complete when:
 - T119 is recorded;

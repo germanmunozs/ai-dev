@@ -43,7 +43,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 005 SDD Workflow | `ai-dev workflow next` | Implementada (solo lectura) |
 | 006 Human Gates | `ai-dev workflow approve`, `ai-dev workflow abandon` | Implementada |
 | 007 Interactive CLI | — | No incluida en este repositorio |
-| 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada en `feature/008-git-management`; pendientes T115, T116 y T118 (evidencia nativa y revisión independiente) |
+| 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS y Linux/ext4 (VM); pendiente T132 (Git 2.45) |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -531,7 +531,13 @@ Garantías clave:
 - **Sin rollback ni reintento:** ante un fallo, la ejecución se detiene. Las operaciones restantes se informan como no iniciadas y el estado refleja solo la evidencia verificada.
 - **Un solo cierre terminal:** `terminal.go` es el único lugar que cierra un intento. Los fallos del almacén cuyo resultado no se puede verificar producen `state_indeterminate`, nunca un éxito supuesto.
 - **Ganador único:** ante ejecuciones concurrentes, el CAS del claim y el apply lock garantizan que solo un intento muta.
-- **Reconciliación supervisada:** `init reconcile` es de solo lectura y no concede autoridad (`grants_mutation_authority: false`). Para reanudar se necesita un plan nuevo y una autorización nueva que declare `--reconciles-authorization`.
+- **Reconciliación supervisada:** `init reconcile` es de solo lectura y no concede autoridad (`grants_mutation_authority: false`). Para reanudar se necesita un plan nuevo y una autorización nueva que declare `--reconciles-authorization`. Un plan sobre un repositorio que ai-dev ya inicializó adopta la rama registrada en `.ai-dev/config.json`, pero solo si reproduce ese archivo byte a byte (REC-05). Así, la recuperación de una inicialización interrumpida no choca con su propia configuración.
+- **Interrupciones (INT-01):**
+  - Un Ctrl-C (SIGINT) o un SIGTERM **antes** de mutar se rechaza limpiamente con la *reason* `interrupted`, y la autorización sigue usable.
+  - **Durante** la mutación, la interrupción se aplaza: la operación en curso, la verificación, la liberación y el cierre terminal siempre terminan, y no empieza ninguna operación nueva. Git corre en su propio grupo de procesos, así que el Ctrl-C del terminal nunca lo mata a mitad.
+  - SIGKILL no se puede aplazar, pero está cubierto por la recuperación tras un crash.
+- **Locks de Git:** un `index.lock`, `config.lock`, `HEAD.lock`, `packed-refs.lock` o `refs/**.lock` que haya dejado otro proceso rechaza el plan con `lock_conflict`. Si aparece después, rechaza la operación antes de crear ningún objeto. ai-dev nunca borra un lock ajeno.
+- **Efectos no demostrables:** un efecto que no se puede demostrar ausente nunca se informa como `failed`, sino como `state_indeterminate`.
 
 #### Configuración de proyecto
 
@@ -649,11 +655,21 @@ La suite combina:
 
 Las pruebas que aplican cambios reales con Git exigen un **filesystem de producción** en el directorio temporal: APFS en macOS, ext4 local en Linux. En tmpfs se saltan, porque el producto lo rechaza correctamente.
 
-Evidencia verificada a fecha de hoy:
-- **macOS/APFS** (Git 2.54): suite completa y race en verde.
-- **Linux/ext4 en una VM** (imagen montada por loop, Git 2.55): suite completa en verde. La ejecución con `-race` no se hizo por falta de cgo.
+Evidencia verificada (2026-11-18), con el mismo código en ambas plataformas:
 
-El detalle está en [`specs/008-git-management/tasks.md`](specs/008-git-management/tasks.md).
+| Plataforma | Git | Suite | `-race -count=3` |
+|---|---|---|---|
+| macOS 27 / APFS (arm64) | 2.54.0 | 2322 PASS, 0 FAIL | sin carreras |
+| Linux 7.1 / ext4 (loop en VM, Fedora 44, usuario no root) | 2.56.1 | 2322 PASS, 0 FAIL | sin carreras |
+
+Incluye:
+- **Recuperación tras un crash:** 92 SIGKILL reales, uno antes y otro después de cada paso duradero.
+- **Interrupciones:** 168 interrupciones reales (SIGINT, SIGTERM y SIGHUP) y la salida forzada con una segunda interrupción.
+- **Fallos de I/O:** inyección de EIO, ENOSPC y EDQUOT en cada paso.
+- **Hooks:** ninguno se ejecuta con Git real, con un control negativo que demuestra que los hooks estaban activos.
+- **Git Flow:** `git-flow-next` validado con la herramienta real 2.1.0.
+
+La revisión independiente está en [`specs/008-git-management/review.md`](specs/008-git-management/review.md). El workflow de CI está en [`.github/workflows/ci.yml`](.github/workflows/ci.yml); aún no se ha ejecutado, porque requiere hacer push.
 
 ---
 
@@ -682,16 +698,18 @@ flowchart LR
     rv --> hg{{"Human Gate"}}
 ```
 
-Un agente nunca registra una aprobación humana en nombre de una persona. Las desviaciones de diseño se anotan como "propuestas, pendientes de aprobación humana" en `tasks.md` y en `contracts/` hasta que el responsable las aprueba.
+Un agente nunca registra una aprobación humana en nombre de una persona. Las desviaciones de diseño se anotan como "propuestas, pendientes de aprobación humana" en `tasks.md` y en `contracts/` hasta que el responsable las aprueba. En la Feature 008, el responsable delegó esas decisiones el 2026-11-18, así que quedaron registradas como "aceptadas bajo delegación" después de la revisión independiente, nunca como una aprobación individual suya.
 
 ---
 
 ## Limitaciones conocidas
 
 - **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management.
-- **Evidencia nativa pendiente:** falta evidencia preservada en una ubicación aprobada (T115 y T116), ext4 nativo sin VM y `-race` en Linux.
-- **Revisión independiente (T118):** aún no se ha registrado.
-- **Git Flow `git-flow-next`:** está planificado y probado de forma unitaria, pero no se ha validado contra Git real.
+- **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
+- **Versión mínima de Git (2.45):** está declarada, pero no se ha ejecutado la suite con esa versión (VER-01).
+- **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
+- **Claims huérfanos (REC-07):** una autorización cuyo claim quedó huérfano por un crash antes de la intención no se reasigna; hay que emitir una nueva.
+- **SIGKILL:** no se puede aplazar; se recupera por la vía de crash.
 - **Fuera de alcance por diseño:**
   - autenticación de agentes;
   - selección automática, reintentos o encadenamiento de agentes;

@@ -846,7 +846,7 @@ Logical layout (names are roles, not permission to expose concrete temp paths in
         └── result.json
 ```
 
-Proposed deviation STO-08 (contracts/authorization-audit.md §10, pending human approval): attempts are stored at `<state-root>/attempts/<apply-id>/` instead of under the project partition, because the attempt record precedes project resolution.
+Proposed deviation STO-08 (contracts/authorization-audit.md §10; accepted under the owner's delegation of 2026-11-18, T119): attempts are stored at `<state-root>/attempts/<apply-id>/` instead of under the project partition, because the attempt record precedes project resolution.
 
 Directories are `0700`; records are `0600`. Apply-lock existence is not ownership. Authorization replacement is atomic and version-checked. Event/result absence is meaningful and never repaired automatically.
 
