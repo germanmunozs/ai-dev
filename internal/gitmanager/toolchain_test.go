@@ -20,6 +20,9 @@ func TestResolveToolchainLayout(t *testing.T) {
 		{"/usr/lib/git-core", true, "/etc/gitconfig", "/etc/gitattributes"},
 		{"/usr/local/libexec/git-core", true, "/usr/local/etc/gitconfig", "/usr/local/etc/gitattributes"},
 		{"/opt/homebrew/Cellar/git/2.55.0/libexec/git-core", true, "/opt/homebrew/etc/gitconfig", "/opt/homebrew/etc/gitattributes"},
+		{"/opt/homebrew/opt/git/libexec/git-core", true, "/opt/homebrew/etc/gitconfig", "/opt/homebrew/etc/gitattributes"},
+		{"/usr/local/opt/git/libexec/git-core", true, "/usr/local/etc/gitconfig", "/usr/local/etc/gitattributes"},
+		{"/opt/git/libexec/git-core", false, "", ""},
 		{"/opt/custom/lib/git-core", false, "", ""},
 		{"/usr/lib/git-core/", false, "", ""},
 	} {

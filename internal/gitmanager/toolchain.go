@@ -49,7 +49,13 @@ func resolveToolchainLayout(tool GitToolIdentity) (toolchainLayout, bool) {
 			AttributeFiles: [][]byte{[]byte("/usr/local/etc/gitattributes")},
 		}, true
 	}
-	if base, _, found := strings.Cut(prefix, "/Cellar/git/"); found && base != "" {
+	base, _, homebrew := strings.Cut(prefix, "/Cellar/git/")
+	if !homebrew {
+		// Homebrew's stable path <homebrew prefix>/opt/git, which its Git
+		// reports as the exec path's prefix.
+		base, homebrew = strings.CutSuffix(prefix, "/opt/git")
+	}
+	if homebrew && base != "" {
 		// Homebrew configures sysconfdir as <homebrew prefix>/etc.
 		return toolchainLayout{
 			ConfigFiles:    [][]byte{[]byte(base + "/etc/gitconfig")},
