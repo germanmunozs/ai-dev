@@ -38,10 +38,10 @@ The report goes to standard output, with the first line first. Example for featu
 ```text
 ai-dev: outcome=step_recommended feature="f" state=specified activity=plan role=planning agent=claude-code availability=available note="options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"
   select the agent for this role (003): ai-dev agent select -- planning
-  run the agent (002): ai-dev agent run -- claude-code (instruction)
-  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' (target-state)
-  then record your decision (006): ai-dev workflow approve --approver (approver) -- 'f' (target-state)
-  replace each (slot) before running; --reason (reason) is optional for approval (006 FR-010)
+  run the agent (002): ai-dev agent run -- claude-code )instruction(
+  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(
+  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(
+  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)
 ```
 
 The first-line forms for the other outcomes follow. The same fixed note closes each line, shown as `note="…"`:
@@ -54,7 +54,7 @@ ai-dev: outcome=feature_unknown feature="f" note="…"
 ai-dev: outcome=state_invalid feature="f" note="…"
 ```
 
-The `feature="…"` field uses Go `%q` escaping (004 FR-028), while templates use the shell quoting of F007-FR-006. A human slot is always written `(name)`, including in the reminder line. No line of the report contains a quoted placeholder.
+The `feature="…"` field uses Go `%q` escaping (004 FR-028), while templates use the shell quoting of F007-FR-006. A human slot is always written `)name(`, including in the reminder line. No line of the report contains a quoted placeholder.
 
 The rendering rules:
 - **When template lines are omitted:** for the outcomes that have none, and for an identifier that is not template-safe.
@@ -77,9 +77,9 @@ Standard output holds exactly one JSON object with a trailing newline:
   "agent_availability": "available",
   "templates": [
     {"kind": "select", "label": "select the agent for this role (003)", "command": "ai-dev agent select -- planning", "human_slots": []},
-    {"kind": "run", "label": "run the agent (002)", "command": "ai-dev agent run -- claude-code (instruction)", "human_slots": ["instruction"]},
-    {"kind": "transition", "label": "after completing the activity, check the transition (004)", "command": "ai-dev workflow transition -- 'f' (target-state)", "human_slots": ["target-state"]},
-    {"kind": "approve", "label": "then record your decision (006)", "command": "ai-dev workflow approve --approver (approver) -- 'f' (target-state)", "human_slots": ["approver", "target-state"], "optional_flags": ["--reason"]}
+    {"kind": "run", "label": "run the agent (002)", "command": "ai-dev agent run -- claude-code )instruction(", "human_slots": ["instruction"]},
+    {"kind": "transition", "label": "after completing the activity, check the transition (004)", "command": "ai-dev workflow transition -- 'f' )target-state(", "human_slots": ["target-state"]},
+    {"kind": "approve", "label": "then record your decision (006)", "command": "ai-dev workflow approve --approver )approver( -- 'f' )target-state(", "human_slots": ["approver", "target-state"], "optional_flags": ["--reason"]}
   ],
   "statement": "options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"
 }
@@ -95,5 +95,5 @@ Which fields appear for each outcome:
 
 - **No effects:** no process is started, and no file, record, store or Git state is written. Neither standard input nor the network is used.
 - **Nothing derived:** no field or template contains a target state, an approver, a reason or an instruction derived from any source.
-- **Unfilled templates do nothing:** pasting a template with any `(slot)` unfilled into sh, bash or zsh executes nothing and changes no file.
+- **Unfilled templates do nothing:** pasting a template with any `)slot(` unfilled into sh, dash, bash or zsh, under any of the option sets in research R-03, executes nothing and changes no file.
 - **Identifier quoting:** pasting a filled template passes the feature identifier as exactly one positional argument after `--`.

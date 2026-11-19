@@ -36,7 +36,7 @@ Each **Word** is one of:
 - `fixed(text)`: a literal command word such as `ai-dev`, `workflow`, `--` or `--approver`, rendered as is.
 - `token(text)`: a canonical role or agent identity, made of `[a-z-]` only, rendered as is.
 - `feature`: the identifier, rendered as one POSIX single-quoted word (R-04).
-- `human(name)`: a slot named `instruction`, `approver` or `target-state`, rendered unquoted as `(name)` (R-03).
+- `human)name(`: a slot named `instruction`, `approver` or `target-state`, rendered unquoted between inverted parentheses as `)name(` (R-03).
 
 **Templates by outcome:**
 
@@ -53,9 +53,9 @@ Each **Word** is one of:
 | Kind | Words |
 |---|---|
 | `select` | `ai-dev agent select -- {role}` |
-| `run` | `ai-dev agent run -- {agent} (instruction)` |
-| `transition` | `ai-dev workflow transition -- {feature} (target-state)` |
-| `approve` | `ai-dev workflow approve --approver (approver) -- {feature} (target-state)`, followed in the report by the note that `--reason` is optional (006 FR-010) |
+| `run` | `ai-dev agent run -- {agent} )instruction(` |
+| `transition` | `ai-dev workflow transition -- {feature} )target-state(` |
+| `approve` | `ai-dev workflow approve --approver )approver( -- {feature} )target-state(`, followed in the report by the note that `--reason` is optional (006 FR-010) |
 | `state` | `ai-dev workflow state -- {feature}` |
 
 ## Template-safe identifier

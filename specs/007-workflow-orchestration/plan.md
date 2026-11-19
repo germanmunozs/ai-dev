@@ -11,7 +11,7 @@
 Add `ai-dev workflow guide <feature-id>`, a read-only report for one feature. The report holds:
 - 005's next-step outcome, state, activity and role;
 - the agent that role maps to under 003, with its 002 availability;
-- command templates for the next human actions, with every human-supplied value left as an unquoted `(slot)`, so that a pasted, unfilled template executes nothing.
+- command templates for the next human actions, with every human-supplied value left as an unquoted `)slot(`, whose unbalanced `)` is a syntax error in every POSIX shell mode measured, so that a pasted, unfilled template executes nothing.
 
 The new domain package composes the existing `sdd` and `selection` domain functions in process. It starts no process, writes nothing, reads no standard input, and changes no existing behavior.
 

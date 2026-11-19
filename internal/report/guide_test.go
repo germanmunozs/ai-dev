@@ -76,21 +76,21 @@ func TestWriteGuideTextEveryOutcome(t *testing.T) {
 		{"step available", guideReport(t, "f", "specified", selection.RoleSelected, false),
 			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=available " + guideNote + "\n" +
 				"  select the agent for this role (003): ai-dev agent select -- planning\n" +
-				"  run the agent (002): ai-dev agent run -- claude-code (instruction)\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' (target-state)\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver (approver) -- 'f' (target-state)\n" +
-				"  replace each (slot) before running; --reason (reason) is optional for approval (006 FR-010)\n"},
+				"  run the agent (002): ai-dev agent run -- claude-code )instruction(\n" +
+				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"step unavailable", guideReport(t, "f", "tasked", selection.AgentUnavailable, false),
 			"ai-dev: outcome=step_recommended feature=\"f\" state=tasked activity=implement role=implementation agent=codex-cli availability=unavailable " + guideNote + "\n" +
 				"  select the agent for this role (003): ai-dev agent select -- implementation\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' (target-state)\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver (approver) -- 'f' (target-state)\n" +
-				"  replace each (slot) before running; --reason (reason) is optional for approval (006 FR-010)\n"},
+				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"step inconsistent", guideReport(t, "f", "", selection.SelectionInconsistent, false),
 			"ai-dev: outcome=step_recommended feature=\"f\" state=draft activity=specify role=specification agent=claude-code availability=inconsistent " + guideNote + "\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' (target-state)\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver (approver) -- 'f' (target-state)\n" +
-				"  replace each (slot) before running; --reason (reason) is optional for approval (006 FR-010)\n"},
+				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"terminal", guideReport(t, "f", "approved", selection.RoleSelected, false),
 			"ai-dev: outcome=workflow_terminal feature=\"f\" state=approved " + guideNote + "\n" +
 				"  report the state (004): ai-dev workflow state -- 'f'\n"},
@@ -132,9 +132,9 @@ func TestWriteGuideJSONEveryOutcome(t *testing.T) {
 	}
 	const wantStep = `{"schema_version":"ai-dev.workflow-guide/v1","feature_id":"f","outcome":"step_recommended","current_state":"specified","activity":"plan","role":"planning","agent":"claude-code","agent_availability":"available","templates":[` +
 		`{"kind":"select","label":"select the agent for this role (003)","command":"ai-dev agent select -- planning","human_slots":[]},` +
-		`{"kind":"run","label":"run the agent (002)","command":"ai-dev agent run -- claude-code (instruction)","human_slots":["instruction"]},` +
-		`{"kind":"transition","label":"after completing the activity, check the transition (004)","command":"ai-dev workflow transition -- 'f' (target-state)","human_slots":["target-state"]},` +
-		`{"kind":"approve","label":"then record your decision (006)","command":"ai-dev workflow approve --approver (approver) -- 'f' (target-state)","human_slots":["approver","target-state"],"optional_flags":["--reason"]}],` +
+		`{"kind":"run","label":"run the agent (002)","command":"ai-dev agent run -- claude-code )instruction(","human_slots":["instruction"]},` +
+		`{"kind":"transition","label":"after completing the activity, check the transition (004)","command":"ai-dev workflow transition -- 'f' )target-state(","human_slots":["target-state"]},` +
+		`{"kind":"approve","label":"then record your decision (006)","command":"ai-dev workflow approve --approver )approver( -- 'f' )target-state(","human_slots":["approver","target-state"],"optional_flags":["--reason"]}],` +
 		`"statement":"options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"}` + "\n"
 	if out.String() != wantStep {
 		t.Fatalf("json =\n%s\nwant\n%s", out.String(), wantStep)
@@ -228,21 +228,46 @@ func (w *guideCountingWriter) Write(p []byte) (int, error) {
 
 // --- SC-004: pasting templates into POSIX shells ---
 
-// guideShells returns the shells to paste into. sh and bash are required;
-// zsh is used when installed.
-func guideShells(t *testing.T) map[string][]string {
+// pasteShell is one shell, with the options a user may have set, to paste
+// templates into.
+type pasteShell struct {
+	argv    []string
+	prelude string
+}
+
+// guideShells returns every shell mode to paste into. sh and bash are
+// required, and zsh is required in CI; dash is used when installed. zsh is
+// pasted into under the option sets that change how it reads parentheses
+// (review R7-01).
+func guideShells(t *testing.T) map[string]pasteShell {
 	t.Helper()
-	shells := map[string][]string{}
-	for name, args := range map[string][]string{"sh": {"-c"}, "bash": {"--norc", "--noprofile", "-c"}, "zsh": {"-f", "-c"}} {
-		path, err := exec.LookPath(name)
+	modes := []struct {
+		name, binary string
+		args         []string
+		prelude      string
+	}{
+		{"sh", "sh", []string{"-c"}, ""},
+		{"dash", "dash", []string{"-c"}, ""},
+		{"bash", "bash", []string{"--norc", "--noprofile", "-c"}, ""},
+		{"bash extglob", "bash", []string{"--norc", "--noprofile", "-c"}, "shopt -s extglob\n"},
+		{"zsh", "zsh", []string{"-f", "-c"}, ""},
+		{"zsh emulate sh", "zsh", []string{"-f", "-c"}, "emulate sh\n"},
+		{"zsh emulate ksh", "zsh", []string{"-f", "-c"}, "emulate ksh\n"},
+		{"zsh shglob nonomatch", "zsh", []string{"-f", "-c"}, "setopt shglob nonomatch\n"},
+		{"zsh kshglob", "zsh", []string{"-f", "-c"}, "setopt kshglob\n"},
+		{"zsh nobareglobqual nonomatch", "zsh", []string{"-f", "-c"}, "setopt nobareglobqual nonomatch\n"},
+	}
+	shells := map[string]pasteShell{}
+	for _, mode := range modes {
+		path, err := exec.LookPath(mode.binary)
 		if err != nil {
-			if name == "zsh" {
-				t.Logf("zsh not installed; pasting into sh and bash only")
-				continue
+			if mode.binary == "sh" || mode.binary == "bash" || (mode.binary == "zsh" && os.Getenv("CI") != "") {
+				t.Fatalf("%s is required for SC-004: %v", mode.binary, err)
 			}
-			t.Fatalf("%s is required for SC-004: %v", name, err)
+			t.Logf("%s not installed; skipping %q", mode.binary, mode.name)
+			continue
 		}
-		shells[name] = append([]string{path}, args...)
+		shells[mode.name] = pasteShell{argv: append([]string{path}, mode.args...), prelude: mode.prelude}
 	}
 	return shells
 }
@@ -292,7 +317,7 @@ func dirListing(t *testing.T, dir string) []string {
 // paste runs command in shell from a fresh working directory that contains
 // files named after every slot, and returns the logged invocations and
 // whether the working directory and the sentinel log changed.
-func paste(t *testing.T, sentinels string, shell []string, command string) (invocations [][]string, dirChanged bool) {
+func paste(t *testing.T, sentinels string, shell pasteShell, command string) (invocations [][]string, dirChanged bool) {
 	t.Helper()
 	work := t.TempDir()
 	for _, name := range []string{guide.SlotInstruction, guide.SlotApprover, guide.SlotTargetState, "reason"} {
@@ -303,7 +328,7 @@ func paste(t *testing.T, sentinels string, shell []string, command string) (invo
 	logDir := t.TempDir()
 	log := filepath.Join(logDir, "log")
 	before := dirListing(t, work)
-	cmd := exec.Command(shell[0], append(shell[1:], command)...)
+	cmd := exec.Command(shell.argv[0], append(shell.argv[1:], shell.prelude+command)...)
 	cmd.Dir = work
 	cmd.Env = []string{"PATH=" + sentinels + ":/usr/bin:/bin", "HOME=" + logDir, "SENTINEL_LOG=" + log}
 	_ = cmd.Run()
@@ -323,11 +348,11 @@ func filledValue(slot string) string { return "v " + slot + " $(x);'q'" }
 
 func pasteQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'" }
 
-// fill replaces each (slot) with a shell-quoted hostile value, except keep.
+// fill replaces each )slot( with a shell-quoted hostile value, except keep.
 func fill(command string, slots []string, keep string) string {
 	for _, slot := range slots {
 		if slot != keep {
-			command = strings.Replace(command, "("+slot+")", pasteQuote(filledValue(slot)), 1)
+			command = strings.Replace(command, ")"+slot+"(", pasteQuote(filledValue(slot)), 1)
 		}
 	}
 	return command
@@ -361,8 +386,8 @@ func TestGuideTemplatesPasteSafely(t *testing.T) {
 			for _, template := range report.Templates {
 				command := RenderGuideCommand(report.FeatureID, template)
 				for _, slot := range template.HumanSlots {
-					if strings.Count(command, "("+slot+")") != 1 {
-						t.Fatalf("%q: slot %q not rendered exactly once as (%s): %s", id, slot, slot, command)
+					if strings.Count(command, ")"+slot+"(") != 1 {
+						t.Fatalf("%q: slot %q not rendered exactly once as )%s(: %s", id, slot, slot, command)
 					}
 				}
 				for shellName, shell := range shells {

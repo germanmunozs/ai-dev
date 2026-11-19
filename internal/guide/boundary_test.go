@@ -36,7 +36,7 @@ var allowedGuideImports = map[string]bool{
 // evaluation (F007-FR-003).
 var forbiddenGuideSelectors = map[string]map[string]bool{
 	"ai-dev/internal/agent":     {"NewRegistry": true, "Registry": true},
-	"ai-dev/internal/selection": {"NewSelector": true},
+	"ai-dev/internal/selection": {"NewSelector": true, "Selector": true},
 	"ai-dev/internal/workflow": {
 		"Allowed":            true,
 		"EvaluateTransition": true,
@@ -137,14 +137,15 @@ func TestPackageBoundarySelfCheck(t *testing.T) {
 		"aliased new registry":  `package guide; import a "ai-dev/internal/agent"; var _ = a.NewRegistry`,
 		"registry type":         `package guide; import "ai-dev/internal/agent"; var _ agent.Registry`,
 		"new selector":          `package guide; import "ai-dev/internal/selection"; var _ = selection.NewSelector`,
+		"selector literal":      `package guide; import "ai-dev/internal/selection"; var _ = selection.Selector{}`,
 		"transition evaluation": `package guide; import "ai-dev/internal/workflow"; var _ = workflow.EvaluateTransition`,
 		"aliased transition":    `package guide; import wf "ai-dev/internal/workflow"; var _ = wf.Allowed`,
 		"blank internal import": `package guide; import _ "ai-dev/internal/system"`,
 		"blank allowed import":  `package guide; import _ "ai-dev/internal/sdd"`,
 		"dot internal import":   `package guide; import . "ai-dev/internal/agent"`,
 	}
-	if len(bad) != 24 {
-		t.Fatalf("known-bad snippets = %d, want 24", len(bad))
+	if len(bad) != 25 {
+		t.Fatalf("known-bad snippets = %d, want 25", len(bad))
 	}
 	for name, src := range bad {
 		t.Run(name, func(t *testing.T) {

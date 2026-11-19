@@ -411,14 +411,14 @@ No ejecuta ninguna plantilla, no lanza procesos, no escribe nada y no lee stdin.
 $ ai-dev workflow guide 009-search
 ai-dev: outcome=step_recommended feature="009-search" state=specified activity=plan role=planning agent=claude-code availability=available note="options for the human only; not authorization. …"
   select the agent for this role (003): ai-dev agent select -- planning
-  run the agent (002): ai-dev agent run -- claude-code (instruction)
-  after completing the activity, check the transition (004): ai-dev workflow transition -- '009-search' (target-state)
-  then record your decision (006): ai-dev workflow approve --approver (approver) -- '009-search' (target-state)
-  replace each (slot) before running; --reason (reason) is optional for approval (006 FR-010)
+  run the agent (002): ai-dev agent run -- claude-code )instruction(
+  after completing the activity, check the transition (004): ai-dev workflow transition -- '009-search' )target-state(
+  then record your decision (006): ai-dev workflow approve --approver )approver( -- '009-search' )target-state(
+  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)
 ```
 
 **Las plantillas son para completar, no para pegar tal cual:**
-- **Huecos humanos:** cada valor que decide el humano (`(instruction)`, `(approver)`, `(target-state)`) aparece sin comillas entre paréntesis. Un shell POSIX lo rechaza como error de sintaxis antes de ejecutar nada, así que una plantilla pegada sin completar no invoca `ai-dev` ni ningún agente y no toca archivos. Las pruebas lo verifican en sh, bash y zsh.
+- **Huecos humanos:** cada valor que decide el humano (`)instruction(`, `)approver(`, `)target-state(`) aparece sin comillas entre paréntesis invertidos. Ese `)` que no cierra nada es un error de sintaxis en cualquier shell POSIX, así que una plantilla pegada sin completar no invoca `ai-dev` ni ningún agente y no toca archivos. Las pruebas lo verifican en sh, dash, bash y zsh, también con opciones de zsh como `emulate sh`, `shglob` o `kshglob`, con las que un `(hueco)` normal sí se ejecutaría.
 - **Nada derivado:** la guía nunca rellena esos huecos. No deduce el estado destino, el aprobador ni la instrucción a partir del entorno, de Git ni del usuario del sistema.
 - **Identificador de la feature:** va entre comillas simples después de `--`, de modo que nombres con `;`, `$( )`, espacios o un `-` inicial llegan como un único argumento. Si el identificador contiene caracteres de control o de formato (por ejemplo, U+202E o U+200B), el informe sale sin plantillas.
 
@@ -426,7 +426,7 @@ ai-dev: outcome=step_recommended feature="009-search" state=specified activity=p
 flowchart LR
     sdd["sdd.Evaluate (005)"] --> g["guide.Evaluate"]
     sel["selector 003<br/>(solo LookPath)"] --> g
-    g --> rep["informe + plantillas<br/>con huecos (slot)"]
+    g --> rep["informe + plantillas<br/>con huecos )slot("]
     rep -. "el humano completa y ejecuta" .-> cmds["agent select / agent run /<br/>workflow transition / workflow approve"]
 ```
 
@@ -748,7 +748,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 ## Limitaciones conocidas
 
 - **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management. Windows nativo no está soportado; en Windows se usa WSL2, con el proyecto en el filesystem de Linux. El uso en WSL2 no tiene evidencia propia: se apoya en la de Linux/ext4.
-- **Plantillas de guía (007):** solo se garantizan para shells POSIX (sh, bash, zsh). fish y PowerShell no están cubiertos.
+- **Plantillas de guía (007):** solo se garantizan para shells POSIX (sh, dash, bash y zsh, con las opciones probadas). fish y PowerShell no están cubiertos.
 - **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
 - **Versión mínima de Git (2.45):** está declarada, pero no se ha ejecutado la suite con esa versión (VER-01).
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).

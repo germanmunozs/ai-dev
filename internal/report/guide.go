@@ -15,8 +15,11 @@ const WorkflowGuideSchemaVersion = "ai-dev.workflow-guide/v1"
 
 // RenderGuideCommand renders one template for pasting into a POSIX shell:
 // fixed words and canonical tokens bare, the feature identifier as one
-// single-quoted word (R-04), and each human slot as an unquoted (name), which
-// a shell rejects as a syntax error before running anything (R-03).
+// single-quoted word (R-04), and each human slot as an unquoted )name(. The
+// unbalanced ')' is a syntax error in sh, dash, bash and zsh under every
+// option set measured, including emulate sh/ksh, shglob, kshglob and
+// nobareglobqual, so an unfilled template runs nothing (R-03). A parenthesized
+// (name) is not enough: zsh can read it as a glob pattern and run it.
 func RenderGuideCommand(featureID string, template guide.Template) string {
 	words := make([]string, 0, len(template.Words))
 	for _, word := range template.Words {
@@ -24,7 +27,7 @@ func RenderGuideCommand(featureID string, template guide.Template) string {
 		case guide.WordFeature:
 			words = append(words, shellQuote(featureID))
 		case guide.WordHuman:
-			words = append(words, "("+word.Text+")")
+			words = append(words, ")"+word.Text+"(")
 		default:
 			words = append(words, word.Text)
 		}
@@ -57,9 +60,9 @@ func WriteGuideText(w io.Writer, report guide.Report) error {
 		reason = reason || template.Kind == guide.KindApprove
 	}
 	if humanSlots {
-		out.WriteString("  replace each (slot) before running")
+		out.WriteString("  replace each )slot( before running")
 		if reason {
-			out.WriteString("; --reason (reason) is optional for approval (006 FR-010)")
+			out.WriteString("; --reason )reason( is optional for approval (006 FR-010)")
 		}
 		out.WriteString("\n")
 	}

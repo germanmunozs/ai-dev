@@ -25,7 +25,7 @@ All commands run from the repository root. Each one is read-only: run `git statu
    - The first line has the same `outcome`, `state`, `activity` and `role` as `./ai-dev workflow next 007-workflow-orchestration`.
    - It adds `agent=` (the 003 mapping for that role) and `availability=`.
    - It ends with the non-authorization `note`.
-   - Template lines follow, each slot shown as `(slot)`.
+   - Template lines follow, each slot shown as `)slot(`.
    - Exit code is 0.
 
 2. **Machine-readable report (SC-007).**

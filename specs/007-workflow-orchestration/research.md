@@ -29,30 +29,37 @@
 - **Rationale**: F007-FR-004 defines exactly these three values. The 003 outcome itself is not reported, so guidance has no role-selection outcome of its own.
 - **Alternatives considered**: Reporting the 003 outcome token verbatim. Rejected, because the specification forbids a role-selection outcome in guidance.
 
-## R-03 Rendering human slots so that an unfilled paste does nothing (S-27)
+## R-03 Rendering human slots so that an unfilled paste does nothing (S-27, R7-01)
 
-- **Decision**: Every human slot (`{instruction}`, `{approver}`, `{target-state}`) is rendered as an **unquoted parenthesized name**, for example `(target-state)`. The feature identifier is rendered as one single-quoted word after `--` (R-04). The canonical tokens `{role}` and `{agent}` are rendered bare, because they contain only `[a-z-]`.
-- **Rationale**: in a POSIX shell, an unquoted `(` after a command word is a syntax error. It is detected while parsing, before any expansion, redirection or execution, so no command runs and no file is created.
+- **Decision**: Every human slot (`{instruction}`, `{approver}`, `{target-state}`) is rendered as an **unquoted name between inverted parentheses**, for example `)target-state(`. The feature identifier is rendered as one single-quoted word after `--` (R-04). The canonical tokens `{role}` and `{agent}` are rendered bare, because they contain only `[a-z0-9-]`.
+- **Rationale**: a `)` that closes nothing is a syntax error in every POSIX-like shell and option set measured. The shell rejects the whole line while parsing, before any expansion, redirection or execution, so no command runs and no file is created. Interactively it reports the error at once and does not wait for continuation lines.
 
-  Measured on 2026-11-19 with a sentinel `ai-dev` on `PATH`. Each form was pasted with all slots unfilled, in sh, bash, and zsh both with default options and with `setopt nonomatch`:
+  A parenthesized `(target-state)`, the first choice, is **not** enough. It is a syntax error in sh, dash and bash, but zsh can read it as a glob group or glob qualifier. The independent implementation review (R7-01) found it, and it was confirmed on 2026-11-19: with `emulate sh`, `emulate ksh`, `setopt shglob`, `setopt kshglob` or `setopt nobareglobqual nonomatch`, the unfilled `run` template launched `ai-dev agent run -- claude-code '(instruction)'`.
+
+  Measured on 2026-11-19 with a sentinel `ai-dev` on `PATH` and a file named after each slot in the working directory:
+  - **Shells and options:** sh, dash, bash (default and `extglob`), and zsh 5.9 (`-f` default, `emulate sh`, `emulate ksh`, `setopt shglob`, `setopt shglob nonomatch`, `setopt kshglob`, `setopt nobareglobqual nonomatch`).
+  - **Paste modes:** both with `-c` and interactively, the latter followed by another command line.
 
   | Slot form | Result |
   |---|---|
   | `'<target-state>'` (quoted) | Command runs: rejected |
   | `{target-state}` | Command runs: rejected |
-  | `<target-state>` | Parsed as redirections. It did not run in the test, but its effect depends on which files exist in the current directory, and `>` can create one: rejected |
-  | `(target-state)` | No run and no file change in every shell and option tested: chosen |
+  | `<target-state>` | Parsed as redirections, so the effect depends on which files exist, and `>` can create one: rejected |
+  | `(target-state)` | No run in sh, dash, bash and default zsh, but **runs** in zsh under the options above: rejected (R7-01) |
+  | `\|target-state\|` | Pipes into a command: runs: rejected |
+  | `)target-state(` | No run and no file change in every shell, option set and paste mode tested; the next interactive line is not swallowed: chosen |
 
-  A filled template, such as `--approver 'Ana' -- 'a;b $(x)' 'specified'`, passes the identifier as exactly one argument in all three shells.
+  A filled template, such as `--approver 'Ana' -- 'a;b $(x)' 'specified'`, passes the identifier as exactly one argument in every shell. A human who edits only the inside of a slot and leaves the parentheses still gets a syntax error, so a partial edit also fails closed.
 - **Alternatives considered**:
   - A `false &&` prefix: rejected, because it fails open once the human removes it but leaves a slot unfilled.
   - A `#` comment prefix: rejected, because it hides the template and has the same failure mode.
   - Quoted placeholders: rejected for the reason found in review S-27.
-- **Residual**: shells that are not POSIX-like (fish, PowerShell) are out of scope, because native Windows is unsupported. The behavior is tested in sh, bash and zsh (SC-004).
+  - `x)` or `(x))`: just as safe, but they read like typos and invite a "fix" back to `(x)`.
+- **Residual**: shells that are not POSIX-like (fish, PowerShell) are out of scope, because native Windows is unsupported. The paste tests cover every mode above. zsh is required in CI, and dash is used where it is installed (SC-004).
 
 ## R-04 Quoting the feature identifier
 
-- **Decision**: Render the identifier as `'…'`, with each embedded `'` written as `'\''`, always after `--`. Render no template when the identifier contains a rune of Unicode category Cc or Cf, U+2028 or U+2029 (`unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r)`).
+- **Decision**: Render the identifier as `'…'`, with each embedded `'` written as `'\''`, always after `--`. Render no template when the identifier contains a rune of Unicode category Cc or Cf, U+2028 or U+2029 (`unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r)`), and render canonical tokens bare only when they are `[a-z0-9-]` (the report is otherwise invalid).
 - **Rationale**: POSIX single quotes suppress every expansion; only `'` needs escaping. `--` stops option parsing in all six commands, which use Go's `flag.FlagSet.Parse`; the independent review verified this from the code. Identifiers are already valid UTF-8 (`fs.ValidPath`).
 - **Alternatives considered**:
   - Double quotes: rejected, because `$`, `` ` `` and `\` still expand.

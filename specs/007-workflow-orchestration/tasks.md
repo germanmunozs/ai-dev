@@ -93,7 +93,7 @@ It executes, writes and derives nothing.
   - **Statement (SC-005, SC-007):** `statement` and the text `note` are present for every outcome.
 - [X] T011 [P] [US1] SC-004 shell-paste tests in `internal/report/guide_test.go`.
   - **Setup:** for the hostile identifiers `a;b`, `$(x)`, `-f`, `it's`, `a b` and `ñandú`, render every template. Put a sentinel `ai-dev` script on a temporary `PATH`; it appends its argv to a log file.
-  - **Filled:** with every `(slot)` replaced by a quoted value, `sh -c`, `bash -c` and `zsh -c` each invoke the sentinel with the identifier as exactly one argument after `--`.
+  - **Filled:** with every `)slot(` replaced by a quoted value, `sh -c`, `bash -c` and `zsh -c` each invoke the sentinel with the identifier as exactly one argument after `--`.
   - **One slot unfilled:** for each human slot separately, with only that slot unfilled, the sentinel is never invoked and the temporary directory's entries are unchanged. Also test with a file named after the slot present in the directory.
   - **Shells:** skip `zsh` when it is not installed, with `t.Skip`; `sh` and `bash` are required.
   - **No derived values:** no rendered command contains a value for `instruction`, `approver`, `target-state` or `reason`.
@@ -114,10 +114,10 @@ It executes, writes and derives nothing.
 - [X] T014 [US1] Implement the shell rendering of Words in `internal/report/guide.go`:
   - `fixed` and `token` words are rendered verbatim;
   - `feature` words become one POSIX single-quoted word with `'` written as `'\''` (R-04);
-  - `human(name)` words are rendered unquoted as `(name)` (R-03).
+  - `human)name(` words are rendered unquoted as `)name(` (R-03).
 
   Also add `RenderCommand(guide.Template) string`.
-- [X] T015 [US1] Implement `WriteGuideText(w io.Writer, r guide.Report) error` in `internal/report/guide.go`, following the contract: the first line, the indented `label: command` lines, and the reminder line about `(slot)` and the optional `--reason` (006 FR-010). It refuses an invalid report. T010 and T011 text cases must pass.
+- [X] T015 [US1] Implement `WriteGuideText(w io.Writer, r guide.Report) error` in `internal/report/guide.go`, following the contract: the first line, the indented `label: command` lines, and the reminder line about `)slot(` and the optional `--reason` (006 FR-010). It refuses an invalid report. T010 and T011 text cases must pass.
 - [X] T016 [US1] Implement `WriteGuideJSON(w io.Writer, r guide.Report) error` in `internal/report/guide.go`, emitting exactly one object per the contract. It refuses an invalid report. The T010 JSON cases must pass.
 - [X] T017 [US1] Implement `RunWorkflowGuide(args []string, root fs.FS, executor system.Executor, stdout, stderr io.Writer) int` in `internal/app/workflowguide.go`, mirroring `runWorkflowNext`:
   - `brokenPipeAsError`, the `flag` parsing, and the usage line `Usage: ai-dev workflow guide [--format text|json] <feature-id>`;
@@ -159,14 +159,15 @@ It executes, writes and derives nothing.
 - [X] T023 [P] Document `ai-dev workflow guide` in `README.md`:
   - add it to the command reference table (read-only);
   - change the 007 status row to "guided mode implemented; autonomous mode deferred";
-  - add a short section on the templates and the `(slot)` rule.
+  - add a short section on the templates and the `)slot(` rule.
 - [X] T024 Run the plan's Quality Gates and record the exact commands and results:
   - `gofmt -l .` and `go vet ./...`, plus `GOOS=linux go vet ./...`;
   - the six-platform cross-build;
   - `go test -count=1 ./...`;
   - `go test -race -count=3 ./internal/guide ./internal/report ./internal/app ./cmd/ai-dev`.
 - [X] T025 Run `quickstart.md` scenarios 1–7 against a fresh build, and confirm that `git status` is unchanged after each read-only command.
-- [ ] T026 Independent review of the implementation diff by a separate read-only agent. Record the implementing and reviewing agents, the findings and the resolutions in the PR description (constitution VIII). Fix every blocking or high finding before requesting merge.
+- [X] T026 Independent review of the implementation diff by a separate read-only agent. Record the implementing and reviewing agents, the findings and the resolutions in the PR description (constitution VIII). Fix every blocking or high finding before requesting merge.
+  - **Done 2026-11-19.** A read-only reviewer agent (Claude Opus 5.5) reviewed `dev..HEAD`, with the implementation by Claude Opus 5.5 in this session. It reported R7-01 (high): `(slot)` runs under some zsh options. The fix renders slots as `)slot(` and extends the paste test to dash, bash `extglob` and six zsh option sets, with zsh required in CI. Also fixed: R7-02 (medium), coverage of those shells; R7-03 (low), the R-03 evidence; R7-04 (low), the boundary now also forbids `selection.Selector`; R7-05 (info), the README.
 - [ ] T027 Open the PR to `dev`, with CI green on macOS and Ubuntu. The owner decides the merge (constitution IX).
 
 ---
