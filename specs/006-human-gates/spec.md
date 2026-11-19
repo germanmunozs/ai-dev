@@ -110,6 +110,10 @@
   for Windows and every other unsupported platform. This approval does not approve H-7 and does
   not by itself authorize a PR, merge, release, or another Human Gate.
 
+### Session 2026-11-19 (Feature 007 cross-feature Amendment 4)
+
+- **Authority record (2026-11-19): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Amendments 1–4, of which this is Amendment 4 (cross-references) of Feature 007 (`specs/007-workflow-orchestration/spec.md`, section Required Amendments) in the words "si, apruebo las enmiendas 1 a 4, aplícalas". The approver identity is a declared, auditable assertion, not an authenticated identity. The amendment only renames the Feature 007 cross-references; it changes no observable behavior of this feature and approves no Feature 007 implementation, plan or autonomous capability.
+
 ## Responsibility Boundary *(context for all requirements)*
 
 A **Human Gate** is the point at which ai-dev requires an explicit human acceptance decision before
@@ -123,7 +127,7 @@ write path, and that path can be reached only through such a decision.
 | Workflow State vocabulary, terminality, Transition Rule Set, Workflow State Record location and reading semantics, feature recognition, transition-evaluation precedence | 004 | Used by reference. 006 determines recognition, the current state, and transition validity with exactly 004's semantics, and persists state that 004's unchanged reader resolves to the authorized target. It never copies, restates, extends, or overrides 004's rules. |
 | Required Artifacts Rule, Next-Step Table, SDD activities, next-step report | 005 | 006 uses only the Required Artifacts Rule, by reference, as an `approval` precondition for the target state. It never invokes next-step evaluation and never consults the Next-Step Table. |
 | **Recording a human acceptance or abandonment decision; persisting the one transition it authorizes; retaining Human Gate evidence** | **006** | Owned here. |
-| Interactive or guided command experience, prompts, menus | 007 | Out of scope. 006 is a single non-interactive request and report. |
+| Interactive or guided command experience, prompts, menus | 007 Workflow Orchestration (guided report; autonomous mode deferred) | Out of scope. 006 is a single non-interactive request and report. |
 
 ### Six distinct concepts
 
@@ -545,7 +549,7 @@ the reason.
   - version-control operations;
   - review-result tracking and remediation loops;
   - any orchestration with 002, 003, or 005;
-  - interactive or guided behavior (007);
+  - interactive or guided behavior (007 Workflow Orchestration: guided report; autonomous mode deferred);
   - Windows Human Gate persistence support (future, explicitly scoped work);
   - cross-machine or distributed coordination of Human Gates on network filesystems (future, explicitly scoped work).
 - The following are planning concerns, left open as long as the observable behavior defined here is satisfied:

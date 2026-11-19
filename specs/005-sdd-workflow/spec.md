@@ -27,6 +27,10 @@
 - Q (F-05): What happens when the final report cannot be rendered, written, or delivered? → A: Exit code 2. This is an output failure, not a new domain outcome (human decision).
 - Q (F-06): Which stream carries the normal report? → A: Standard output, following 003/004. Usage-failure and output-failure diagnostics go to standard error (human decision).
 
+### Session 2026-11-19 (Feature 007 cross-feature Amendments 3 and 4)
+
+- **Authority record (2026-11-19): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Amendments 1–4, of which these are Amendment 3 (FR-024) and Amendment 4 (cross-references) of Feature 007 (`specs/007-workflow-orchestration/spec.md`, section Required Amendments) in the words "si, apruebo las enmiendas 1 a 4, aplícalas". The approver identity is a declared, auditable assertion, not an authenticated identity. Amendment 3 adds a permission for an explicit Feature 007 guidance request only, and Amendment 4 only renames the Feature 007 cross-references; neither changes any observable behavior of this feature and approves no Feature 007 implementation, plan or autonomous capability.
+
 ## Responsibility Boundary *(context for all requirements)*
 
 "SDD Workflow" in `ai-dev` is the deterministic association between each non-terminal Workflow State (004) and the single Spec-Driven Development activity that corresponds to it. The activities are the steps of the constitution's mandated Specification → Plan → Tasks → Implementation sequence, plus review, which the constitution defines as a quality-gate activity, and which is the SDD activity associated here with the `implemented` state. This feature makes that association observable through one read-only capability, **next-step evaluation**. Next-step evaluation answers "which SDD activity corresponds to this feature's current Workflow State, and under which development role?"
@@ -41,7 +45,7 @@ It answers *what should happen next*. It never decides, grants, or records that 
 | Spec Kit artifacts (`spec.md`, `plan.md`, `tasks.md`) | Spec Kit / humans | 005 checks only that the required artifacts are present. It never creates, edits, generates, or validates their content. |
 | Current state → SDD activity → development role association; state/artifact consistency; next-step report | **005** | Owned here. |
 | Authorization, approval, applying/persisting transitions, gate records | 006 | Out of scope. 005's output is never authorization. |
-| Interactive/guided command experience, prompts, menus | 007 | Out of scope. 005 is a single non-interactive request/report. |
+| Interactive/guided command experience, prompts, menus | 007 Workflow Orchestration (guided report; autonomous mode deferred) | Out of scope. 005 is a single non-interactive request/report. |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -266,7 +270,7 @@ A developer or automated caller asks for the next step for a feature whose Workf
   - an observed `approved` state;
   - a `step_recommended` report;
   - exit code 0.
-- **FR-024**: The system MUST require a separate, explicit request for next-step evaluation. It MUST NOT perform next-step evaluation as a side effect of any other capability. It MUST NOT trigger any other capability as a side effect of next-step evaluation, and MUST NOT schedule, chain, retry, fall back, or continue any work in the background.
+- **FR-024**: The system MUST require a separate, explicit request for next-step evaluation. It MUST NOT perform next-step evaluation as a side effect of any other capability. It MUST NOT trigger any other capability as a side effect of next-step evaluation, and MUST NOT schedule, chain, retry, fall back, or continue any work in the background. An explicit, human-initiated Feature 007 guidance request MAY apply the Required Artifacts Rule and the Next-Step Table by reference, and report this feature's outcome unchanged. It MUST NOT report a target Workflow State, invoke this capability, persist, or produce any effect beyond the guidance report (Feature 007 Amendment 3, 2026-11-19).
 - **FR-025**: The system MUST NOT emit any credential, token, secret, or sensitive environment value in any output.
 - **FR-026**: This feature MUST NOT change the approved observable behavior of 001's environment doctor, 002's listing and execution, 003's role selection, or 004's state reporting and transition evaluation. It MUST NOT redefine their vocabularies, mappings, rules, outcomes, or record semantics.
 - **FR-027**: Adding a coding agent (002) MUST NOT change any outcome or reported value of this feature. Adding a development role (003) or a Workflow State value (004) MUST NOT change the outcome or reported values for any already-defined Next-Step Table entry.
@@ -314,5 +318,5 @@ A developer or automated caller asks for the next step for a feature whose Workf
 - 005 deliberately differs from the 003/004 pattern of "success only for the single positive outcome": `workflow_terminal` is also a successful evaluation (human decision). This changes no behavior of 003 or 004.
 - Treating an output failure as exit code 2 matches the existing `ai-dev` convention for report-write failures in 004, and introduces no new numeric code.
 - Remediation, re-opening terminal features, review-result tracking, multi-activity recommendations, abandonment recommendations, and any reporting of target or next states are out of scope.
-- 006 (Human Gates) will own authorizing activities, applying and persisting transitions, and recording approvals. 007 (Interactive CLI) will own any guided or interactive experience. Either may consume the Next-Step Report as information, but this feature defines no hook, contract, or dependency on them.
+- 006 (Human Gates) will own authorizing activities, applying and persisting transitions, and recording approvals. 007 (Workflow Orchestration: guided report; autonomous mode deferred) will own any guided or interactive experience. Either may consume the Next-Step Report as information, but this feature defines no hook, contract, or dependency on them.
 - Command syntax (conceptually similar to `ai-dev workflow next <feature>`), programming language, and machine-readable serialization are plan concerns.
