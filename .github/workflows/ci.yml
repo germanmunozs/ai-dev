@@ -27,10 +27,11 @@ jobs:
 
       - name: Git toolchain
         run: |
-          command -v -a git || true
+          which -a git
           git --version
           git --exec-path
           ls -li "$(command -v git)" "$(git --exec-path)/git"
+          echo "system configuration: $(GIT_EDITOR=echo git config --system --edit)"
 
       - name: Production filesystem for temporary directories
         if: runner.os == 'Linux'
