@@ -33,26 +33,28 @@ These are 005 FR-019's conditions applied to this command:
 
 ## Human-readable report (`--format text`, default)
 
-The report goes to standard output, with the first line first:
+The report goes to standard output, with the first line first. Example for feature `f` in state `specified`, with Claude Code installed:
 
 ```text
-ai-dev: outcome=step_recommended feature="<id, %q-escaped>" state=<state> activity=<activity> role=<role> agent=<agent> availability=<available|unavailable|inconsistent> note="options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"
-  select the agent for this role (003): ai-dev agent select -- <role>
-  run the agent (002): ai-dev agent run -- <agent> (instruction)
-  after completing the activity, check the transition (004): ai-dev workflow transition -- '<id>' (target-state)
-  then record your decision (006): ai-dev workflow approve --approver (approver) -- '<id>' (target-state)
-  replace each (slot) before running; --reason '<text>' is optional for approval (006 FR-010)
+ai-dev: outcome=step_recommended feature="f" state=specified activity=plan role=planning agent=claude-code availability=available note="options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"
+  select the agent for this role (003): ai-dev agent select -- planning
+  run the agent (002): ai-dev agent run -- claude-code (instruction)
+  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' (target-state)
+  then record your decision (006): ai-dev workflow approve --approver (approver) -- 'f' (target-state)
+  replace each (slot) before running; --reason (reason) is optional for approval (006 FR-010)
 ```
 
-The first-line forms for the other outcomes:
+The first-line forms for the other outcomes follow. The same fixed note closes each line, shown as `note="…"`:
 
 ```text
-ai-dev: outcome=workflow_terminal feature="<id>" state=<approved|abandoned> note="<statement>"
-  report the state (004): ai-dev workflow state -- '<id>'
-ai-dev: outcome=artifacts_inconsistent feature="<id>" state=<state> missing=<a,b> note="<statement>"
-ai-dev: outcome=feature_unknown feature="<id>" note="<statement>"
-ai-dev: outcome=state_invalid feature="<id>" note="<statement>"
+ai-dev: outcome=workflow_terminal feature="f" state=approved note="…"
+  report the state (004): ai-dev workflow state -- 'f'
+ai-dev: outcome=artifacts_inconsistent feature="f" state=planned missing=plan.md note="…"
+ai-dev: outcome=feature_unknown feature="f" note="…"
+ai-dev: outcome=state_invalid feature="f" note="…"
 ```
+
+The `feature="…"` field uses Go `%q` escaping (004 FR-028), while templates use the shell quoting of F007-FR-006. A human slot is always written `(name)`, including in the reminder line. No line of the report contains a quoted placeholder.
 
 The rendering rules:
 - **When template lines are omitted:** for the outcomes that have none, and for an identifier that is not template-safe.

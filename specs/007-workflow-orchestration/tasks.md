@@ -33,7 +33,7 @@ This is the single Go project already in use. The domain goes in `internal/guide
   - **Forbidden imports:** `os`, `os/exec`, `net`, `net/http`, `syscall`, and `ai-dev/internal/{system,execution,instruction,gate,gatestore,gitmanager,gitprocess,gitstore,app,report}`.
   - **Forbidden call:** `agent.NewRegistry`. The registry is built by `internal/app` from the injected executor (plan, Dependency rule).
 
-  Include negative fixtures that prove each forbidden import fails the test (R-07, SC-002).
+  Because `os` is forbidden, guide cannot read the environment (`os.Getenv`) or any configuration file, so no configuration or environment value can enable anything (US2 acceptance 2). Include negative fixtures that prove each forbidden import fails the test (R-07, SC-002).
 
 ---
 
@@ -78,7 +78,7 @@ It executes, writes and derives nothing.
 
 > Write these tests first and confirm they fail before implementing T013–T019.
 
-- [ ] T007 [P] [US1] SC-001 equivalence tests in `internal/guide/guide_test.go`. Use MapFS fixtures for all seven Workflow States, an unknown feature, an invalid record and missing artifacts. For each, assert that `guide.Evaluate(root, id, selector)` returns the same `Outcome`, `State`, `Activity`, `Role` and `Missing` as `sdd.Evaluate(root, id)`, and that `Agent`, `Availability` and `Templates` are present only for the outcomes the data model allows.
+- [ ] T007 [P] [US1] SC-001 equivalence tests in `internal/guide/guide_test.go`. Use MapFS fixtures for all seven Workflow States, an unknown feature, an invalid record and missing artifacts. For each, assert that `guide.Evaluate(root, id, selector)` returns the same `Outcome`, `State`, `Activity`, `Role` and `Missing` as `sdd.Evaluate(root, id)`, and that `Agent`, `Availability` and `Templates` are present only for the outcomes the data model allows. Evaluate each fixture twice and assert deep equality (F007-FR-009).
 - [ ] T008 [P] [US1] SC-003 availability tests in `internal/guide/guide_test.go`, with a fake `Selector` returning each 003 outcome (R-02):
   - `role_selected` → `available` with `SelectedAgentID`;
   - `agent_unavailable` → `unavailable` with `MappedAgentID`;
@@ -220,12 +220,12 @@ T007–T009 internal/guide/guide_test.go  |  T010–T011 internal/report/guide_t
 | F007-FR-006 | T003, T004, T009, T011, T014 |
 | F007-FR-007 | T002, T012, T019 |
 | F007-FR-008 | T010, T015, T016 |
-| F007-FR-009 | T007 (deterministic fixtures), T012 |
+| F007-FR-009 | T007 (repeated evaluation, deep equality), T012 |
 | F007-FR-010 | T010, T016 |
 | F007-FR-012 | T010, T011 (no environment-derived value) |
 | F007-FR-013 | T018, T021 |
-| F007-FR-014 | T020, T022 |
-| F007-FR-015 | T007 (references only the owners' functions) |
+| F007-FR-014 | T002 (no environment or configuration reads), T020, T022 |
+| F007-FR-015 | T002 (only the owners' packages may be imported), T007 |
 
 ## Notes
 
