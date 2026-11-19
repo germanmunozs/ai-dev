@@ -25,6 +25,13 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Git toolchain
+        run: |
+          command -v -a git || true
+          git --version
+          git --exec-path
+          ls -li "$(command -v git)" "$(git --exec-path)/git"
+
       - name: Production filesystem for temporary directories
         if: runner.os == 'Linux'
         run: |
