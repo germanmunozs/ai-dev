@@ -27,8 +27,8 @@ This is the single Go project already in use. The domain goes in `internal/guide
 
 **Purpose**: Create the package and its dependency boundary before any behavior exists.
 
-- [ ] T001 Create the `internal/guide` package documentation in `internal/guide/doc.go`. It states that guide composes `sdd.Evaluate` and the 003 selection by reference (R-01), starts no process, writes nothing, and reads no standard input.
-- [ ] T002 Add a structural boundary test in `internal/guide/boundary_test.go` that parses every non-test file of `internal/guide`.
+- [X] T001 Create the `internal/guide` package documentation in `internal/guide/doc.go`. It states that guide composes `sdd.Evaluate` and the 003 selection by reference (R-01), starts no process, writes nothing, and reads no standard input.
+- [X] T002 Add a structural boundary test in `internal/guide/boundary_test.go` that parses every non-test file of `internal/guide`.
   - **Allowed imports:** only `io/fs`, `strings`, `unicode` and `ai-dev/internal/{sdd,selection,agent,role,workflow}`.
   - **Forbidden imports:** `os`, `os/exec`, `net`, `net/http`, `syscall`, and `ai-dev/internal/{system,execution,instruction,gate,gatestore,gitmanager,gitprocess,gitstore,app,report}`.
   - **Forbidden call:** `agent.NewRegistry`. The registry is built by `internal/app` from the injected executor (plan, Dependency rule).
@@ -43,11 +43,11 @@ This is the single Go project already in use. The domain goes in `internal/guide
 
 **⚠️ CRITICAL**: US1 cannot start until this phase is complete.
 
-- [ ] T003 [P] Write tests for the template-safe identifier rule in `internal/guide/safety_test.go`, following the data model ("none of its runes is in Unicode category Cc or Cf and none is U+2028 or U+2029").
+- [X] T003 [P] Write tests for the template-safe identifier rule in `internal/guide/safety_test.go`, following the data model ("none of its runes is in Unicode category Cc or Cf and none is U+2028 or U+2029").
   - **Unsafe:** NUL, newline, tab, U+007F, U+202E, U+200B, U+FEFF, U+2028 and U+2029.
   - **Safe:** `a;b`, `$(x)`, `-f`, `it's`, `a b`, `ñandú` and `007-workflow-orchestration`.
-- [ ] T004 Implement `TemplateSafe(featureID string) bool` in `internal/guide/safety.go` using `unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) || r == ' ' || r == ' '`. T003 must pass.
-- [ ] T005 [P] Write tests for the Command Template model in `internal/guide/templates_test.go`.
+- [X] T004 Implement `TemplateSafe(featureID string) bool` in `internal/guide/safety.go` using `unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) || r == ' ' || r == ' '`. T003 must pass.
+- [X] T005 [P] Write tests for the Command Template model in `internal/guide/templates_test.go`.
   - **Template sets:** the kinds and order for each outcome and availability, exactly as in the data-model table:
     - `step_recommended` with `available`: `select`, `run`, `transition`, `approve`;
     - with `unavailable`: `select`, `transition`, `approve`;
@@ -57,7 +57,7 @@ This is the single Go project already in use. The domain goes in `internal/guide
   - **Words per kind,** exactly as in "Words by kind".
   - **`HumanSlots`:** it lists the `human` words in order of appearance (`run`: `instruction`; `transition`: `target-state`; `approve`: `approver`, `target-state`).
   - **No reason word:** no template contains a word for `--reason`.
-- [ ] T006 Implement the Word kinds (`fixed`, `token`, `feature`, `human`), the `Template{Kind, Label, Words, HumanSlots}` type, the fixed labels of `contracts/workflow-guide.md`, and `Templates(outcome, availability, role, agent)` in `internal/guide/templates.go`. T005 must pass.
+- [X] T006 Implement the Word kinds (`fixed`, `token`, `feature`, `human`), the `Template{Kind, Label, Words, HumanSlots}` type, the fixed labels of `contracts/workflow-guide.md`, and `Templates(outcome, availability, role, agent)` in `internal/guide/templates.go`. T005 must pass.
 
 **Checkpoint**: The pure model is complete and tested, with no rendering and no I/O.
 
@@ -78,26 +78,26 @@ It executes, writes and derives nothing.
 
 > Write these tests first and confirm they fail before implementing T013–T019.
 
-- [ ] T007 [P] [US1] SC-001 equivalence tests in `internal/guide/guide_test.go`. Use MapFS fixtures for all seven Workflow States, an unknown feature, an invalid record and missing artifacts. For each, assert that `guide.Evaluate(root, id, selector)` returns the same `Outcome`, `State`, `Activity`, `Role` and `Missing` as `sdd.Evaluate(root, id)`, and that `Agent`, `Availability` and `Templates` are present only for the outcomes the data model allows. Evaluate each fixture twice and assert deep equality (F007-FR-009).
-- [ ] T008 [P] [US1] SC-003 availability tests in `internal/guide/guide_test.go`, with a fake `Selector` returning each 003 outcome (R-02):
+- [X] T007 [P] [US1] SC-001 equivalence tests in `internal/guide/guide_test.go`. Use MapFS fixtures for all seven Workflow States, an unknown feature, an invalid record and missing artifacts. For each, assert that `guide.Evaluate(root, id, selector)` returns the same `Outcome`, `State`, `Activity`, `Role` and `Missing` as `sdd.Evaluate(root, id)`, and that `Agent`, `Availability` and `Templates` are present only for the outcomes the data model allows. Evaluate each fixture twice and assert deep equality (F007-FR-009).
+- [X] T008 [P] [US1] SC-003 availability tests in `internal/guide/guide_test.go`, with a fake `Selector` returning each 003 outcome (R-02):
   - `role_selected` → `available` with `SelectedAgentID`;
   - `agent_unavailable` → `unavailable` with `MappedAgentID`;
   - `selection_inconsistent` → `inconsistent` with `MappedAgentID`;
   - `role_unsupported` → `Valid()` is false.
 
   Also assert that no other agent ever appears, and that the selector is called with exactly the 005 role.
-- [ ] T009 [P] [US1] Template-safety integration test in `internal/guide/guide_test.go`: an identifier containing U+202E or U+200B yields the full report with an empty `Templates`.
-- [ ] T010 [P] [US1] Rendering tests in `internal/report/guide_test.go`, against `contracts/workflow-guide.md`:
+- [X] T009 [P] [US1] Template-safety integration test in `internal/guide/guide_test.go`: an identifier containing U+202E or U+200B yields the full report with an empty `Templates`.
+- [X] T010 [P] [US1] Rendering tests in `internal/report/guide_test.go`, against `contracts/workflow-guide.md`:
   - **Text:** the exact first-line forms for all five outcomes, with `feature=%q` escaping. The template lines, labels and closing reminder appear only when a human slot is present.
   - **JSON:** one object with `schema_version` `ai-dev.workflow-guide/v1`; the fields present or omitted per outcome; `templates` always present (`[]` when empty); `human_slots`; `optional_flags` `["--reason"]` on `approve`.
   - **Statement (SC-005, SC-007):** `statement` and the text `note` are present for every outcome.
-- [ ] T011 [P] [US1] SC-004 shell-paste tests in `internal/report/guide_test.go`.
+- [X] T011 [P] [US1] SC-004 shell-paste tests in `internal/report/guide_test.go`.
   - **Setup:** for the hostile identifiers `a;b`, `$(x)`, `-f`, `it's`, `a b` and `ñandú`, render every template. Put a sentinel `ai-dev` script on a temporary `PATH`; it appends its argv to a log file.
   - **Filled:** with every `(slot)` replaced by a quoted value, `sh -c`, `bash -c` and `zsh -c` each invoke the sentinel with the identifier as exactly one argument after `--`.
   - **One slot unfilled:** for each human slot separately, with only that slot unfilled, the sentinel is never invoked and the temporary directory's entries are unchanged. Also test with a file named after the slot present in the directory.
   - **Shells:** skip `zsh` when it is not installed, with `t.Skip`; `sh` and `bash` are required.
   - **No derived values:** no rendered command contains a value for `instruction`, `approver`, `target-state` or `reason`.
-- [ ] T012 [P] [US1] Command tests in `internal/app/workflowguide_test.go`:
+- [X] T012 [P] [US1] Command tests in `internal/app/workflowguide_test.go`:
   - **Usage failures (005 FR-019):** none or two identifiers, a whitespace identifier, an unknown option, `--format yaml`. Each gives exit 2, empty stdout and the usage line on stderr.
   - **Exit codes:** they equal `RunWorkflowNext`'s for the same fixtures.
   - **No side effects (SC-002):** the fake executor records zero `Run` calls and only `LookPath`; the stdin reader fails the test if read; the fixture tree digest is unchanged.
@@ -105,28 +105,28 @@ It executes, writes and derives nothing.
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Implement `Report`, `Availability` (`available` | `unavailable` | `inconsistent`), the `Selector` interface (`Select(string) selection.Report`), `Evaluate(root fs.FS, featureID string, selector Selector) Report` and `(Report) Valid() bool` in `internal/guide/guide.go`.
+- [X] T013 [US1] Implement `Report`, `Availability` (`available` | `unavailable` | `inconsistent`), the `Selector` interface (`Select(string) selection.Report`), `Evaluate(root fs.FS, featureID string, selector Selector) Report` and `(Report) Valid() bool` in `internal/guide/guide.go`.
   - **005:** call `sdd.Evaluate`.
   - **003:** for `step_recommended` only, call `selector.Select(string(role))` and map it per R-02.
   - **Templates:** attach `Templates(...)` only when `TemplateSafe(featureID)`, and set the fixed `Statement`.
 
   T007–T009 must pass.
-- [ ] T014 [US1] Implement the shell rendering of Words in `internal/report/guide.go`:
+- [X] T014 [US1] Implement the shell rendering of Words in `internal/report/guide.go`:
   - `fixed` and `token` words are rendered verbatim;
   - `feature` words become one POSIX single-quoted word with `'` written as `'\''` (R-04);
   - `human(name)` words are rendered unquoted as `(name)` (R-03).
 
   Also add `RenderCommand(guide.Template) string`.
-- [ ] T015 [US1] Implement `WriteGuideText(w io.Writer, r guide.Report) error` in `internal/report/guide.go`, following the contract: the first line, the indented `label: command` lines, and the reminder line about `(slot)` and the optional `--reason` (006 FR-010). It refuses an invalid report. T010 and T011 text cases must pass.
-- [ ] T016 [US1] Implement `WriteGuideJSON(w io.Writer, r guide.Report) error` in `internal/report/guide.go`, emitting exactly one object per the contract. It refuses an invalid report. The T010 JSON cases must pass.
-- [ ] T017 [US1] Implement `RunWorkflowGuide(args []string, root fs.FS, executor system.Executor, stdout, stderr io.Writer) int` in `internal/app/workflowguide.go`, mirroring `runWorkflowNext`:
+- [X] T015 [US1] Implement `WriteGuideText(w io.Writer, r guide.Report) error` in `internal/report/guide.go`, following the contract: the first line, the indented `label: command` lines, and the reminder line about `(slot)` and the optional `--reason` (006 FR-010). It refuses an invalid report. T010 and T011 text cases must pass.
+- [X] T016 [US1] Implement `WriteGuideJSON(w io.Writer, r guide.Report) error` in `internal/report/guide.go`, emitting exactly one object per the contract. It refuses an invalid report. The T010 JSON cases must pass.
+- [X] T017 [US1] Implement `RunWorkflowGuide(args []string, root fs.FS, executor system.Executor, stdout, stderr io.Writer) int` in `internal/app/workflowguide.go`, mirroring `runWorkflowNext`:
   - `brokenPipeAsError`, the `flag` parsing, and the usage line `Usage: ai-dev workflow guide [--format text|json] <feature-id>`;
   - the selector `selection.NewSelector(agent.NewRegistry(executor))`;
   - the exit codes of 005 FR-018: 0 for `step_recommended` and `workflow_terminal`, 1 for the other outcomes, 2 for usage and output failures.
 
   It never touches stdin. T012 must pass.
-- [ ] T018 [US1] Route `workflow guide` in `internal/app/app.go` to `RunWorkflowGuide(args[2:], root, executor, stdout, stderr)`, next to `next`. Leave the `workflow` usage line (`Usage: ai-dev workflow <state|transition> [options]`) and the top-level usage line unchanged (F007-FR-013).
-- [ ] T019 [US1] Subprocess end-to-end test in `cmd/ai-dev/workflowguide_test.go`. Build the binary and run `workflow guide` and `workflow guide --format json` against a temporary repository fixture with `spec.md` in `specified`. Assert the exit code, stdout and an empty stderr, and that the fixture tree digest is unchanged. Run it with `PATH` containing neither `claude` nor `codex`, and assert availability `unavailable` and that no `run` template is shown.
+- [X] T018 [US1] Route `workflow guide` in `internal/app/app.go` to `RunWorkflowGuide(args[2:], root, executor, stdout, stderr)`, next to `next`. Leave the `workflow` usage line (`Usage: ai-dev workflow <state|transition> [options]`) and the top-level usage line unchanged (F007-FR-013).
+- [X] T019 [US1] Subprocess end-to-end test in `cmd/ai-dev/workflowguide_test.go`. Build the binary and run `workflow guide` and `workflow guide --format json` against a temporary repository fixture with `spec.md` in `specified`. Assert the exit code, stdout and an empty stderr, and that the fixture tree digest is unchanged. Run it with `PATH` containing neither `claude` nor `codex`, and assert availability `unavailable` and that no `run` template is shown.
 
 **Checkpoint**: US1 is complete. `quickstart.md` scenarios 1–5 pass.
 

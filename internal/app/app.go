@@ -99,6 +99,9 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 		if len(args) >= 2 && args[1] == "next" {
 			return RunWorkflowNext(args[2:], root, stdout, stderr)
 		}
+		if len(args) >= 2 && args[1] == "guide" {
+			return RunWorkflowGuide(args[2:], root, executor, stdout, stderr)
+		}
 		if len(args) >= 2 && args[1] == "state" {
 			return RunWorkflowState(args[2:], root, stdout, stderr)
 		}
