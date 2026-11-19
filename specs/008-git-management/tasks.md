@@ -309,6 +309,7 @@ description: "Dependency-ordered implementation tasks for Feature 008 Git Manage
   - **Recorded** in `~/Developer/ai-dev-evidence/008-git-management/2026-11-18/`. The manifest is `MANIFEST.md`, with sha256 `0648d0a5…df28aa`. The source is code commit `965df34`, code digest `37bc9d68…0fca51`. On macOS 27 / APFS with Git 2.54.0: gofmt, vet and six cross-builds pass; 2322 tests pass with 0 failures; `-race -count=3` on five packages finds no race; and git-flow-next was validated with the real tool. Implementer and reviewer are as in T118. The evidence root was chosen under the owner's delegation of 2026-11-18.
 - [x] T116 Preserve future native Linux/ext4 evidence outside the repository with the same source identity and review metadata; treat tmpfs only as non-durable test evidence and do not edit approved design documents (AC-001–AC-032)
   - **Recorded** in the same evidence root, under `linux-ext4-vm/`, with the same code digest. Environment: a Fedora 44 container started with `--init`, inside the Podman VM, kernel 7.1.10; Git 2.56.1, Go 1.27.1 and GCC 16.2.1; a non-root user; `TMPDIR` on loop-mounted ext4. vet passes, 2322 tests pass with 0 failures, and `-race -count=3` finds no race. **Accepted under the owner's delegation with one limitation:** the ext4 is a loop image inside a VM, not a native Linux host.
+  - **Additional evidence (2026-11-19):** the ubuntu-latest CI run of T133 passed the full suite and `-race -count=3` on the runner's own ext4 disk, not a loop image. The runner is a GitHub-hosted cloud virtual machine, so it is still not a bare-metal Linux host.
   - **Partial evidence, VM ext4 (2026-11-18; the owner authorized running on ext4 in the VM; the task stays open):**
     - **Source:** commit `36f1e86`. Its tree digest `41c2f91a…af5254` (sha256 of the `git ls-files` per-file sha256 list) equals the tree that was tested.
     - **Environment:** Podman VM `podman-machine-default`, Fedora CoreOS arm64, kernel 7.1.10, Git 2.55.0, Go 1.27.1. `TMPDIR` was on ext4 on `/dev/loop0`, a 4 GiB image on xfs mounted `rw,relatime`.
@@ -458,6 +459,12 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
   - time-boxed fuzzing of the four fuzz targets;
   - a check that the Linux `TMPDIR` is local ext4, so the real-Git suites do not skip.
   - CI logs are evidence for T116 only once the owner approves them as the evidence root.
+  - **Executed (2026-11-19).** Run `44443172704` on `dev` at `84b6b94` passed every step on both runners: gofmt, vet, six cross-builds, tests, `-race -count=3` and fuzzing. The runners were macos-latest, with Homebrew Git 2.56.1, and ubuntu-latest, with Git 2.56.1 and `TMPDIR` on ext4. The run is at https://github.com/germanmunozs/ai-dev/actions/runs/44443172704. The first runs failed for three reasons, each fixed by its own bugfix branch:
+    - The Debian and Ubuntu Git layout was refused (`0332363`). That Git ships two byte-identical binaries and uses `/usr/lib/git-core` as its exec path.
+    - Homebrew Git, which reports the `/opt/homebrew/opt/git` prefix, was refused (`2edbd75`).
+    - The Feature 006 concurrency test assumed every process evaluates before the winner commits (`84b6b94`).
+    
+    The workflow's toolchain step confirmed that each runner's Git reads exactly the system configuration that ai-dev evaluates: `/opt/homebrew/etc/gitconfig` and `/etc/gitconfig`.
 - [ ] T134 **(optional; needs owner authorization)** Verify power-loss durability of the store and project-config publication sequences. Use `dm-log-writes` or `dm-flakey` on a Linux ext4 device: replay every write prefix and assert that the recovered state is a consistent prefix that T123 classifies. Record the result as T116 evidence.
   - **Declined under the owner's delegation (DUR-01); not executed.** The fsync and directory-sync order is covered by step-level fault injection and SIGKILL at every durable step. Block-level power-loss simulation remains residual risk.
 
@@ -485,7 +492,7 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
     - T131 is `internal/gitmanager/gitflownext_integration_test.go`. It was also checked by hand with the real `git-flow-next` 2.1.0, which recognized the written configuration and started and finished a feature on `dev`.
   - **Mutation checks:** without INT-01, all 100 interrupt cases end `state_indeterminate`. Without reference-lock observation, the plan with `HEAD.lock` is accepted.
   - **T136, option (a):** the crash cases that supervised reconciliation cannot continue dropped from 53 of 92 to 7. Those 7 are exactly REC-06's window, and the crash test now asserts that.
-  - **T133:** the workflow file is written and parses. It has not run, because nothing was pushed.
+  - **T133:** the workflow ran green on both runners on 2026-11-19; see T133.
 
 ### Operational policy
 
