@@ -41,19 +41,26 @@ func TestWorkflowGateConcurrentProcesses(t *testing.T) {
 		close(start)
 		wg.Wait()
 		close(results)
-		applied, conflicts := 0, 0
+		// FR-017 and its acceptance scenario cover requests evaluated from the
+		// same from-state: those lose with state_conflict. A process that
+		// starts after the winner committed (slow or loaded hosts) evaluates
+		// from the new state, where specified -> specified is 004's
+		// transition_invalid; that is correct and still applies nothing.
+		applied, losers := 0, 0
 		for result := range results {
 			switch {
 			case result.code == 0 && strings.Contains(result.out, "transition_applied"):
 				applied++
 			case result.code == 1 && strings.Contains(result.out, "state_conflict"):
-				conflicts++
+				losers++
+			case result.code == 1 && strings.Contains(result.out, "outcome=transition_invalid") && strings.Contains(result.out, "from=specified target=specified"):
+				losers++
 			default:
 				t.Fatalf("iteration %d unexpected code=%d out=%q err=%q", iteration, result.code, result.out, result.err)
 			}
 		}
-		if applied != 1 || conflicts != 7 {
-			t.Fatalf("iteration %d applied=%d conflicts=%d", iteration, applied, conflicts)
+		if applied != 1 || losers != 7 {
+			t.Fatalf("iteration %d applied=%d losers=%d", iteration, applied, losers)
 		}
 		data, err := os.ReadFile(filepath.Join(repo, "specs", "f", "workflow-state.json"))
 		if err != nil {
