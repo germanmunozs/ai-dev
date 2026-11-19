@@ -17,6 +17,14 @@ type toolchainLayout struct {
 // resolveToolchainLayout derives the layout from the frozen exec path
 // <prefix>/libexec/git-core.
 func resolveToolchainLayout(tool GitToolIdentity) (toolchainLayout, bool) {
+	if tool.ExecPath == "/usr/lib/git-core" {
+		// Debian and Ubuntu: prefix /usr with the exec path in lib, and
+		// sysconfdir /etc, as the /usr layout below.
+		return toolchainLayout{
+			ConfigFiles:    [][]byte{[]byte("/etc/gitconfig")},
+			AttributeFiles: [][]byte{[]byte("/etc/gitattributes")},
+		}, true
+	}
 	prefix, ok := strings.CutSuffix(tool.ExecPath, "/libexec/git-core")
 	if !ok || prefix == "" || !strings.HasPrefix(prefix, "/") {
 		return toolchainLayout{}, false

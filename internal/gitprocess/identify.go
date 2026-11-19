@@ -82,9 +82,13 @@ func Identify(ctx context.Context, mode gitmanager.InvocationMode, invocationPat
 		return refuse(gitmanager.ReasonGitCapabilityMissing, err.Error())
 	}
 	sameFile := invocation.device == effective.device && invocation.inode == effective.inode
+	// Some distributions (Debian, Ubuntu) install the Git binary twice, as
+	// separate files with identical bytes. Identical content is the same
+	// program, so it is not a launcher either; a shim always differs.
+	sameContent := invocation.digest != "" && invocation.digest == effective.digest
 	switch mode {
 	case gitmanager.InvocationModeDirect:
-		if !sameFile {
+		if !sameFile && !sameContent {
 			return refuse(gitmanager.ReasonGitCapabilityMissing, invocationPath+" is a launcher, not the Git binary of its exec path")
 		}
 		effectivePath, effective = invocationPath, invocation

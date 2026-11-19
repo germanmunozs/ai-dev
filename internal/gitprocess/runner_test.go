@@ -676,3 +676,49 @@ func TestWriteRowsNeverDiscoverAnEnclosingRepository(t *testing.T) {
 		t.Fatal("an object was written to the enclosing repository")
 	}
 }
+
+// Debian and Ubuntu install the Git binary twice, as separate files with
+// identical bytes. Direct mode accepts a byte-identical copy of the exec
+// path's Git, which is the same program, and still refuses a launcher
+// script, whose bytes always differ.
+func TestIdentifyAcceptsIdenticalCopyAndRefusesLauncher(t *testing.T) {
+	git := requireGit(t)
+	base := physicalTempDir(t)
+	stateRoot := filepath.Join(base, "state", "ai-dev", "git")
+	if err := os.MkdirAll(filepath.Join(stateRoot, "environment"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	environment, err := gitmanager.NewEnvironmentProfile(gitmanager.NewObservedPath([]byte(stateRoot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	execPath := rawGit(t, git, base, nil, "--exec-path")
+	real := filepath.Join(execPath, "git")
+	data, err := os.ReadFile(real)
+	if err != nil {
+		t.Skipf("the exec path's Git cannot be read: %v", err)
+	}
+	copied := filepath.Join(base, "bin", "git")
+	if err := os.MkdirAll(filepath.Dir(copied), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(copied, data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if relocated := rawGit(t, copied, base, nil, "--exec-path"); relocated != execPath {
+		t.Skipf("this Git is relocatable: the copy reports exec path %s", relocated)
+	}
+	tool, err := Identify(context.Background(), gitmanager.InvocationModeDirect, copied, nil, environment, []byte(base))
+	if err != nil {
+		t.Fatalf("a byte-identical copy was refused: %v", err)
+	}
+	if tool.EffectiveExecutablePath != copied {
+		t.Fatalf("effective executable %s", tool.EffectiveExecutablePath)
+	}
+	launcher := filepath.Join(base, "bin", "launcher")
+	writeExecutable(t, launcher, "exec '"+real+"' \"$@\"\n")
+	if _, err := Identify(context.Background(), gitmanager.InvocationModeDirect, launcher, nil, environment, []byte(base)); err == nil ||
+		!strings.Contains(err.Error(), "launcher") {
+		t.Fatalf("a launcher script was accepted as Git: %v", err)
+	}
+}
