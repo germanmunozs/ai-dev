@@ -563,3 +563,116 @@ func TestRunnerDoesNotDescendIntoSubmodules(t *testing.T) {
 		}
 	}
 }
+
+// T130: the mutating rows run no hook, configured command or filter, in a
+// repository whose own hooks directory and hostile core.hooksPath both
+// hold sentinel hooks, including reference-transaction, which Git runs on
+// every reference update. A raw update-ref first proves the hooks are live.
+func TestRunnerMutatingRowsRunNoHook(t *testing.T) {
+	f := newHostileFixture(t)
+	tree := gitmanager.ObjectOID(rawGit(t, f.git, f.project, nil, "rev-parse", "HEAD^{tree}"))
+	head := rawGit(t, f.git, f.project, nil, "rev-parse", "HEAD")
+	hooksPath := rawGit(t, f.git, f.project, nil, "config", "--local", "core.hooksPath")
+	for _, dir := range []string{filepath.Join(f.project, ".git", "hooks"), hooksPath} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		for _, hook := range []string{"reference-transaction", "post-index-change", "pre-commit", "post-commit", "post-checkout", "pre-auto-gc"} {
+			writeExecutable(t, filepath.Join(dir, hook), "printf '%s\\n' hook-"+hook+" >> '"+f.marker+"'\n")
+		}
+	}
+	rawGit(t, f.git, f.project, nil, "update-ref", "refs/heads/control", head)
+	if got := f.markers(t); !strings.Contains(got, "hook-reference-transaction") {
+		t.Fatalf("the negative control ran no reference-transaction hook: %q", got)
+	}
+	if err := os.Remove(f.marker); err != nil {
+		t.Fatal(err)
+	}
+
+	identity := gitmanager.GitIdentity{Name: "Ada", Email: "ada@example.org"}
+	if result := f.run(t, OpConfigWriteLocal, Parameters{ConfigKey: "gitflow.branch.master", ConfigValue: "main"}); result.ExitCode != 0 {
+		t.Fatalf("config write exit %d %q", result.ExitCode, result.Stderr)
+	}
+	if result := f.run(t, OpHashBlob, Parameters{Stdin: []byte("blob\n")}); result.ExitCode != 0 {
+		t.Fatalf("hash-object exit %d %q", result.ExitCode, result.Stderr)
+	}
+	commit := f.run(t, OpCommitTree, Parameters{TreeOID: tree, Author: identity, Committer: identity,
+		AuthorDate: time.Unix(1, 0), CommitterDate: time.Unix(1, 0), Stdin: []byte("chore: x\n")})
+	if commit.ExitCode != 0 {
+		t.Fatalf("commit-tree exit %d %q", commit.ExitCode, commit.Stderr)
+	}
+	oid := gitmanager.ObjectOID(strings.TrimSpace(string(commit.Stdout)))
+	if result := f.run(t, OpUpdateRef, Parameters{RefName: []byte("refs/heads/new"), ObjectOID: oid}); result.ExitCode != 0 {
+		t.Fatalf("update-ref exit %d %q", result.ExitCode, result.Stderr)
+	}
+	index := filepath.Join(physicalTempDir(t), "index")
+	if result := f.run(t, OpPreparedIndex, Parameters{TreeOID: tree, IndexFile: []byte(index)}); result.ExitCode != 0 {
+		t.Fatalf("read-tree exit %d %q", result.ExitCode, result.Stderr)
+	}
+	if got := f.markers(t); got != "" {
+		t.Fatalf("a mutating row ran configured code: %q", got)
+	}
+}
+
+// R-04: a write never lands in an enclosing repository. The project is a
+// repository nested in another one; when its .git vanishes before the
+// write, Git fails instead of discovering and changing the parent.
+func TestWriteRowsNeverDiscoverAnEnclosingRepository(t *testing.T) {
+	git := requireGit(t)
+	base := physicalTempDir(t)
+	parent, project := filepath.Join(base, "parent"), filepath.Join(base, "parent", "project")
+	stateRoot := filepath.Join(base, "state", "ai-dev", "git")
+	for _, dir := range []string{project, filepath.Join(stateRoot, "environment")} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rawGit(t, git, parent, nil, "init", "-q", "--initial-branch=main")
+	rawGit(t, git, project, nil, "init", "-q", "--initial-branch=main")
+	before, err := os.ReadFile(filepath.Join(parent, ".git", "config"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	objects := func() int {
+		n := 0
+		filepath.WalkDir(filepath.Join(parent, ".git", "objects"), func(_ string, entry os.DirEntry, err error) error {
+			if err == nil && entry.Type().IsRegular() {
+				n++
+			}
+			return err
+		})
+		return n
+	}
+	objectsBefore := objects()
+	environment, err := gitmanager.NewEnvironmentProfile(gitmanager.NewObservedPath([]byte(stateRoot)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tool, err := identifyTool(git, environment, []byte(project))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(project, ".git")); err != nil {
+		t.Fatal(err)
+	}
+	ctx := Context{Tool: tool, Environment: environment, Directory: []byte(project)}
+	for op, params := range map[Operation]Parameters{
+		OpConfigWriteLocal: {ConfigKey: "gitflow.branch.master", ConfigValue: "main"},
+		OpHashBlob:         {Stdin: []byte("blob\n")},
+	} {
+		invocation, err := Build(op, ctx, params)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result, err := (Runner{}).Run(context.Background(), invocation); err == nil && result.ExitCode == 0 {
+			t.Fatalf("%s succeeded without the project's repository", op)
+		}
+	}
+	after, _ := os.ReadFile(filepath.Join(parent, ".git", "config"))
+	if !bytes.Equal(before, after) {
+		t.Fatalf("the enclosing repository was changed:\n%s", after)
+	}
+	if objects() != objectsBefore {
+		t.Fatal("an object was written to the enclosing repository")
+	}
+}

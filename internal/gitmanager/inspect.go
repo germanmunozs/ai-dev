@@ -267,6 +267,13 @@ func (s *inspection) observeRepository(config ConfigEvaluation, ignore *IgnoreEv
 	}
 	s.obs.SequencerState = sequencerState(gitDir)
 	s.obs.ConfigLockState = lockState(commonDir + "/config.lock")
+	if locks, ok := referenceLocks(gitDir, commonDir); !ok {
+		s.incompatible(ReasonLockConflict, "reference locks cannot be observed")
+	} else {
+		for _, lock := range locks {
+			s.incompatible(ReasonLockConflict, "the reference lock "+lock+" exists")
+		}
+	}
 	hashSize := 20
 	if s.obs.ObjectFormat == ObjectFormatSHA256 {
 		hashSize = 32

@@ -88,6 +88,12 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 		return unrecordedRefusal(applyID, "the attempt record could not be made durable")
 	}
 	refuse := func(planID PlanID, authorization *GitAuthorization, rejection *PlanRejection, recovery bool) GitApplyResult {
+		// INT-01: every refusal before the claim happens with no effect.
+		// When the caller was interrupted, the interrupt is the cause: a
+		// cancelled read or inspection must not read as drift.
+		if ctx.Err() != nil && rejection.Reason != ReasonInterrupted {
+			rejection = reject(ReasonInterrupted, "interrupted: %s: %s", rejection.Reason, rejection.Detail)
+		}
 		return recordRefusal(ctx, journal, planID, authorization, rejection, recovery)
 	}
 
@@ -118,6 +124,9 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 	kernel := safetyKernel{store: deps.Store, clock: clockOf(now)}
 	verifyApplied := func(postconditions []Condition) func(context.Context) bool {
 		return func(ctx context.Context) bool {
+			// A read-only verification an interrupt must not turn into
+			// authorization_consumed for an applied plan.
+			ctx = context.WithoutCancel(ctx)
 			fresh, err := deps.Inspect(ctx, file.ProjectPath, intentCandidates(file.Intent))
 			if err != nil || fresh.ProjectIdentity.Digest() != inspection.ProjectIdentity.Digest() {
 				return false
@@ -190,6 +199,9 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 		}
 	}
 
+	if ctx.Err() != nil {
+		return refuse(plan.PlanID, &authorization, reject(ReasonInterrupted, "interrupted before the claim"), false)
+	}
 	// 9. Lock, reread and claim through the kernel.
 	session, refusal := kernel.claim(ctx, claimRequest{
 		journal: journal, project: project, authorization: authorization.AuthorizationID, planDigest: plan.PlanDigest,
@@ -201,20 +213,32 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 
 	// 10–12. Each operation only under its permit, stopping at the first
 	// failure; the first operation was revalidated before the claim.
+	//
+	// INT-01: from the claim on, the work runs under a context the caller
+	// cannot cancel, so an interrupt never kills Git in the middle of an
+	// operation or skips verification, release and the terminal closure.
+	// The interrupt is observed only between operations: before the first
+	// one it is a clean refusal that leaves the authorization usable, and
+	// after it no further operation starts and the effects are classified.
+	work := context.WithoutCancel(ctx)
 	var primary Reason
 	for i, operation := range operations {
+		if ctx.Err() != nil {
+			primary = ReasonInterrupted
+			break
+		}
 		if i > 0 {
-			if rejection := deps.Executor.Revalidate(ctx, plan, operation); rejection != nil {
+			if rejection := deps.Executor.Revalidate(work, plan, operation); rejection != nil {
 				primary = ClassifyRepositoryReason(PhaseRevalidated, rejection.Reason)
 				break
 			}
 		}
-		permit, err := session.begin(ctx, operation.OperationID)
+		permit, err := session.begin(work, operation.OperationID)
 		if err != nil {
 			break
 		}
-		outcome := deps.Executor.Execute(ctx, permit, plan, operation)
-		if err := session.finish(ctx, permit, outcome); err != nil {
+		outcome := deps.Executor.Execute(work, permit, plan, operation)
+		if err := session.finish(work, permit, outcome); err != nil {
 			break
 		}
 		if outcome != OperationCompleted {
@@ -228,11 +252,11 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 		if primary == "" {
 			primary = ReasonConcurrentChange
 		}
-		return session.abandon(ctx, primary)
+		return session.abandon(work, primary)
 	}
 
 	// 13–15. Verify, release, prepare, terminal CAS, return.
-	evidence := deps.Executor.Verify(ctx, plan)
+	evidence := deps.Executor.Verify(work, plan)
 	closure := terminalClosure{
 		PrimaryReason: primary, VerifiedComplete: evidence.VerifiedComplete, ZeroEffectsProven: evidence.ZeroEffectsProven,
 		EffectsUnverifiable: evidence.EffectsUnverifiable, VerifiedEffects: evidence.VerifiedEffects,
@@ -262,7 +286,7 @@ func Apply(ctx context.Context, deps ApplyDependencies, req ApplyRequest) GitApp
 	if primary == "" && evidence.VerifiedComplete && developmentPending(plan) {
 		closure.PrimaryReason = ReasonDevelopmentBranchPendingInitialHistory
 	}
-	return session.close(ctx, closure)
+	return session.close(work, closure)
 }
 
 // developmentPending reports a Git Flow plan whose development branch is

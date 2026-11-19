@@ -142,6 +142,10 @@ func decideStrategy(ctx context.Context, git GitReader, req StrategyRequest, ins
 				name = BranchPrimary
 			}
 			d.initialBranch, d.branchParameters[name] = initial, initial
+		} else if strategy == StrategyGitHubFlow {
+			d.adoptConfiguredBranch(observation, BranchPrimary)
+		} else {
+			d.adoptConfiguredBranch(observation, BranchInitial)
 		}
 	case StrategyTrunkBased:
 		trunk, rejection := branch("trunk-branch")
@@ -342,4 +346,22 @@ func validateBranchName(ctx context.Context, git GitReader, inspection GitInspec
 		return invalidName
 	}
 	return nil
+}
+
+// adoptConfiguredBranch keeps, for a repository that already exists, the
+// branch parameter its project configuration recorded when ai-dev
+// initialized it (T136), so a later plan, including the reconciliation of
+// an interrupted initialization, does not conflict with that configuration.
+// The branch HEAD names is adopted only when rendering it reproduces the
+// existing configuration byte for byte; nothing else is inferred.
+func (d *strategyDecision) adoptConfiguredBranch(observation RepositoryObservation, parameter string) {
+	config := observation.ProjectConfig
+	branch, named := strings.CutPrefix(string(observation.Head.SymbolicRef.Bytes()), "refs/heads/")
+	if config.State != ProjectConfigValid || !named || branch == "" {
+		return
+	}
+	data, err := renderProjectConfig(config.ProjectID, d.strategy, "", map[string]string{parameter: branch}, nil)
+	if err == nil && contentDigest(data) == config.ContentDigest {
+		d.branchParameters[parameter] = branch
+	}
 }

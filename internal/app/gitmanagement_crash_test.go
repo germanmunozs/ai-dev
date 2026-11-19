@@ -3,21 +3,25 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"ai-dev/internal/gitmanager"
 )
@@ -28,16 +32,25 @@ const (
 	crashArgsEnv  = "AI_DEV_CRASH_ARGS"
 	crashPointEnv = "AI_DEV_CRASH_POINT"
 	crashTraceEnv = "AI_DEV_CRASH_TRACE"
+	// crashSignalEnv names SIGINT or SIGTERM to interrupt the child's
+	// process group at the point instead of killing it.
+	crashSignalEnv = "AI_DEV_CRASH_SIGNAL"
+	crashOutEnv    = "AI_DEV_CRASH_OUT"
 )
 
-// crashPoints counts every durable step of one process and kills the
-// process with SIGKILL at the targeted one, before or after its effect. In
-// record mode it appends every step label to a trace file instead.
+// crashPoints counts every durable step of one process and, at the targeted
+// one, before or after its effect, kills the process with SIGKILL or
+// interrupts its process group with signal, as a terminal does. In record
+// mode it appends every step label to a trace file instead.
 type crashPoints struct {
 	mu     sync.Mutex
 	counts map[string]int
 	target string
 	trace  *os.File
+	signal syscall.Signal
+	// twice sends a second interrupt after the first was delivered, and
+	// then waits for the process to exit.
+	twice bool
 }
 
 func (c *crashPoints) step(name string, run func() error) error {
@@ -52,13 +65,33 @@ func (c *crashPoints) step(name string, run func() error) error {
 	}
 	c.mu.Unlock()
 	if c.target == label+":before" {
-		crashNow()
+		c.hit()
 	}
 	err := run()
 	if c.target == label+":after" {
-		crashNow()
+		c.hit()
 	}
 	return err
+}
+
+// hit kills the process, or interrupts its whole process group and waits
+// until the signal has been delivered.
+func (c *crashPoints) hit() {
+	if c.signal == 0 {
+		crashNow()
+	}
+	delivered := make(chan os.Signal, 1)
+	signal.Notify(delivered, c.signal)
+	syscall.Kill(-syscall.Getpgrp(), c.signal)
+	<-delivered
+	// os/signal cancels a NotifyContext asynchronously; waiting lets the
+	// cancellation land at this point rather than one operation later.
+	time.Sleep(100 * time.Millisecond)
+	if c.twice {
+		syscall.Kill(-syscall.Getpgrp(), c.signal)
+		select {}
+	}
+	signal.Stop(delivered)
 }
 
 func crashNow() {
@@ -156,7 +189,9 @@ func TestRealEngineCrashChild(t *testing.T) {
 		t.Skip("runs only as the child of TestRealEngineCrashRecovery")
 	}
 	f := realEngine(t, newGitAppFixtureAt(t, base))
-	c := &crashPoints{target: os.Getenv(crashPointEnv)}
+	signalName := os.Getenv(crashSignalEnv)
+	c := &crashPoints{target: os.Getenv(crashPointEnv), twice: strings.HasSuffix(signalName, "x2"),
+		signal: map[string]syscall.Signal{"SIGINT": syscall.SIGINT, "SIGTERM": syscall.SIGTERM, "SIGHUP": syscall.SIGHUP}[strings.TrimSuffix(signalName, "x2")]}
 	if path := os.Getenv(crashTraceEnv); path != "" {
 		trace, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 		if err != nil {
@@ -178,8 +213,19 @@ func TestRealEngineCrashChild(t *testing.T) {
 	if err := json.Unmarshal([]byte(os.Getenv(crashArgsEnv)), &args); err != nil {
 		t.Fatal(err)
 	}
-	code, stdout, stderr := f.run(args...)
-	fmt.Printf("child exit %d\n%s%s", code, stdout, stderr)
+	// The entrypoint turns SIGINT into cancellation; RunGitInit adds SIGTERM.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	var stdout, stderr bytes.Buffer
+	// stderr also reaches the process's own, as in the CLI, so a message
+	// printed just before os.Exit is not lost.
+	code := RunGitInit(ctx, args, f.deps, nil, false, &stdout, io.MultiWriter(&stderr, os.Stderr))
+	if path := os.Getenv(crashOutEnv); path != "" {
+		if err := os.WriteFile(path, stdout.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fmt.Printf("child exit %d\n%s%s", code, stdout.String(), stderr.String())
 }
 
 // crashCase is one isolated project with its plan, ready to apply.
@@ -204,14 +250,14 @@ func newCrashCase(t *testing.T) crashCase {
 		"--initial-branch", "main", "--initial-commit", "--initial-commit-message-file", message, "--include", "README.md",
 		"--author-name", "Ada", "--author-email", "ada@example.org", "--committer-name", "Ada", "--committer-email", "ada@example.org",
 		"--author-date", "2026-11-18T10:00:00Z", "--committer-date", "2026-11-18T10:00:00Z"}
-	c.digest, c.issue = c.makePlan(t, c.planned, c.plan, crashAuthorizationID)
+	c.digest, c.issue, _ = c.makePlan(t, c.planned, c.plan, crashAuthorizationID)
 	return c
 }
 
 // makePlan writes a fresh plan to path and returns its digest and the
 // issuing apply arguments for id. A refused plan returns no digest and must
 // carry a typed reason.
-func (c crashCase) makePlan(t *testing.T, args []string, path, id string) (string, []string) {
+func (c crashCase) makePlan(t *testing.T, args []string, path, id string) (digest string, issue []string, refused string) {
 	t.Helper()
 	var plan struct {
 		Digest    string `json:"plan_digest"`
@@ -228,10 +274,9 @@ func (c crashCase) makePlan(t *testing.T, args []string, path, id string) (strin
 		if plan.Reason == "" || !gitmanager.Reason(plan.Reason).Valid() {
 			t.Fatalf("plan refused without a typed reason: %q", stdout)
 		}
-		t.Logf("plan refused: %s", plan.Reason)
-		return "", nil
+		return "", nil, plan.Reason
 	}
-	issue := []string{"apply", "--plan", path, "--confirm-plan", plan.Digest, "--authorization-id", id, "--issue-authorization",
+	issue = []string{"apply", "--plan", path, "--confirm-plan", plan.Digest, "--authorization-id", id, "--issue-authorization",
 		"--authorized-by", "operator"}
 	if slices.Contains(args, "--initial-commit") {
 		issue = append(issue, "--confirm-initial-commit")
@@ -239,12 +284,12 @@ func (c crashCase) makePlan(t *testing.T, args []string, path, id string) (strin
 	for _, approval := range plan.Approvals {
 		issue = append(issue, "--approve-file", approval.Tuple)
 	}
-	return plan.Digest, issue
+	return plan.Digest, issue, ""
 }
 
 // child runs the issuing apply in a child process with one crash point,
 // or with none while recording the trace.
-func (c crashCase) child(t *testing.T, point, trace string) (*os.ProcessState, string) {
+func (c crashCase) child(t *testing.T, point, trace string, extra ...string) (*os.ProcessState, string) {
 	args, err := json.Marshal(c.issue)
 	if err != nil {
 		t.Fatal(err)
@@ -252,6 +297,9 @@ func (c crashCase) child(t *testing.T, point, trace string) (*os.ProcessState, s
 	cmd := exec.Command(os.Args[0], "-test.run=^TestRealEngineCrashChild$", "-test.count=1", "-test.v")
 	cmd.Env = append(os.Environ(), crashBaseEnv+"="+c.f.base, crashArgsEnv+"="+string(args),
 		crashPointEnv+"="+point, crashTraceEnv+"="+trace)
+	cmd.Env = append(cmd.Env, extra...)
+	// The child leads its own process group, as a terminal job does.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	output, err := cmd.CombinedOutput()
 	var exitErr *exec.ExitError
 	if err != nil && !errors.As(err, &exitErr) {
@@ -406,16 +454,26 @@ func checkCrashRecovery(t *testing.T, c crashCase) {
 	noInit := withoutOptions(c.planned, map[string]int{"--initialize-repository": 0, "--initial-branch": 1})
 	noCommit := withoutOptions(noInit, map[string]int{"--initial-commit": 0, "--initial-commit-message-file": 1, "--include": 1,
 		"--author-name": 1, "--author-email": 1, "--committer-name": 1, "--committer-email": 1, "--author-date": 1, "--committer-date": 1})
-	var digest string
+	var digest, refused string
 	var issue []string
 	for i, args := range [][]string{c.planned, noInit, noCommit} {
-		if digest, issue = c.makePlan(t, args, filepath.Join(c.f.base, fmt.Sprintf("reconcile-plan-%d.json", i)), linked); digest != "" {
+		if digest, issue, refused = c.makePlan(t, args, filepath.Join(c.f.base, fmt.Sprintf("reconcile-plan-%d.json", i)), linked); digest != "" {
 			path += fmt.Sprintf(" plan=%d", i)
 			break
 		}
 	}
 	if digest == "" {
-		t.Log(path + " reconciliation=plan_refused")
+		// T136 residual: only the last window of the commit group, the
+		// commit made but its index not installed or the attempt's
+		// index.lock left, needs Git's own manual recovery (git read-tree
+		// HEAD, removing index.lock). Every other crash is reconciled.
+		_, lockErr := os.Lstat(filepath.Join(c.f.project, ".git", "index.lock"))
+		_, refErr := os.Lstat(filepath.Join(c.f.project, ".git", "refs", "heads", "main"))
+		residual := refused == "lock_conflict" && lockErr == nil || refused == "repository_state_incompatible" && refErr == nil
+		if !residual {
+			t.Fatalf("%s: reconciliation refused with %s outside the commit group's last window", path, refused)
+		}
+		t.Log(path + " reconciliation=residual_" + refused)
 		return
 	}
 	code, stdout, _ = c.f.run(append(issue, "--reconciles-authorization", crashAuthorizationID, "--format", "json")...)

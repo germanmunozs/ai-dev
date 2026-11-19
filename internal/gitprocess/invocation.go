@@ -212,6 +212,11 @@ func Build(op Operation, ctx Context, p Parameters) (gitmanager.GitInvocation, e
 	environment = append(environment, r.extraEnv...)
 	if r.readOnly {
 		environment = append(environment, "GIT_OPTIONAL_LOCKS=0")
+	} else if op != OpInit {
+		// A write never discovers its repository: if the project's .git
+		// vanished, Git fails instead of writing to an enclosing
+		// repository (review R-04).
+		environment = append(environment, "GIT_DIR="+string(ctx.Directory)+"/.git")
 	}
 	return newInvocation(op, ctx.Tool.InvocationPath, args, ctx.Directory, environment, p.Stdin)
 }

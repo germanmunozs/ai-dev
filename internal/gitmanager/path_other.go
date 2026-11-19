@@ -45,3 +45,4 @@ func WritePlanOutput(PlanOutputRequest, []byte) (string, *PlanRejection) {
 func readLiteralFile([]byte, string, int64) (FileContent, error) {
 	return FileContent{}, errUnsupportedPlatform
 }
+func referenceLocks(string, string) ([]string, bool) { return nil, false }

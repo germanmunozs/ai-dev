@@ -5,6 +5,7 @@ package gitmanager
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -20,6 +21,10 @@ type fakeExecutor struct {
 	revalidation map[int]*PlanRejection
 	evidence     ApplyEvidence
 	revalidated  int
+	// onExecute runs before each operation's outcome; cancelled records
+	// whether the context each operation received was cancelled.
+	onExecute func(ordinal int)
+	cancelled []bool
 }
 
 func (e *fakeExecutor) Preflight(context.Context, GitInitializationPlan) *PlanRejection { return nil }
@@ -29,11 +34,15 @@ func (e *fakeExecutor) Revalidate(_ context.Context, _ GitInitializationPlan, op
 	return e.revalidation[int(operation.Ordinal)]
 }
 
-func (e *fakeExecutor) Execute(_ context.Context, permit MutationPermit, _ GitInitializationPlan, operation DerivedOperation) OperationOutcome {
+func (e *fakeExecutor) Execute(ctx context.Context, permit MutationPermit, _ GitInitializationPlan, operation DerivedOperation) OperationOutcome {
 	if err := permit.authorizes(e.authorized, operation.OperationID); err != nil {
 		e.t.Fatalf("operation %d executed without its permit: %v", operation.Ordinal, err)
 	}
 	e.executed = append(e.executed, operation.Kind)
+	if e.onExecute != nil {
+		e.onExecute(int(operation.Ordinal))
+	}
+	e.cancelled = append(e.cancelled, ctx.Err() != nil)
 	if outcome, ok := e.outcomes[int(operation.Ordinal)]; ok {
 		return outcome
 	}
@@ -273,5 +282,63 @@ func TestApplyAttemptRecordFailure(t *testing.T) {
 	expectResult(t, result, ApplyStatusRefused, ReasonAuditUnavailable, 1)
 	if _, exists := f.durable(t); exists || len(f.executor.executed) != 0 {
 		t.Fatal("apply continued without an attempt record")
+	}
+}
+
+// T121/INT-01: the interrupt policy, deterministically. An interrupt before
+// the claim is a refusal with reason interrupted that leaves the
+// authorization usable. One during an operation lets that operation finish
+// under a context that is not cancelled, starts no later operation and
+// classifies the effects with reason interrupted. One during the last
+// operation leaves nothing to stop, so the apply completes.
+func TestApplyInterruptPolicy(t *testing.T) {
+	t.Run("before the claim", func(t *testing.T) {
+		f := newApplyFixture(t, basicNewRepo())
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		issue := operator()
+		result := Apply(ctx, f.deps(), ApplyRequest{PlanFile: f.file, ConfirmPlan: string(f.plan.PlanDigest), AuthorizationID: issuedID, Issue: &issue})
+		expectResult(t, result, ApplyStatusRefused, ReasonInterrupted, 1)
+		if len(f.executor.executed) != 0 {
+			t.Fatalf("an interrupted apply executed %v", f.executor.executed)
+		}
+		if later := f.consume(); later.Status != ApplyStatusApplied {
+			t.Fatalf("the authorization left by the interrupt is not usable: %+v", later)
+		}
+	})
+	operations := len(newApplyFixture(t, basicNewRepo()).plan.DerivedOperations())
+	for _, at := range []int{0, operations - 1} {
+		t.Run(fmt.Sprintf("during operation %d of %d", at, operations), func(t *testing.T) {
+			f := newApplyFixture(t, basicNewRepo())
+			f.executor.evidence = ApplyEvidence{VerifiedComplete: at == operations-1}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			f.executor.onExecute = func(ordinal int) {
+				if ordinal == at {
+					cancel()
+				}
+			}
+			issue := operator()
+			result := Apply(ctx, f.deps(), ApplyRequest{PlanFile: f.file, ConfirmPlan: string(f.plan.PlanDigest), AuthorizationID: issuedID, Issue: &issue})
+			if len(f.executor.executed) != at+1 {
+				t.Fatalf("executed %d operations after an interrupt in operation %d", len(f.executor.executed), at)
+			}
+			for i, cancelled := range f.executor.cancelled {
+				if cancelled {
+					t.Fatalf("operation %d ran under a cancelled context", i)
+				}
+			}
+			if at == operations-1 {
+				expectResult(t, result, ApplyStatusApplied, "", 0)
+				return
+			}
+			expectResult(t, result, ApplyStatusPartiallyApplied, ReasonInterrupted, 1)
+			if len(result.NotStartedOperationIDs()) != operations-at-1 {
+				t.Fatalf("not started %v", result.NotStartedOperationIDs())
+			}
+			if later := f.consume(); later.Status != ApplyStatusRefused || len(f.executor.executed) != at+1 {
+				t.Fatalf("a later consumption %+v ran %v", later, f.executor.executed)
+			}
+		})
 	}
 }

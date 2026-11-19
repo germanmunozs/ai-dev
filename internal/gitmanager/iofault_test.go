@@ -82,9 +82,9 @@ func (s *stepFaults) ops() fileOps {
 			}
 			return base.fstat(f)
 		},
-		readFile: func(path string) ([]byte, error) {
+		readFile: func(path string) ([]byte, syscall.Stat_t, error) {
 			if _, err := s.before("read"); err != nil {
-				return nil, err
+				return nil, syscall.Stat_t{}, err
 			}
 			return base.readFile(path)
 		},
@@ -510,5 +510,34 @@ func TestProjectConfigAndPreparedIndexGuards(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(f.root, ".ai-dev")); !os.IsNotExist(err) {
 		t.Fatal("an operation without a permit created .ai-dev")
+	}
+}
+
+// R-06: a temporary swapped by a concurrent actor after its bytes were
+// checked is not published: the hard link happens only while the path is
+// still the inode this attempt created and checked.
+func TestProjectConfigNotPublishedAfterSwap(t *testing.T) {
+	root := physicalTempDir(t)
+	mustMkdir(t, filepath.Join(root, ".ai-dev"))
+	files := osFiles
+	files.readFile = func(path string) ([]byte, syscall.Stat_t, error) {
+		data, identity, err := readNoFollow(path)
+		mustWrite(t, path+".swap", "{\"foreign\":true}\n")
+		if renameErr := os.Rename(path+".swap", path); renameErr != nil {
+			t.Fatal(renameErr)
+		}
+		return data, identity, err
+	}
+	var owned *configTemporary
+	err := writeProjectConfig(files, root, []byte("{}\n"), rand.Reader, func(c *configTemporary) error { owned = c; return nil })
+	if !errors.Is(err, ErrOwnedResourceReplaced) {
+		t.Fatalf("publication after a swap: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(root, ProjectConfigPath)); !os.IsNotExist(err) {
+		t.Fatal("a swapped temporary was published")
+	}
+	// The release leaves the foreign file, which is not the created inode.
+	if err := owned.release(context.Background()); !errors.Is(err, ErrOwnedResourceReplaced) {
+		t.Fatalf("release of a swapped temporary: %v", err)
 	}
 }

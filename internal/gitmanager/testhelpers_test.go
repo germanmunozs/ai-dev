@@ -86,6 +86,10 @@ func sentinelScript(mechanism, marker, witness string) string {
 		response = "while IFS= read -r line || [ -n \"$line\" ]; do printf '%s\\n' \"$line\"; done\n"
 	case "ssh", "gpg":
 		response = "exit 1\n"
+	case "pager":
+		// A pager that exits before reading would let Git die of SIGPIPE
+		// when it writes after the exit; slow runs (-race) hit that.
+		response = "cat > /dev/null\n"
 	}
 	return "#!/bin/sh\n" +
 		"printf '%s\\n' " + shellSingleQuote(mechanism) + " >> " + shellSingleQuote(witness) + "\n" +

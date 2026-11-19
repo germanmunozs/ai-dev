@@ -7,7 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"ai-dev/internal/gitmanager"
@@ -19,6 +22,14 @@ const gitInitUsage = "Usage: ai-dev init [inspect|plan|apply|reconcile] [options
 // RunGitInit routes the Git Management "init" commands: the assistant,
 // inspect, plan, apply and the read-only reconcile.
 func RunGitInit(ctx context.Context, args []string, deps GitManagementDependencies, stdin io.Reader, interactive bool, stdout, stderr io.Writer) int {
+	// INT-01: SIGTERM, and SIGHUP when the terminal closes, are interrupts
+	// like the terminal's SIGINT, which the entrypoint already turns into
+	// cancellation; apply defers them while a mutation is under way.
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGHUP)
+	defer stop()
+	done := make(chan struct{})
+	defer close(done)
+	go exitOnSecondInterrupt(ctx, done, stderr)
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return RunGitWizard(ctx, args, deps, stdin, interactive, stdout, stderr)
 	}
@@ -131,4 +142,26 @@ func newInspectionID() (gitmanager.InspectionID, error) {
 	}
 	b[6], b[8] = b[6]&0x0f|0x40, b[8]&0x3f|0x80
 	return gitmanager.InspectionID(fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])), nil
+}
+
+// exitOnSecondInterrupt keeps ai-dev stoppable once an interrupt has been
+// deferred (INT-01, review R-03): a hung Git or a blocked terminal read
+// would otherwise ignore every further SIGINT and SIGTERM. A second
+// interrupt exits at once, which is the crash path: the attempt stays
+// unclosed and is reconciled with ai-dev init reconcile.
+func exitOnSecondInterrupt(ctx context.Context, done <-chan struct{}, stderr io.Writer) {
+	select {
+	case <-ctx.Done():
+	case <-done:
+		return
+	}
+	second := make(chan os.Signal, 1)
+	signal.Notify(second, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(second)
+	select {
+	case <-second:
+		fmt.Fprintln(stderr, "ai-dev: second interrupt: exiting without closing the attempt; inspect it with ai-dev init reconcile")
+		os.Exit(130)
+	case <-done:
+	}
 }

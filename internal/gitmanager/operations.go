@@ -60,6 +60,13 @@ func (d *OperationDispatcher) Revalidate(ctx context.Context, plan GitInitializa
 	if inspection.ProjectIdentity.Digest() != plan.PreconditionSnapshot.ProjectIdentity.Digest() {
 		return reject(ReasonConcurrentChange, "the physical project changed")
 	}
+	// A Git lock that appeared after planning, such as a reference lock left
+	// by an interrupted update, refuses before the operation runs (T128).
+	for _, item := range inspection.Incompatibilities() {
+		if item.Reason == ReasonLockConflict {
+			return reject(ReasonLockConflict, "%s", item.Subject)
+		}
+	}
 	if result, condition := evaluateConditions(operation.Preconditions(), inspection); result != conditionHolds {
 		return reject(ReasonConcurrentChange, "precondition %s does not hold", condition.Kind)
 	}

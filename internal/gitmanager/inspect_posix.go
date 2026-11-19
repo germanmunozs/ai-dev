@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -319,4 +320,57 @@ func worktreeHead(gitDir, commonDir string) HeadObservation {
 		return HeadObservation{State: HeadStateAttached, SymbolicRef: ref, CommitOID: ObjectOID(oid), HistoryPresent: true}
 	}
 	return HeadObservation{State: HeadStateUnborn, SymbolicRef: ref}
+}
+
+// referenceLocks lists the reference lock files Git leaves when an update
+// is interrupted: HEAD.lock, packed-refs.lock and every *.lock below refs,
+// as paths relative to the Git directory. ok is false when they cannot be
+// observed completely within the container-member bound, so their absence
+// is unproven (T128).
+func referenceLocks(gitDir, commonDir string) (locks []string, ok bool) {
+	for _, candidate := range []struct{ dir, name string }{{gitDir, "HEAD.lock"}, {commonDir, "packed-refs.lock"}} {
+		switch lockState(candidate.dir + "/" + candidate.name) {
+		case LockFilePresent:
+			locks = append(locks, candidate.name)
+		case LockFileUnobservable:
+			return locks, false
+		}
+	}
+	// The shared refs and, for a linked worktree, its own refs. Only an
+	// absent refs directory is empty; a symlink anywhere in the walk, which
+	// WalkDir would not follow, or an entry that vanishes during it leaves
+	// the observation incomplete (review R-05).
+	roots := []string{commonDir + "/refs"}
+	if gitDir != commonDir {
+		roots = append(roots, gitDir+"/refs")
+	}
+	visited, bound := int64(0), LimitContainerMembers.Max()
+	errIncomplete := errors.New("reference locks not observed completely")
+	for _, root := range roots {
+		if info, err := os.Lstat(root); errors.Is(err, fs.ErrNotExist) {
+			continue
+		} else if err != nil || !info.IsDir() {
+			return locks, false
+		}
+		err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if visited++; visited > bound {
+				return errLimitExceeded
+			}
+			if entry.Type()&fs.ModeSymlink != 0 {
+				return errIncomplete
+			}
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".lock") {
+				rel, _ := filepath.Rel(filepath.Dir(root), path)
+				locks = append(locks, filepath.ToSlash(rel))
+			}
+			return nil
+		})
+		if err != nil {
+			return locks, false
+		}
+	}
+	return locks, true
 }

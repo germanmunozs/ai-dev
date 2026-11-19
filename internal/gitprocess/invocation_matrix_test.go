@@ -145,6 +145,9 @@ func TestOperationMatrixRows(t *testing.T) {
 			want := append(commonEnvironment(), row.extraEnv...)
 			if row.readOnly {
 				want = append(want, "GIT_OPTIONAL_LOCKS=0")
+			} else if row.op != OpInit {
+				// R-04: every write names its repository explicitly.
+				want = append(want, "GIT_DIR="+testProject+"/.git")
 			}
 			assertEnvironment(t, invocation.Environment, want)
 		})

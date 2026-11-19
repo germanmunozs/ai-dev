@@ -140,3 +140,38 @@ func TestDispatcherConfigurationWrite(t *testing.T) {
 		t.Fatalf("written %q", data)
 	}
 }
+
+// T136: a later plan over the repository ai-dev initialized keeps the
+// branch its configuration recorded, so it plans a verified no-op instead
+// of a conflict; the branch is adopted only when the existing file is
+// reproduced exactly, and any other configuration still conflicts.
+func TestExistingRepositoryAdoptsConfiguredBranch(t *testing.T) {
+	for _, test := range []struct {
+		strategy, parameter string
+	}{{"basic", BranchInitial}, {"github-flow", BranchPrimary}} {
+		t.Run(test.strategy, func(t *testing.T) {
+			configFor := func(branch string) string {
+				plan := mustPlan(t, newPlanFixture(t), newRepo(test.strategy, map[string]string{"initial-branch": branch})).Plan
+				return string(renderedConfig(t, plan))
+			}
+			f := newPlanFixture(t)
+			f.unbornRepository("")
+			mustWrite(t, filepath.Join(f.root, ProjectConfigPath), configFor("main"))
+			plan := mustPlan(t, f, StrategyRequest{Strategy: test.strategy}).Plan
+			if branch := plan.ImmutableIntent.BranchParameters()[test.parameter]; branch != "main" {
+				t.Fatalf("adopted %s=%q", test.parameter, branch)
+			}
+			for _, operation := range plan.DerivedOperations() {
+				if operation.Kind == OperationKindProjectConfigWrite {
+					t.Fatal("an equal configuration is rewritten")
+				}
+			}
+			// HEAD names main, the configuration another branch: no adoption.
+			other := newPlanFixture(t)
+			other.unbornRepository("")
+			mustWrite(t, filepath.Join(other.root, ProjectConfigPath), configFor("trunk"))
+			_, rejection := other.plan(StrategyRequest{Strategy: test.strategy})
+			expectRejection(t, rejection, ReasonConfigurationConflict, 1)
+		})
+	}
+}

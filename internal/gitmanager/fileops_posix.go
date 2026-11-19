@@ -4,6 +4,7 @@ package gitmanager
 
 import (
 	"errors"
+	"io"
 	"os"
 	"syscall"
 )
@@ -17,7 +18,9 @@ type fileOps struct {
 	chmod    func(*os.File, os.FileMode) error
 	write    func(*os.File, []byte) (int, error)
 	sync     func(*os.File) error
-	readFile func(path string) ([]byte, error)
+	// readFile reads a regular file without following a symlink and
+	// returns the identity of what it read.
+	readFile func(path string) ([]byte, syscall.Stat_t, error)
 	mkdir    func(path string, perm os.FileMode) error
 	rename   func(oldpath, newpath string) error
 	link     func(oldpath, newpath string) error
@@ -31,7 +34,7 @@ var osFiles = fileOps{
 	chmod:    func(f *os.File, mode os.FileMode) error { return f.Chmod(mode) },
 	write:    func(f *os.File, data []byte) (int, error) { return f.Write(data) },
 	sync:     func(f *os.File) error { return f.Sync() },
-	readFile: os.ReadFile,
+	readFile: readNoFollow,
 	mkdir:    os.Mkdir,
 	rename:   os.Rename,
 	link:     os.Link,
@@ -53,6 +56,20 @@ func (d *OperationDispatcher) files() fileOps {
 // happened. Nothing unproven is removed, and the operation is
 // indeterminate rather than failed.
 var errCreatedUnverified = errors.New("an exclusively created entry could not be identified")
+
+func readNoFollow(path string) ([]byte, syscall.Stat_t, error) {
+	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, syscall.Stat_t{}, err
+	}
+	defer file.Close()
+	identity, err := descriptorStat(file)
+	if err != nil {
+		return nil, syscall.Stat_t{}, err
+	}
+	data, err := io.ReadAll(file)
+	return data, identity, err
+}
 
 func syncDirectory(path string) error {
 	dir, err := os.Open(path)

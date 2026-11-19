@@ -54,6 +54,7 @@ func (Runner) Run(ctx context.Context, invocation gitmanager.GitInvocation) (git
 	cmd.Stdin = bytes.NewReader(invocation.Stdin)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = processStopDelay
+	isolateProcessGroup(cmd)
 	runErr := cmd.Run()
 
 	result := gitmanager.GitRunResult{

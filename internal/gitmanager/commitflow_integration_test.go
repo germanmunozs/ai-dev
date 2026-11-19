@@ -365,9 +365,15 @@ func TestConcurrentLoserWithRealGit(t *testing.T) {
 	}
 	close(start)
 	wg.Wait()
+	// Exactly one attempt applies. Usually it is the issuer, but the
+	// consumer may read the just-issued authorization and take the apply
+	// lock first, and then the issuer is the one refused.
 	winner, loser := results[0], results[1]
+	if loser.Status == gitmanager.ApplyStatusApplied {
+		winner, loser = loser, winner
+	}
 	if winner.Status != gitmanager.ApplyStatusApplied {
-		t.Fatalf("issuing attempt %+v", winner)
+		t.Fatalf("no attempt applied: %+v / %+v", results[0], results[1])
 	}
 	switch {
 	case loser.Status == gitmanager.ApplyStatusAlreadyApplied && loser.ExitCode == 0:

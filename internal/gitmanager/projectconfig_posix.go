@@ -100,14 +100,22 @@ func writeProjectConfig(files fileOps, root string, data []byte, random RandomSo
 	if err := files.sync(file); err != nil {
 		return err
 	}
-	written, err := files.readFile(path)
-	if err != nil || contentDigest(written) != contentDigest(data) {
+	// The bytes checked are those of the inode this attempt created, read
+	// without following a symlink (review R-06).
+	written, read, err := files.readFile(path)
+	if err != nil || !sameInode(read, identity) || contentDigest(written) != contentDigest(data) {
 		return errors.New("the written configuration does not have the expected digest")
 	}
 	// The directory must still be the one that was checked: the
 	// temporary was created inside it, not through a replacement.
 	after, err := lstatIdentity(dirPath)
 	if err != nil || after.DeviceDecimal != before.DeviceDecimal || after.InodeDecimal != before.InodeDecimal || !after.Mode.IsDir() {
+		return ErrOwnedResourceReplaced
+	}
+	// What is published is still that inode: the path was not swapped
+	// after the check.
+	var named syscall.Stat_t
+	if err := syscall.Lstat(path, &named); err != nil || !sameInode(named, identity) {
 		return ErrOwnedResourceReplaced
 	}
 	if err := files.link(path, dirPath+"/config.json"); err != nil {

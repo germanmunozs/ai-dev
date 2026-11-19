@@ -102,10 +102,10 @@ func TestClosedReasonCatalogue(t *testing.T) {
 		"development_branch_pending_initial_history", "output_exists", "unsafe_output_path", "output_failed", "operation_failed",
 		"attributes_incompatible", "path_unrepresentable", "path_normalization_incompatible", "path_collision",
 		"sensitive_content_suspected", "commit_message_invalid", "identity_invalid", "platform_unsupported", "filesystem_unsupported",
-		"dubious_ownership", "strategy_conflict", "configuration_conflict",
+		"dubious_ownership", "strategy_conflict", "configuration_conflict", "interrupted",
 	}
-	if len(valid) != 40 || len(validReasons) != 40 {
-		t.Fatalf("reason catalogue size=%d/%d, want 40", len(valid), len(validReasons))
+	if len(valid) != 41 || len(validReasons) != 41 {
+		t.Fatalf("reason catalogue size=%d/%d, want 41", len(valid), len(validReasons))
 	}
 	seen := map[Reason]bool{}
 	for _, reason := range valid {

@@ -225,6 +225,7 @@ const (
 	ReasonPlanInvalid                            Reason = "plan_invalid"
 	ReasonPlanStale                              Reason = "plan_stale"
 	ReasonConcurrentChange                       Reason = "concurrent_change"
+	ReasonInterrupted                            Reason = "interrupted"
 	ReasonAuthorizationInputIncomplete           Reason = "authorization_input_incomplete"
 	ReasonAuthorizationIDExists                  Reason = "authorization_id_exists"
 	ReasonAuthorizationMissing                   Reason = "authorization_missing"
@@ -259,7 +260,7 @@ var validReasons = map[Reason]struct{}{
 	ReasonInteractiveTerminalRequired: {}, ReasonInvalidStrategy: {}, ReasonMissingRequiredBranch: {},
 	ReasonRepositoryAbsent: {}, ReasonAncestorRepository: {}, ReasonRepositoryKindUnsupported: {},
 	ReasonRepositoryStateIncompatible: {}, ReasonWorktreeConfigUnsupported: {}, ReasonProjectIdentityUnavailable: {},
-	ReasonPlanInvalid: {}, ReasonPlanStale: {}, ReasonConcurrentChange: {}, ReasonAuthorizationInputIncomplete: {},
+	ReasonPlanInvalid: {}, ReasonPlanStale: {}, ReasonConcurrentChange: {}, ReasonInterrupted: {}, ReasonAuthorizationInputIncomplete: {},
 	ReasonAuthorizationIDExists: {}, ReasonAuthorizationMissing: {}, ReasonAuthorizationMismatch: {},
 	ReasonAuthorizationExpired: {}, ReasonAuthorizationConsumed: {}, ReasonAuditUnavailable: {},
 	ReasonAuditFailedAfterMutation: {}, ReasonResourceReleaseFailed: {}, ReasonLockConflict: {},
@@ -3598,7 +3599,10 @@ func resultReasonCompatible(status ApplyStatus, reason Reason, secondary bool) b
 	if reason == ReasonOperationFailed {
 		return status == ApplyStatusFailed || status == ApplyStatusPartiallyApplied || status == ApplyStatusIndeterminate
 	}
-	if reason == ReasonConcurrentChange {
+	// An interrupt (INT-01) is a refusal before the mutation intent and,
+	// after it, a cause whose effects are classified like a concurrent
+	// change.
+	if reason == ReasonConcurrentChange || reason == ReasonInterrupted {
 		return status == ApplyStatusRefused || status == ApplyStatusFailed || status == ApplyStatusPartiallyApplied || status == ApplyStatusIndeterminate
 	}
 	// All remaining normative reasons describe refusal before mutation.
