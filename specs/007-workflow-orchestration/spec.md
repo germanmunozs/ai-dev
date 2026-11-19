@@ -6,7 +6,7 @@
 
 **Created**: 2026-11-19
 
-**Status**: Draft, revision 2 — candidate for focused re-review. Not approved, and no implementation is authorized.
+**Status**: Draft, revision 3 — Amendments 1–4 approved and applied. The final independent review gave GO with conditions, and its findings S-27 to S-30 are fixed here. G-SPEC (guided) still needs the owner's confirmation in a version-controlled review. No implementation is authorized.
 
 **Input**: User description: "Feature 007 — Workflow Orchestration. Formalize the consolidated draft (`feature-007-paquete-unificado-para-claude-DRAFT.md`, 2026-11-19) against the real contracts of Features 002–006 and the constitution. Guided read-only mode is normative; autonomous mode is specified but gated and disabled. Respect the approved architecture of OS-verifiable isolation and keep autonomous execution blocked until its security gates pass."
 
@@ -29,14 +29,14 @@ Every statement in this specification is one of:
 
 **Decisions recorded on 2026-11-19.** Approver: German Munoz, repository owner. This was a **blanket acceptance** ("si, estoy de acuerdo") of the four options the implementing agent recommended in the conversation that produced this specification. The approver identity is a declared, auditable assertion, not an authenticated identity, as in Feature 008. The record takes effect when this file is committed or reviewed in a pull request.
 
-- Q (D-01): How does guidance compose 003, 004 and 005? → A: By reference to their rules, with identical semantics, never by invoking their capabilities. This requires the narrow amendments 1–3 below, each of which still needs its own approval.
+- Q (D-01): How does guidance compose 003, 004 and 005? → A: By reference to their rules, with identical semantics, never by invoking their capabilities. This requires the narrow amendments 1–3 below, which the owner approved and which were applied on 2026-11-19.
 - Q (D-02): Does guided mode execute agents? → A: No. It shows command templates that a human may complete and run; execution remains the human's explicit 002 request.
 - Q (D-03): What is the command? → A: `ai-dev workflow guide <feature-id>`. The top-level usage text stays unchanged.
 - Q (D-04): Who may authorize a future autonomous chain, and how? → A: Only through an interactive terminal, by typing the exact plan digest, with a declared actor label recorded verbatim, as in 006 and 008. This is a design input for the deferred autonomous mode, and is not normative here.
 
 **Decisions recorded on 2026-11-19 after the independent review.** Same approver, same caveat about identity. These were explicit choices between alternatives presented to the owner ("si, opción (a) y modo autónomo no normativo, aplícalo"):
 
-- Q (D-14): How does guidance present the 006 approval action, given that 005 never reports a target state (005 F-01, `specs/005-sdd-workflow/spec.md:23`) and 006 never derives one (006 C-2, `specs/006-human-gates/spec.md:16`)? → A: As a template whose target is the placeholder `<target-state>`, which the human supplies and may check with 004's transition evaluation. Guidance never derives, suggests or pre-fills a target state.
+- Q (D-14): How does guidance present the 006 approval action, given that 005 never reports a target state (005 F-01, `specs/005-sdd-workflow/spec.md:23`) and 006 never derives one (006 C-2, `specs/006-human-gates/spec.md:16`)? → A: As a template whose target is the placeholder `<target-state>`, which the human supplies and may check with 004's transition evaluation. Guidance never derives, suggests or pre-fills a target state. (Note, revision 3: after review S-27, this placeholder is the `{target-state}` human slot of F007-FR-005, whose rendering the plan defines so that an unfilled paste invokes nothing.)
 - Q (D-15): Is autonomous mode normative in this specification? → A: No. It moves to the non-normative section "Deferred: Autonomous Mode Design Inputs". This specification defines no autonomous capability.
 
 **Facts verified in the repository** that this specification depends on:
@@ -130,20 +130,19 @@ Nothing in ai-dev can start, plan or authorize an autonomous chain. Autonomous e
   Its outcome MUST be exactly the one 005 reports for the same inputs: `step_recommended`, `workflow_terminal`, `artifacts_inconsistent`, `feature_unknown` or `state_invalid`.
 - **F007-FR-003**: Guidance MUST NOT perform 004's transition evaluation. It MUST NOT derive, report, suggest or pre-fill a target Workflow State, nor any other Human Gate decision field.
 - **F007-FR-004**: For `step_recommended` only, guidance MUST report the canonical agent identity the role maps to under 003 FR-003, and that agent's availability as `available`, `unavailable` or `inconsistent`. `available` and `unavailable` are determined as in 002 FR-002. `inconsistent` is the 003 FR-009 condition. This is information only. Guidance MUST NOT report a role-selection outcome of its own, an alternative agent, or a fallback.
-- **F007-FR-005**: Guidance MUST list the next human actions as command templates. It MUST NOT execute any of them. The set is fixed:
+- **F007-FR-005**: Guidance MUST list the next human actions as command templates. It MUST NOT execute any of them. The set and the order are fixed. In this table, `{name}` denotes a slot: it describes the template's content and is not its rendered text.
 
   | Outcome | Templates, in order |
   |---|---|
-  | `step_recommended` | (1) 003 selection: `ai-dev agent select -- <role>`, unless availability is `inconsistent`. (2) 002 execution: `ai-dev agent run -- <agent> '<instruction>'`, only when availability is `available`. (3) After the human has completed the activity, 004 evaluation: `ai-dev workflow transition -- <feature> <target-state>`. (4) 006 approval: `ai-dev workflow approve --approver '<approver>' -- <feature> <target-state>` | `--reason` is shown as optional, because 006 FR-010 does not require it for `approval`. |
-  | `workflow_terminal` | `ai-dev workflow state -- <feature>` |
+  | `step_recommended` | (1) 003 selection: `ai-dev agent select -- {role}`, unless availability is `inconsistent`. (2) 002 execution: `ai-dev agent run -- {agent} {instruction}`, only when availability is `available`. (3) After the human has completed the activity, 004 evaluation: `ai-dev workflow transition -- {feature} {target-state}`. (4) 006 approval: `ai-dev workflow approve --approver {approver} -- {feature} {target-state}` |
+  | `workflow_terminal` | `ai-dev workflow state -- {feature}` |
   | any other outcome | none |
 
   The rendering rules:
-  - `<role>` and `<agent>` are the canonical tokens.
-  - `<feature>` is the feature identifier, rendered by F007-FR-006.
-  - `<instruction>`, `<approver>`, `<reason>` and `<target-state>` are literal placeholders. Guidance MUST NOT fill them from any source, including the environment, Git configuration, the operating-system user or earlier requests.
-  - A template with any placeholder is shown as a template to complete, never as a ready-to-run command.
-  - A template pasted into a POSIX shell with any placeholder still unfilled MUST NOT invoke ai-dev or any agent, and MUST NOT create, change or remove a file. The way a placeholder makes that true is left to the plan.
+  - **Filled slots.** `{role}` and `{agent}` are rendered as their canonical tokens. `{feature}` is rendered by F007-FR-006.
+  - **Human slots.** `{instruction}`, `{approver}` and `{target-state}` are for the human to fill. Guidance MUST NOT fill them from any source, including the environment, Git configuration, the operating-system user or earlier requests.
+  - **Unfilled templates do nothing.** A template is shown as a template to complete, never as a ready-to-run command. Each human slot MUST be rendered so that a template pasted into a POSIX shell with that slot still unfilled, whatever other slots are filled, does not invoke ai-dev or any agent and does not create, change or remove a file. The plan defines that rendering.
+  - **Optional reason.** The approval template carries no `--reason`. Next to it, guidance MUST state that 006 FR-010 accepts an optional `--reason` for `approval`, without rendering a value for it.
 - **F007-FR-006**: The feature identifier in every template MUST be rendered as one POSIX-shell single-quoted word, with each embedded `'` written as `'\''`, and placed after `--`, so that pasting the template passes it as exactly one positional argument. When the identifier contains a character of Unicode general category Cc (control) or Cf (format, including bidirectional overrides and zero-width characters), or U+2028 or U+2029, guidance MUST render no templates. In the human-readable report, the identifier itself MUST use 004 FR-028's escaped, quoted form.
 - **F007-FR-007**: Guidance MUST NOT invoke the capabilities of 002, 003, 004, 005 or 006. It MUST reuse their rules by reference only, as 005 and 006 already do. It MUST NOT do any of the following:
   - launch, authenticate or contact any coding agent or network endpoint;
@@ -186,7 +185,7 @@ Nothing in ai-dev can start, plan or authorize an autonomous chain. Autonomous e
   - zero changes appear in the project tree, compared by content digest before and after;
   - zero network attempts are observed by the test harness.
 - **SC-003**: In 100% of `step_recommended` fixtures, the reported agent equals 003's mapping and the availability equals 002's determination, or `inconsistent` for the 003 FR-009 condition. Zero reports substitute or suggest another agent.
-- **SC-004**: Across 100% of fixtures, including hostile names (shell metacharacters, a leading `-`, quotes, spaces), pasting each rendered template into a POSIX shell passes the identifier to ai-dev as exactly one positional argument. Zero templates are rendered for identifiers with a control or format character, with fixtures that include U+202E and U+200B. Pasting a template with any placeholder unfilled invokes ai-dev or an agent in 0% of cases and changes zero files. Zero templates contain a derived value for `<target-state>`, `<approver>`, `<reason>` or `<instruction>`.
+- **SC-004**: Across 100% of fixtures, including hostile names (shell metacharacters, a leading `-`, quotes, spaces), pasting each rendered template into a POSIX shell passes the identifier to ai-dev as exactly one positional argument. Zero templates are rendered for identifiers with a control or format character, with fixtures that include U+202E and U+200B. Pasting a template with any placeholder unfilled invokes ai-dev or an agent in 0% of cases and changes zero files. Zero templates contain a derived value for `{target-state}`, `{approver}` or `{instruction}`. For each human slot separately, pasting the template with only that slot unfilled invokes nothing and changes zero files.
 - **SC-005**: 100% of human-readable and machine-readable reports carry the non-authorization statement of F007-FR-008.
 - **SC-006**: The regression suites of Features 001–006 and 008 pass unchanged, including the top-level usage text and the usage failure for non-existent `workflow` subcommands.
 - **SC-007**: From the machine-readable report alone, a reader can find the outcome, state, activity, role, agent, availability, templates and statement in 100% of reports.
@@ -211,7 +210,7 @@ Nothing in ai-dev can start, plan or authorize an autonomous chain. Autonomous e
 
 | Gate | Pass condition |
 |---|---|
-| G-SPEC (guided) | D-01 to D-04, D-14 and D-15 recorded and committed (done, `1b85862`); Amendments 1–4 approved and applied (done, 2026-11-19); independent re-review of the final text recorded |
+| G-SPEC (guided) | D-01 to D-04, D-14 and D-15 recorded and committed (done, `1b85862`); Amendments 1–4 approved and applied (done, `f1bbaa5`); final independent review recorded (done: GO with conditions, findings S-27 to S-30 fixed in revision 3); owner confirmation of the recorded decisions in a version-controlled review |
 | G-IMPLEMENT (guided) | Separate human authorization for the guided slice |
 
 A future autonomous mode needs its own specification or amendment. It must pass its own G-SPEC, G-CONTRACT and G-ISOLATION before any autonomous capability exists.

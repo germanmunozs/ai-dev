@@ -112,7 +112,7 @@
 
 ### Session 2026-11-19 (Feature 007 cross-feature Amendment 4)
 
-- **Authority record (2026-11-19): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Amendments 1–4, of which this is Amendment 4 (cross-references) of Feature 007 (`specs/007-workflow-orchestration/spec.md`, section Required Amendments) in the words "si, apruebo las enmiendas 1 a 4, aplícalas". The approver identity is a declared, auditable assertion, not an authenticated identity. The amendment adds a permission for an explicit Feature 007 guidance request only; it changes no observable behavior of this feature and approves no Feature 007 implementation, plan or autonomous capability.
+- **Authority record (2026-11-19): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Amendments 1–4, of which this is Amendment 4 (cross-references) of Feature 007 (`specs/007-workflow-orchestration/spec.md`, section Required Amendments) in the words "si, apruebo las enmiendas 1 a 4, aplícalas". The approver identity is a declared, auditable assertion, not an authenticated identity. The amendment only renames the Feature 007 cross-references; it changes no observable behavior of this feature and approves no Feature 007 implementation, plan or autonomous capability.
 
 ## Responsibility Boundary *(context for all requirements)*
 
