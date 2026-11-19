@@ -41,14 +41,14 @@ Every statement in this specification is one of:
 
 **Facts verified in the repository** that this specification depends on:
 
-- **007 cross-references.** 005 (lines 44 and 317) and 006 (lines 126 and 548) name Feature 007 "Interactive CLI" or "interactive or guided".
-- **Side-effect prohibitions.** Three requirements forbid evaluating a capability as a side effect of another: 003 FR-013 (`specs/003-agent-role-selection/spec.md:124`), 004 FR-017 (`specs/004-workflow-state/spec.md:141`) and 005 FR-024 (`specs/005-sdd-workflow/spec.md:269`). 005 and 006 reuse earlier features' rules by reference without invoking them (005 lines 39 and 140; 006 lines 123–124).
+- **007 cross-references.** 005 (lines 48 and 321) and 006 (lines 130 and 552) named Feature 007 "Interactive CLI" or "interactive or guided" until Amendment 4 renamed it on 2026-11-19.
+- **Side-effect prohibitions.** Three requirements forbid evaluating a capability as a side effect of another: 003 FR-013 (`specs/003-agent-role-selection/spec.md:128`), 004 FR-017 (`specs/004-workflow-state/spec.md:145`) and 005 FR-024 (`specs/005-sdd-workflow/spec.md:273`). 005 and 006 reuse earlier features' rules by reference without invoking them (005 lines 43 and 144; 006 lines 127–128).
 - **002 single execution.** 002 allows at most one agent invocation per human request, with no chaining (FR-024, line 131). It forbids role-based routing (FR-023, line 130) and requires the instruction unmodified (FR-010, line 117). It forbids relaxing the agent's approval or sandbox model, and requires every agent interaction to reach the developer unchanged (FR-016, line 123).
-- **003 fixed mapping.** Specification, planning and review map to `claude-code`; implementation and remediation map to `codex-cli` (FR-003, line 99).
-- **Workflow State Record location.** It lives inside the feature directory in the repository (004 FR-027, line 171). 006 records the approver as an unauthenticated, auditable assertion. Preventing an external agent from invoking the gate command is a residual trust boundary 006 leaves out of scope (lines 39–42, 157; FR-033, line 477).
+- **003 fixed mapping.** Specification, planning and review map to `claude-code`; implementation and remediation map to `codex-cli` (FR-003, line 103).
+- **Workflow State Record location.** It lives inside the feature directory in the repository (004 FR-027, line 175). 006 records the approver as an unauthenticated, auditable assertion. Preventing an external agent from invoking the gate command is a residual trust boundary 006 leaves out of scope (lines 39–42, 161; FR-033, line 481).
 - **Feature identifiers.** Any single path element other than `.` that contains no `/` is a valid identifier (`internal/workflow/record.go`, `validFeatureID`). That includes shell metacharacters and a leading `-`.
 - **Option separator.** The existing commands `workflow state`, `workflow transition`, `workflow next`, `workflow approve`, `agent select` and `agent run` all accept `--` before their positional arguments, including an identifier that starts with `-`. This was verified on 2026-11-19 against a build of `dev` at `0e99128`.
-- **Positive non-authorization statement.** 005 requires its human-readable report to say visibly that a recommendation does not authorize the activity or any transition (005 FR-017, lines 224–228).
+- **Positive non-authorization statement.** 005 requires its human-readable report to say visibly that a recommendation does not authorize the activity or any transition (005 FR-017, lines 228–232).
 
 ## Ownership Boundaries
 
@@ -200,18 +200,18 @@ Nothing in ai-dev can start, plan or authorize an autonomous chain. Autonomous e
 
 ## Required Amendments
 
-Each amendment needs its own explicit human approval. This specification applies none of them.
+**Approved and applied (2026-11-19).** German Munoz, repository owner, approved Amendments 1–4 ("si, apruebo las enmiendas 1 a 4, aplícalas"). That identity is a declared, auditable assertion. Each amended specification records the decision in a Clarifications session dated 2026-11-19. The line numbers below are those of the amended files.
 
-1. **003 FR-013** (`specs/003-agent-role-selection/spec.md:124`), append: "An explicit, human-initiated Feature 007 guidance request MAY apply the fixed mapping (FR-003), the availability determination (FR-005) and the mapping consistency check (FR-009) by reference, with identical semantics, as information that is not a role selection outcome. It MUST NOT invoke this capability, persist, or produce any effect beyond the guidance report."
-2. **004 FR-017** (`specs/004-workflow-state/spec.md:141`), append: "An explicit, human-initiated Feature 007 guidance request MAY apply this feature's recognition, state-determination and terminality rules by reference, with identical semantics. It MUST NOT perform transition evaluation, invoke either capability, persist, or produce any effect beyond the guidance report."
-3. **005 FR-024** (`specs/005-sdd-workflow/spec.md:269`), append: "An explicit, human-initiated Feature 007 guidance request MAY apply the Required Artifacts Rule and the Next-Step Table by reference, and report this feature's outcome unchanged. It MUST NOT report a target Workflow State, invoke this capability, persist, or produce any effect beyond the guidance report."
-4. **Cross-references** in 005 (lines 44 and 317) and 006 (lines 126 and 548): rename Feature 007 to "Workflow Orchestration (guided report; autonomous mode deferred)".
+1. **003 FR-013** (`specs/003-agent-role-selection/spec.md:128`), appended: "An explicit, human-initiated Feature 007 guidance request MAY apply the fixed mapping (FR-003), the availability determination (FR-005) and the mapping consistency check (FR-009) by reference, with identical semantics, as information that is not a role selection outcome. It MUST NOT invoke this capability, persist, or produce any effect beyond the guidance report."
+2. **004 FR-017** (`specs/004-workflow-state/spec.md:145`), appended: "An explicit, human-initiated Feature 007 guidance request MAY apply this feature's recognition, state-determination and terminality rules by reference, with identical semantics. It MUST NOT perform transition evaluation, invoke either capability, persist, or produce any effect beyond the guidance report."
+3. **005 FR-024** (`specs/005-sdd-workflow/spec.md:273`), appended: "An explicit, human-initiated Feature 007 guidance request MAY apply the Required Artifacts Rule and the Next-Step Table by reference, and report this feature's outcome unchanged. It MUST NOT report a target Workflow State, invoke this capability, persist, or produce any effect beyond the guidance report."
+4. **Cross-references** in 005 (lines 48 and 321) and 006 (lines 130 and 552): renamed Feature 007 to "Workflow Orchestration (guided report; autonomous mode deferred)".
 
 ## Release Gates
 
 | Gate | Pass condition |
 |---|---|
-| G-SPEC (guided) | D-01 to D-04, D-14 and D-15 recorded and committed; Amendments 1–4 each approved; independent re-review recorded |
+| G-SPEC (guided) | D-01 to D-04, D-14 and D-15 recorded and committed (done, `1b85862`); Amendments 1–4 approved and applied (done, 2026-11-19); independent re-review of the final text recorded |
 | G-IMPLEMENT (guided) | Separate human authorization for the guided slice |
 
 A future autonomous mode needs its own specification or amendment. It must pass its own G-SPEC, G-CONTRACT and G-ISOLATION before any autonomous capability exists.
