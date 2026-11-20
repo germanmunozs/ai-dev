@@ -58,6 +58,8 @@ Security and recovery of Git operations:
 
 ## Residual risks (accepted under the owner's delegation)
 
+On 2026-11-20 the owner, German Munoz, explicitly confirmed REC-06 and REC-07 as accepted risks, in the words "REC-06 y REC-07 mantenerlos como riesgo aceptado". The rationale: both fail closed and never report a false success, and closing them would need durable resource identities in the audit trail and a proof of no effects inside the safety kernel, for convenience only. This is a declared, unauthenticated assertion.
+
 - **SIGQUIT and SIGKILL:** SIGQUIT keeps Go's default dump-and-exit, and SIGKILL cannot be deferred. Both take the crash path, which T123 covers at every durable step.
 - **Orphaned claim (REC-07):** `ProveNoEffects` is not wired in the CLI composition. A claim orphaned by a crash before intent is never reassigned: that authorization stays `authorization_consumed`, and a new one must be issued. That is safe, but less convenient.
 - **Interrupt during the first `begin`:** an interrupt delivered while the first operation's `mutation_intent` and CAS are being written lets that operation run. This is consistent with "observed only between operations".
