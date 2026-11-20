@@ -102,8 +102,11 @@ jobs:
           curl -fsSL -o "$RUNNER_TEMP/git.tar.xz" "https://mirrors.edge.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz"
           echo "${GIT_TARBALL_SHA256}  $RUNNER_TEMP/git.tar.xz" | sha256sum -c -
           tar -xJf "$RUNNER_TEMP/git.tar.xz" -C "$RUNNER_TEMP"
+          # Git 2.45 predates C23, which GCC 15 uses by default and whose
+          # <stddef.h> defines an unreachable() macro that collides with a
+          # Git function; build it as the C17 it was written for.
           make -C "$RUNNER_TEMP/git-${GIT_VERSION}" -j"$(nproc)" prefix="$RUNNER_TEMP/git-install" \
-            NO_GETTEXT=YesPlease NO_TCLTK=YesPlease NO_PERL=YesPlease NO_PYTHON=YesPlease \
+            CFLAGS="-O2 -std=gnu17" NO_GETTEXT=YesPlease NO_TCLTK=YesPlease NO_PERL=YesPlease NO_PYTHON=YesPlease \
             NO_CURL=YesPlease NO_EXPAT=YesPlease NO_OPENSSL=YesPlease install
           echo "$RUNNER_TEMP/git-install/bin" >> "$GITHUB_PATH"
 
