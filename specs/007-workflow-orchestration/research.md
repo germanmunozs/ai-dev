@@ -69,7 +69,7 @@
 
 - **Decision**:
   - **First line:** the same `ai-dev: outcome=… feature=%q …` form as 005, with `feature=` escaped by Go `%q` (004 FR-028), extended with `agent=` and `availability=` for `step_recommended`, and ending with the fixed statement.
-  - **Template lines:** each template is a line `  <label>: <command>`.
+  - **Template lines:** each template is two lines, its label as a shell comment (`  # <label>`) and then its command, so a pasted label never runs. Changed after the implementation review's informational finding; the first form, `  <label>: <command>`, let a label word run as a command when the whole line was pasted.
   - **Optional reason:** a separate line states that `--reason` is optional for approval.
 - **Rationale**: The first line keeps the pattern of 002–006. Unlike 005 FR-017, the specification does not require one line, and templates need their own lines to be copyable.
 - **Alternatives considered**: One very long line. Rejected, because it is not copyable.

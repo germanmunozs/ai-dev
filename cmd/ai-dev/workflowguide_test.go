@@ -66,10 +66,10 @@ func TestWorkflowGuideBinaryContract(t *testing.T) {
 	}{
 		{"no agents installed", nil,
 			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=unavailable note=\"" + guideStatement + "\"\n" +
-				"  select the agent for this role (003): ai-dev agent select -- planning\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
-				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n",
+				"  # select the agent for this role (003)\n  ai-dev agent select -- planning\n" +
+				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n",
 			`{"schema_version":"ai-dev.workflow-guide/v1","feature_id":"f","outcome":"step_recommended","current_state":"specified","activity":"plan","role":"planning","agent":"claude-code","agent_availability":"unavailable","templates":[` +
 				`{"kind":"select","label":"select the agent for this role (003)","command":"ai-dev agent select -- planning","human_slots":[]},` +
 				`{"kind":"transition","label":"after completing the activity, check the transition (004)","command":"ai-dev workflow transition -- 'f' )target-state(","human_slots":["target-state"]},` +
@@ -77,11 +77,11 @@ func TestWorkflowGuideBinaryContract(t *testing.T) {
 				`"statement":"` + guideStatement + `"}` + "\n"},
 		{"mapped agent installed", []string{"claude"},
 			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=available note=\"" + guideStatement + "\"\n" +
-				"  select the agent for this role (003): ai-dev agent select -- planning\n" +
-				"  run the agent (002): ai-dev agent run -- claude-code )instruction(\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
-				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n",
+				"  # select the agent for this role (003)\n  ai-dev agent select -- planning\n" +
+				"  # run the agent (002)\n  ai-dev agent run -- claude-code )instruction(\n" +
+				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n",
 			""},
 		{"only the other agent installed", []string{"codex"},
 			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=unavailable note=\"" + guideStatement + "\"\n",

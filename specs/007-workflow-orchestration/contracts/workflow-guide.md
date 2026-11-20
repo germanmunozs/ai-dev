@@ -37,24 +37,31 @@ The report goes to standard output, with the first line first. Example for featu
 
 ```text
 ai-dev: outcome=step_recommended feature="f" state=specified activity=plan role=planning agent=claude-code availability=available note="options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"
-  select the agent for this role (003): ai-dev agent select -- planning
-  run the agent (002): ai-dev agent run -- claude-code )instruction(
-  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(
-  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(
-  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)
+  # select the agent for this role (003)
+  ai-dev agent select -- planning
+  # run the agent (002)
+  ai-dev agent run -- claude-code )instruction(
+  # after completing the activity, check the transition (004)
+  ai-dev workflow transition -- 'f' )target-state(
+  # then record your decision (006)
+  ai-dev workflow approve --approver )approver( -- 'f' )target-state(
+  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)
 ```
 
 The first-line forms for the other outcomes follow. The same fixed note closes each line, shown as `note="…"`:
 
 ```text
 ai-dev: outcome=workflow_terminal feature="f" state=approved note="…"
-  report the state (004): ai-dev workflow state -- 'f'
+  # report the state (004)
+  ai-dev workflow state -- 'f'
 ai-dev: outcome=artifacts_inconsistent feature="f" state=planned missing=plan.md note="…"
 ai-dev: outcome=feature_unknown feature="f" note="…"
 ai-dev: outcome=state_invalid feature="f" note="…"
 ```
 
 The `feature="…"` field uses Go `%q` escaping (004 FR-028), while templates use the shell quoting of F007-FR-006. A human slot is always written `)name(`, including in the reminder line. No line of the report contains a quoted placeholder.
+
+Each template's label is a shell comment on its own line, above its command, so pasting a whole line, or the whole report, never runs a label word. Only the command lines are meant to be pasted. **Residual:** the status line keeps 004 FR-028's double-quoted `feature=%q` form, shared with 004–006, inside which a shell still expands `$(…)` and backquotes. Pasting the status line for a feature directory with such a name would run that substitution. Making status lines shell-inert needs an amendment to 004 FR-028.
 
 The rendering rules:
 - **When template lines are omitted:** for the outcomes that have none, and for an identifier that is not template-safe.

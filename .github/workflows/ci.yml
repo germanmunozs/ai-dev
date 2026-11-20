@@ -5,11 +5,20 @@
 name: ci
 
 on:
+  # Topic branches are covered by their pull request's run; pushes run CI
+  # only on the integration branches, so each change is gated once.
   push:
+    branches: [dev, main]
   pull_request:
 
 permissions:
   contents: read
+
+# A newer push to the same pull request supersedes its running checks.
+# Pushes to dev and main always run to completion.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   gates:
