@@ -61,7 +61,7 @@ ai-dev: outcome=state_invalid feature="f" note="…"
 
 The `feature="…"` field uses Go `%q` escaping (004 FR-028), while templates use the shell quoting of F007-FR-006. A human slot is always written `)name(`, including in the reminder line. No line of the report contains a quoted placeholder.
 
-Each template's label is a shell comment on its own line, above its command, so pasting a whole line, or the whole report, never runs a label word. Only the command lines are meant to be pasted. **Residual:** the status line keeps 004 FR-028's double-quoted `feature=%q` form, shared with 004–006, inside which a shell still expands `$(…)` and backquotes. Pasting the status line for a feature directory with such a name would run that substitution. Making status lines shell-inert needs an amendment to 004 FR-028.
+Each template's label is a shell comment on its own line, above its command, so pasting a whole line, or the whole report, never runs a label word. Only the command lines are meant to be pasted. The status line renders the identifier in 004 FR-028's escaped, quoted form, which since 004 Amendment 5 also backslash-escapes `$`, backquotes and `!`. Pasting it runs nothing the identifier contains, although it is a report and not a command.
 
 The rendering rules:
 - **When template lines are omitted:** for the outcomes that have none, and for an identifier that is not template-safe.

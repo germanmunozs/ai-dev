@@ -657,6 +657,7 @@ flowchart TB
 - **Autoridad humana:** ninguna señal automática aprueba, transiciona ni muta.
 - **Sin shell ni red:** Git se invoca con argv exacto, sin `sh -c`. Lleva `protocol.allow=never`, `credential.helper=`, `core.sshCommand=false`, `GIT_TERMINAL_PROMPT=0` y `GIT_CONFIG_NOSYSTEM=1`.
 - **Sin secretos en la salida:** las credenciales de la configuración del usuario nunca aparecen en la salida ni en los registros duraderos. Los archivos del commit inicial se examinan en busca de secretos antes de crear el primer objeto.
+- **Informes que se pueden pegar sin riesgo:** los valores suministrados en los informes de texto de 004–007 (identificador, aprobador, motivo, destino) van entre comillas dobles, con `$`, las comillas invertidas y `!` escapados (004 FR-028, enmienda 5). Pegar una línea de informe en un shell no ejecuta ni expande nada de lo que contenga.
 - **Rutas literales:** se rechazan rutas no literales y enlaces simbólicos. Cada componente se abre con `O_NOFOLLOW` y se vuelve a comprobar su identidad tras la lectura.
 - **Fallo cerrado:** plataformas o filesystems no soportados (tmpfs, remotos, de solo lectura) devuelven un refusal tipado y nunca un éxito parcial supuesto.
 
@@ -754,7 +755,6 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 
 - **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management. Windows nativo no está soportado; en Windows se usa WSL2, con el proyecto en el filesystem de Linux. El uso en WSL2 no tiene evidencia propia: se apoya en la de Linux/ext4.
 - **Plantillas de guía (007):** solo se garantizan para shells POSIX (sh, dash, bash y zsh, con las opciones probadas). fish y PowerShell no están cubiertos.
-- **Líneas de estado (004–007):** la línea `ai-dev: outcome=… feature="…"` usa el entrecomillado de 004 FR-028, dentro del cual un shell todavía expande `$(…)`. Pegar esa línea para una feature con un nombre malicioso ejecutaría la sustitución. No es una orden y no debe pegarse; volverla inerte requiere enmendar 004 FR-028.
 - **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
 - **Versión mínima de Git (2.45):** está declarada, pero no se ha ejecutado la suite con esa versión (VER-01).
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
