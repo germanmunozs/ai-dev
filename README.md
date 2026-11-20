@@ -30,6 +30,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 8. [Desarrollo y calidad](#desarrollo-y-calidad)
 9. [Proceso de ingeniería](#proceso-de-ingeniería)
 10. [Limitaciones conocidas](#limitaciones-conocidas)
+11. [Licencia](#licencia)
 
 ---
 
@@ -766,3 +767,9 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
   - orquestación en segundo plano;
   - operaciones Git remotas (push, fetch);
   - commits más allá del inicial.
+
+---
+
+## Licencia
+
+ai-dev se distribuye bajo la [Apache License 2.0](LICENSE).
