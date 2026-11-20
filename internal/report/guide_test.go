@@ -14,12 +14,12 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/guide"
-	"ai-dev/internal/role"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/selection"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/guide"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 const guideNote = `note="options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"`

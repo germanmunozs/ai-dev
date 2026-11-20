@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 type appRunExecutor struct{ paths map[string]string }

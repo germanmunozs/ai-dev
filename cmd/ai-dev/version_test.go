@@ -49,7 +49,7 @@ func TestReleaseVersionIsSetAtLinkTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	bin := filepath.Join(t.TempDir(), "ai-dev")
-	build := exec.Command("go", "build", "-ldflags", "-X ai-dev/internal/version.Version=v9.9.9-test", "-o", bin, "./cmd/ai-dev")
+	build := exec.Command("go", "build", "-ldflags", "-X github.com/germanmunozs/ai-dev/internal/version.Version=v9.9.9-test", "-o", bin, "./cmd/ai-dev")
 	build.Dir = repoRoot
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, output)

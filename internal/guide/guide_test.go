@@ -7,11 +7,11 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/role"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/selection"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 const guideFeatureID = "f"

@@ -9,11 +9,11 @@ import (
 	"io/fs"
 	"os"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/doctor"
-	"ai-dev/internal/gate"
-	"ai-dev/internal/report"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 // topLevelUsage names every command group (F009-FR-005).

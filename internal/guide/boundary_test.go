@@ -20,14 +20,14 @@ import (
 // Because os is not allowed, guide cannot read the environment or any
 // configuration file (F007-FR-014).
 var allowedGuideImports = map[string]bool{
-	"io/fs":                     true,
-	"strings":                   true,
-	"unicode":                   true,
-	"ai-dev/internal/sdd":       true,
-	"ai-dev/internal/selection": true,
-	"ai-dev/internal/agent":     true,
-	"ai-dev/internal/role":      true,
-	"ai-dev/internal/workflow":  true,
+	"io/fs":   true,
+	"strings": true,
+	"unicode": true,
+	"github.com/germanmunozs/ai-dev/internal/sdd":       true,
+	"github.com/germanmunozs/ai-dev/internal/selection": true,
+	"github.com/germanmunozs/ai-dev/internal/agent":     true,
+	"github.com/germanmunozs/ai-dev/internal/role":      true,
+	"github.com/germanmunozs/ai-dev/internal/workflow":  true,
 }
 
 // forbiddenGuideSelectors are allowed-package identifiers guide must not use:
@@ -35,9 +35,9 @@ var allowedGuideImports = map[string]bool{
 // is built by internal/app from the injected executor), and 004's transition
 // evaluation (F007-FR-003).
 var forbiddenGuideSelectors = map[string]map[string]bool{
-	"ai-dev/internal/agent":     {"NewRegistry": true, "Registry": true},
-	"ai-dev/internal/selection": {"NewSelector": true, "Selector": true},
-	"ai-dev/internal/workflow": {
+	"github.com/germanmunozs/ai-dev/internal/agent":     {"NewRegistry": true, "Registry": true},
+	"github.com/germanmunozs/ai-dev/internal/selection": {"NewSelector": true, "Selector": true},
+	"github.com/germanmunozs/ai-dev/internal/workflow": {
 		"Allowed":            true,
 		"EvaluateTransition": true,
 		"TransitionReport":   true,
@@ -69,7 +69,7 @@ func checkGuideSource(filename string, src any) []error {
 		if spec.Name != nil {
 			local = spec.Name.Name
 		}
-		if strings.HasPrefix(importPath, "ai-dev/internal/") && (local == "." || local == "_") {
+		if strings.HasPrefix(importPath, "github.com/germanmunozs/ai-dev/internal/") && (local == "." || local == "_") {
 			findings = append(findings, fmt.Errorf("%s: rejected %s import of %q", filename, local, importPath))
 			continue
 		}
@@ -123,26 +123,26 @@ func TestPackageBoundarySelfCheck(t *testing.T) {
 		"net":                   `package guide; import "net"; var _ net.Conn`,
 		"net http":              `package guide; import "net/http"; var _ = http.Get`,
 		"syscall":               `package guide; import "syscall"; var _ = syscall.SIGPIPE`,
-		"system":                `package guide; import "ai-dev/internal/system"; var _ system.Executor`,
-		"execution":             `package guide; import "ai-dev/internal/execution"; var _ execution.Runner`,
-		"instruction":           `package guide; import "ai-dev/internal/instruction"; var _ = instruction.X`,
-		"gate":                  `package guide; import "ai-dev/internal/gate"; var _ gate.Store`,
-		"gatestore":             `package guide; import "ai-dev/internal/gatestore"; var _ = gatestore.New`,
-		"gitmanager":            `package guide; import "ai-dev/internal/gitmanager"; var _ = gitmanager.X`,
-		"gitprocess":            `package guide; import "ai-dev/internal/gitprocess"; var _ = gitprocess.X`,
-		"gitstore":              `package guide; import "ai-dev/internal/gitstore"; var _ = gitstore.X`,
-		"app":                   `package guide; import "ai-dev/internal/app"; var _ = app.Run`,
-		"report":                `package guide; import "ai-dev/internal/report"; var _ = report.WriteText`,
-		"new registry":          `package guide; import "ai-dev/internal/agent"; var _ = agent.NewRegistry`,
-		"aliased new registry":  `package guide; import a "ai-dev/internal/agent"; var _ = a.NewRegistry`,
-		"registry type":         `package guide; import "ai-dev/internal/agent"; var _ agent.Registry`,
-		"new selector":          `package guide; import "ai-dev/internal/selection"; var _ = selection.NewSelector`,
-		"selector literal":      `package guide; import "ai-dev/internal/selection"; var _ = selection.Selector{}`,
-		"transition evaluation": `package guide; import "ai-dev/internal/workflow"; var _ = workflow.EvaluateTransition`,
-		"aliased transition":    `package guide; import wf "ai-dev/internal/workflow"; var _ = wf.Allowed`,
-		"blank internal import": `package guide; import _ "ai-dev/internal/system"`,
-		"blank allowed import":  `package guide; import _ "ai-dev/internal/sdd"`,
-		"dot internal import":   `package guide; import . "ai-dev/internal/agent"`,
+		"system":                `package guide; import "github.com/germanmunozs/ai-dev/internal/system"; var _ system.Executor`,
+		"execution":             `package guide; import "github.com/germanmunozs/ai-dev/internal/execution"; var _ execution.Runner`,
+		"instruction":           `package guide; import "github.com/germanmunozs/ai-dev/internal/instruction"; var _ = instruction.X`,
+		"gate":                  `package guide; import "github.com/germanmunozs/ai-dev/internal/gate"; var _ gate.Store`,
+		"gatestore":             `package guide; import "github.com/germanmunozs/ai-dev/internal/gatestore"; var _ = gatestore.New`,
+		"gitmanager":            `package guide; import "github.com/germanmunozs/ai-dev/internal/gitmanager"; var _ = gitmanager.X`,
+		"gitprocess":            `package guide; import "github.com/germanmunozs/ai-dev/internal/gitprocess"; var _ = gitprocess.X`,
+		"gitstore":              `package guide; import "github.com/germanmunozs/ai-dev/internal/gitstore"; var _ = gitstore.X`,
+		"app":                   `package guide; import "github.com/germanmunozs/ai-dev/internal/app"; var _ = app.Run`,
+		"report":                `package guide; import "github.com/germanmunozs/ai-dev/internal/report"; var _ = report.WriteText`,
+		"new registry":          `package guide; import "github.com/germanmunozs/ai-dev/internal/agent"; var _ = agent.NewRegistry`,
+		"aliased new registry":  `package guide; import a "github.com/germanmunozs/ai-dev/internal/agent"; var _ = a.NewRegistry`,
+		"registry type":         `package guide; import "github.com/germanmunozs/ai-dev/internal/agent"; var _ agent.Registry`,
+		"new selector":          `package guide; import "github.com/germanmunozs/ai-dev/internal/selection"; var _ = selection.NewSelector`,
+		"selector literal":      `package guide; import "github.com/germanmunozs/ai-dev/internal/selection"; var _ = selection.Selector{}`,
+		"transition evaluation": `package guide; import "github.com/germanmunozs/ai-dev/internal/workflow"; var _ = workflow.EvaluateTransition`,
+		"aliased transition":    `package guide; import wf "github.com/germanmunozs/ai-dev/internal/workflow"; var _ = wf.Allowed`,
+		"blank internal import": `package guide; import _ "github.com/germanmunozs/ai-dev/internal/system"`,
+		"blank allowed import":  `package guide; import _ "github.com/germanmunozs/ai-dev/internal/sdd"`,
+		"dot internal import":   `package guide; import . "github.com/germanmunozs/ai-dev/internal/agent"`,
 	}
 	if len(bad) != 25 {
 		t.Fatalf("known-bad snippets = %d, want 25", len(bad))
@@ -160,11 +160,11 @@ import (
 	"io/fs"
 	"strings"
 	"unicode"
-	"ai-dev/internal/agent"
-	"ai-dev/internal/role"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/selection"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 func good(root fs.FS, id string, s interface{ Select(string) selection.Report }) (agent.ID, role.Role, workflow.State, bool) {
 	r := sdd.Evaluate(root, strings.TrimSpace(id))

@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // macOSLauncher is the Xcode command-line launcher, whose effective Git

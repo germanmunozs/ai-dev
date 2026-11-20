@@ -5,7 +5,7 @@ import (
 	"go/build"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // TestPlatformSelection proves which files each target compiles: the POSIX

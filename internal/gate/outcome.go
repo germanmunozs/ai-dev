@@ -1,6 +1,6 @@
 package gate
 
-import "ai-dev/internal/workflow"
+import "github.com/germanmunozs/ai-dev/internal/workflow"
 
 // Outcome is a canonical Human Gate outcome.
 type Outcome string

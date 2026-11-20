@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 const constitutionPath = ".specify/memory/constitution.md"

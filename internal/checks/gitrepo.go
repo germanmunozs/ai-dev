@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"ai-dev/internal/doctor"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 type GitRepoCheck struct{ executor system.Executor }

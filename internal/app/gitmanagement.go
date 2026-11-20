@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // GitManagementDependencies is the Feature 008 composition bundle. Merely

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/selection"
 )
 
 // WriteRoleSelectionText writes one human-readable line reporting the given

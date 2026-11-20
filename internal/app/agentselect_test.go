@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 // errWriter always fails on the first Write call.

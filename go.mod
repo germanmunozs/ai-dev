@@ -1,3 +1,3 @@
-module ai-dev
+module github.com/germanmunozs/ai-dev
 
 go 1.27.1

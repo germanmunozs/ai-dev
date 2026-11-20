@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 func TestSpecKitCheckUsesOnlyCoreManifest(t *testing.T) {

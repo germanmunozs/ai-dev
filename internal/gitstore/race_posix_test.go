@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 func applyID(n int) gitmanager.ApplyID {

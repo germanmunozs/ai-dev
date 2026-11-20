@@ -3,7 +3,7 @@ package selection
 import (
 	"strings"
 
-	"ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/role"
 )
 
 // Valid reports whether r is a Report the approved selection model could

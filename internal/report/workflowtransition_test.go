@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func TestWriteWorkflowTransitionTextAndJSONPerOutcome(t *testing.T) {

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gate"
-	"ai-dev/internal/gatestore"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/gatestore"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func TestWorkflowGateAbandonEveryNonTerminalState(t *testing.T) {

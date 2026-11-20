@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 func TestGitRepoCheckDelegatesToGit(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/report"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 // RunAgentsList validates and executes the supported-agent listing command.

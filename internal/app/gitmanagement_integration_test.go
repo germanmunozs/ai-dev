@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/gitprocess"
-	"ai-dev/internal/gitstore"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitprocess"
+	"github.com/germanmunozs/ai-dev/internal/gitstore"
 )
 
 // newRealEngineFixture is the T106 pre-activation harness: the production

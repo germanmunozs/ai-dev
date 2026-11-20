@@ -10,8 +10,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"ai-dev/internal/role"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 const sddFeatureID = "005-sdd-workflow"

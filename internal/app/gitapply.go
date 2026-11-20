@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/report"
 )
 
 const gitApplyUsage = "Usage: ai-dev init apply --plan FILE --confirm-plan sha256:DIGEST --authorization-id UUID [--issue-authorization --authorized-by TEXT [--authorization-expires-at RFC3339] [--confirm-initial-commit] [--approve-file TUPLE]... [--approve-ignored-file TUPLE]... [--reconciles-authorization UUID]] [--format text|json]"

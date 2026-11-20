@@ -10,9 +10,9 @@ import (
 	"reflect"
 	"testing"
 
-	"ai-dev/internal/gate"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func TestGatestoreCrashMatrixAndRecovery(t *testing.T) {

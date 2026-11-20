@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/gitstore"
+	"github.com/germanmunozs/ai-dev/internal/gitstore"
 )
 
 // productionTempDir returns a fresh temporary directory, skipping the test

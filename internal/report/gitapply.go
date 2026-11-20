@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // WriteGitApplyJSON writes exactly one GitApplyOutput object.

@@ -6,9 +6,9 @@ import (
 	"os"
 	"runtime"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/gitprocess"
-	"ai-dev/internal/gitstore"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitprocess"
+	"github.com/germanmunozs/ai-dev/internal/gitstore"
 )
 
 // DefaultGitManagementDependencies composes Git Management from the real

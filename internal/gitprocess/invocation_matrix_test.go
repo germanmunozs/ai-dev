@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 const (

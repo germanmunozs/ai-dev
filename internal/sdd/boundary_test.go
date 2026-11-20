@@ -15,10 +15,10 @@ import (
 )
 
 var allowedSDDImports = map[string]bool{
-	"io/fs":                    true,
-	"strings":                  true,
-	"ai-dev/internal/workflow": true,
-	"ai-dev/internal/role":     true,
+	"io/fs":   true,
+	"strings": true,
+	"github.com/germanmunozs/ai-dev/internal/workflow": true,
+	"github.com/germanmunozs/ai-dev/internal/role":     true,
 }
 
 var forbiddenWorkflowSelectors = map[string]bool{
@@ -60,7 +60,7 @@ func checkSDDSource(filename string, src any) []error {
 		if spec.Name != nil {
 			local = spec.Name.Name
 		}
-		if strings.HasPrefix(importPath, "ai-dev/internal/") && (local == "." || local == "_") {
+		if strings.HasPrefix(importPath, "github.com/germanmunozs/ai-dev/internal/") && (local == "." || local == "_") {
 			findings = append(findings, fmt.Errorf("%s: rejected %s import of %q", filename, local, importPath))
 			continue
 		}
@@ -75,11 +75,11 @@ func checkSDDSource(filename string, src any) []error {
 				return true
 			}
 			switch aliases[ident.Name] {
-			case "ai-dev/internal/workflow":
+			case "github.com/germanmunozs/ai-dev/internal/workflow":
 				if forbiddenWorkflowSelectors[n.Sel.Name] {
 					findings = append(findings, fmt.Errorf("%s: forbidden workflow selector %s", filename, n.Sel.Name))
 				}
-			case "ai-dev/internal/role":
+			case "github.com/germanmunozs/ai-dev/internal/role":
 				if !allowedRoleSelectors[n.Sel.Name] {
 					findings = append(findings, fmt.Errorf("%s: forbidden role selector %s", filename, n.Sel.Name))
 				}
@@ -128,13 +128,13 @@ func TestPackageBoundarySelfCheck(t *testing.T) {
 		"os signal":             `package sdd; import "os/signal"; var _ = signal.Notify`,
 		"net":                   `package sdd; import "net"; var _ net.Conn`,
 		"syscall":               `package sdd; import "syscall"; var _ = syscall.SIGPIPE`,
-		"selection":             `package sdd; import "ai-dev/internal/selection"; var _ selection.Report`,
-		"aliased workflow":      `package sdd; import wf "ai-dev/internal/workflow"; var _ = wf.Allowed`,
-		"aliased remediation":   `package sdd; import r "ai-dev/internal/role"; var _ = r.Remediation`,
-		"default remediation":   `package sdd; import "ai-dev/internal/role"; var _ = role.Remediation`,
-		"blank internal import": `package sdd; import _ "ai-dev/internal/selection"`,
-		"blank allowed import":  `package sdd; import _ "ai-dev/internal/workflow"`,
-		"dot internal import":   `package sdd; import . "ai-dev/internal/workflow"`,
+		"selection":             `package sdd; import "github.com/germanmunozs/ai-dev/internal/selection"; var _ selection.Report`,
+		"aliased workflow":      `package sdd; import wf "github.com/germanmunozs/ai-dev/internal/workflow"; var _ = wf.Allowed`,
+		"aliased remediation":   `package sdd; import r "github.com/germanmunozs/ai-dev/internal/role"; var _ = r.Remediation`,
+		"default remediation":   `package sdd; import "github.com/germanmunozs/ai-dev/internal/role"; var _ = role.Remediation`,
+		"blank internal import": `package sdd; import _ "github.com/germanmunozs/ai-dev/internal/selection"`,
+		"blank allowed import":  `package sdd; import _ "github.com/germanmunozs/ai-dev/internal/workflow"`,
+		"dot internal import":   `package sdd; import . "github.com/germanmunozs/ai-dev/internal/workflow"`,
 		"specs literal":         `package sdd; const root = "specs"`,
 	}
 	if len(bad) != 13 {
@@ -152,8 +152,8 @@ func TestPackageBoundarySelfCheck(t *testing.T) {
 import (
 	"io/fs"
 	"strings"
-	"ai-dev/internal/workflow"
-	"ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/role"
 )
 func good(root fs.FS, id string) role.Role {
 	_, _ = workflow.FeatureDir(strings.TrimSpace(id))

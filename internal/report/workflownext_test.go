@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/role"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func decodeExactlyOneWorkflowNextJSON(t *testing.T, data []byte) map[string]any {

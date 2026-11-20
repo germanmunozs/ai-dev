@@ -4,8 +4,8 @@ import (
 	"io/fs"
 	"time"
 
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 // Evaluate performs Human Gate precedence steps 3 through 9.

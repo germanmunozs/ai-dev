@@ -7,8 +7,8 @@ import (
 	"testing/fstest"
 	"time"
 
-	"ai-dev/internal/gate"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func testEvidence(from, to workflow.State, reason string, reasonSet bool) gate.Evidence {

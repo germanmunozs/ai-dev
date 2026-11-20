@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/agent"
 )
 
 // WriteAgentListText writes one stable-order row per supported agent.

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/gitprocess"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitprocess"
 )
 
 // T131/AC-011/AC-023: the git-flow-next dialect against real Git, for a new

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/guide"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/guide"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func TestRunWorkflowGuideUsageFailures(t *testing.T) {

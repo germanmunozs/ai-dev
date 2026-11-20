@@ -5,9 +5,9 @@ import (
 	"os"
 	"os/signal"
 
-	"ai-dev/internal/app"
-	"ai-dev/internal/gatestore"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/app"
+	"github.com/germanmunozs/ai-dev/internal/gatestore"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 func main() {

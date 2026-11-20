@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 type caseInsensitiveFS struct {

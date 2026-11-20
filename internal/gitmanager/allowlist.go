@@ -10,7 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"ai-dev/internal/conventionalcommit"
+	"github.com/germanmunozs/ai-dev/internal/conventionalcommit"
 )
 
 // CommitRequest is the optional initial-commit part of a plan request,

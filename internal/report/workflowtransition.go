@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 // WriteWorkflowTransitionText writes one human-readable line reporting the

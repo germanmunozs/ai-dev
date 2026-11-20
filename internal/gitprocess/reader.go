@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // readRows maps the manager's closed read rows onto matrix rows. Only

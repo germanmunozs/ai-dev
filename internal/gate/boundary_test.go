@@ -14,7 +14,7 @@ import (
 
 var gateImports = map[string]bool{
 	"io/fs": true, "strings": true, "time": true,
-	"ai-dev/internal/workflow": true, "ai-dev/internal/sdd": true,
+	"github.com/germanmunozs/ai-dev/internal/workflow": true, "github.com/germanmunozs/ai-dev/internal/sdd": true,
 }
 
 var gateWorkflowSelectors = map[string]bool{
@@ -58,11 +58,11 @@ func checkGateSource(filename string, src any) []error {
 				return true
 			}
 			switch aliases[id.Name] {
-			case "ai-dev/internal/sdd":
+			case "github.com/germanmunozs/ai-dev/internal/sdd":
 				if n.Sel.Name != "MissingArtifacts" {
 					findings = append(findings, fmt.Errorf("forbidden sdd selector %s", n.Sel.Name))
 				}
-			case "ai-dev/internal/workflow":
+			case "github.com/germanmunozs/ai-dev/internal/workflow":
 				if !gateWorkflowSelectors[n.Sel.Name] {
 					findings = append(findings, fmt.Errorf("forbidden workflow selector %s", n.Sel.Name))
 				}
@@ -92,9 +92,9 @@ func TestBoundaryGatePackage(t *testing.T) {
 func TestBoundaryGateSelfCheck(t *testing.T) {
 	bad := map[string]string{
 		"os":               `package gate; import "os"; var _ = os.Stdout`,
-		"sdd evaluate":     `package gate; import "ai-dev/internal/sdd"; var _ = sdd.Evaluate`,
-		"workflow allowed": `package gate; import "ai-dev/internal/workflow"; var _ = workflow.Allowed`,
-		"workflow resolve": `package gate; import "ai-dev/internal/workflow"; var _ = workflow.ResolveRecord`,
+		"sdd evaluate":     `package gate; import "github.com/germanmunozs/ai-dev/internal/sdd"; var _ = sdd.Evaluate`,
+		"workflow allowed": `package gate; import "github.com/germanmunozs/ai-dev/internal/workflow"; var _ = workflow.Allowed`,
+		"workflow resolve": `package gate; import "github.com/germanmunozs/ai-dev/internal/workflow"; var _ = workflow.ResolveRecord`,
 		"go":               `package gate; func f(){ go f() }`,
 	}
 	for name, src := range bad {
@@ -102,7 +102,7 @@ func TestBoundaryGateSelfCheck(t *testing.T) {
 			t.Errorf("accepted %s", name)
 		}
 	}
-	good := `package gate; import ("io/fs"; "time"; "ai-dev/internal/sdd"; "ai-dev/internal/workflow"); func f(r fs.FS){ _=time.Now(); _=sdd.MissingArtifacts(r,"f",workflow.Planned); _=workflow.EvaluateTransition(r,"f","planned") }`
+	good := `package gate; import ("io/fs"; "time"; "github.com/germanmunozs/ai-dev/internal/sdd"; "github.com/germanmunozs/ai-dev/internal/workflow"); func f(r fs.FS){ _=time.Now(); _=sdd.MissingArtifacts(r,"f",workflow.Planned); _=workflow.EvaluateTransition(r,"f","planned") }`
 	if findings := checkGateSource("good.go", good); len(findings) != 0 {
 		t.Fatalf("good rejected: %v", findings)
 	}

@@ -7,8 +7,8 @@ import (
 	"io/fs"
 	"strings"
 
-	"ai-dev/internal/report"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 // RunWorkflowTransition validates and executes the workflow transition

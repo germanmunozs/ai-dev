@@ -13,7 +13,7 @@ import (
 	"sync"
 	"syscall"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // lockHolderSchema versions the diagnostic holder record.

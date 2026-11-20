@@ -3,10 +3,10 @@ package guide
 import (
 	"io/fs"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/role"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/selection"
 )
 
 // Availability is the reported state of the agent a role maps to under 003

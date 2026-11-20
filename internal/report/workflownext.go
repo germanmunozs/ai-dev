@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
 )
 
 // WriteWorkflowNextText writes one human-readable Next-Step Report line.

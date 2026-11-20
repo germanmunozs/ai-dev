@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/conventionalcommit"
+	"github.com/germanmunozs/ai-dev/internal/conventionalcommit"
 )
 
 // T101: the rendering keeps validity and breaking recognition separate

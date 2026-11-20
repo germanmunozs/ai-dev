@@ -7,12 +7,12 @@ import (
 	"io/fs"
 	"strings"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/guide"
-	"ai-dev/internal/report"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/selection"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/guide"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 // RunWorkflowGuide evaluates and reports one read-only guidance request. The

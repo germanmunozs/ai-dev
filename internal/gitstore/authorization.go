@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"path"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // authorizationLocation names the record of one authorization inside its

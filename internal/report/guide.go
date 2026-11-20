@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/guide"
-	"ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/guide"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
 )
 
 // WorkflowGuideSchemaVersion identifies the machine-readable guidance report.

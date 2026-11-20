@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/report"
-	"ai-dev/internal/version"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/version"
 )
 
 const versionUsage = "Usage: ai-dev version [--format text|json]"

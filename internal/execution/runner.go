@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 // Runner owns the vendor-neutral lifecycle for exactly one execution request.

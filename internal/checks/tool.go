@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"ai-dev/internal/doctor"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 type ToolCheck struct {

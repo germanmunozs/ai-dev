@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 const integrationRecordPath = ".specify/integration.json"

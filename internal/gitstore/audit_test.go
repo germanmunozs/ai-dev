@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // These tests cover the append-only event layer every audit record goes

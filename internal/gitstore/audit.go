@@ -9,7 +9,7 @@ import (
 	"os"
 	"path"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // The attempt directory holds attempt.json, the events directory and the

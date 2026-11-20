@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/version"
+	"github.com/germanmunozs/ai-dev/internal/version"
 )
 
 // VersionSchemaVersion identifies the machine-readable version report.

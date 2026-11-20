@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"ai-dev/internal/execution"
+	"github.com/germanmunozs/ai-dev/internal/execution"
 )
 
 func TestClaudeAdapterBuildsPermissionPreservingOneShotCommand(t *testing.T) {
