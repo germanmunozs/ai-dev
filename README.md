@@ -44,7 +44,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 005 SDD Workflow | `ai-dev workflow next` | Implementada (solo lectura) |
 | 006 Human Gates | `ai-dev workflow approve`, `ai-dev workflow abandon` | Implementada |
 | 007 Workflow Orchestration | `ai-dev workflow guide` | Modo guiado implementado (solo lectura); modo autónomo diferido hasta superar sus gates de seguridad |
-| 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS y Linux/ext4 (VM); pendiente T132 (Git 2.45) |
+| 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS, Linux/ext4 (VM) y Git 2.45.0 en CI |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -750,7 +750,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 - **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management. Windows nativo no está soportado; en Windows se usa WSL2, con el proyecto en el filesystem de Linux. El uso en WSL2 no tiene evidencia propia: se apoya en la de Linux/ext4.
 - **Plantillas de guía (007):** solo se garantizan para shells POSIX (sh, dash, bash y zsh, con las opciones probadas). fish y PowerShell no están cubiertos.
 - **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
-- **Versión mínima de Git (2.45):** el job de CI `git-minimum` compila Git 2.45.0 en el runner, desde el tarball oficial con su SHA-256 fijado, y ejecuta con él las suites que usan Git de verdad (VER-01, T132). Hasta su primera ejecución en verde, la versión mínima solo está verificada por las pruebas unitarias de identificación.
+- **Versión mínima de Git (2.45), resuelto:** el job de CI `git-minimum` compila Git 2.45.0 en el runner, desde el tarball oficial con su SHA-256 fijado, y ejecuta con él las suites que usan Git de verdad (VER-01, T132). Ya pasó en verde por primera vez (job 136054532762), así que la versión mínima queda verificada con Git real.
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
 - **Claims huérfanos (REC-07):** una autorización cuyo claim quedó huérfano por un crash antes de la intención no se reasigna; hay que emitir una nueva.
 - **SIGKILL:** no se puede aplazar; se recupera por la vía de crash.
