@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"syscall"
 	"testing"
 
@@ -204,7 +203,7 @@ func TestPOSIXStoreRejectsSymlinkedRecord(t *testing.T) {
 }
 
 func TestPOSIXStoreReadOnlyDirectoryFailsWithoutMutation(t *testing.T) {
-	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+	if os.Geteuid() == 0 {
 		t.Skip("permissions are not enforced for this user/platform")
 	}
 	repo := makeStoreRepo(t, `{"state":"draft"}`)

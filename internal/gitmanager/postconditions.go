@@ -163,8 +163,7 @@ func preservedPaths(intent ImmutableIntent, observation RepositoryObservation) [
 	}
 	var conditions []Condition
 	for _, identity := range observation.WorktreePathIdentities() {
-		path := string(identity.Path.Bytes())
-		if authorized[path] {
+		if authorized[string(identity.Path.Bytes())] {
 			continue
 		}
 		subject := EncodeReversiblePath(identity.Path.Bytes())
