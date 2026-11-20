@@ -79,7 +79,10 @@ jobs:
 
   # T132 / VER-01: the real-Git suites against Git 2.45.0, the declared
   # minimum in internal/gitprocess/identify.go. The release tarball is
-  # pinned by its published SHA-256 and built on the runner; `make install`
+  # pinned by its published SHA-256 and built on the runner. It is
+  # installed with prefix /usr/local, one of the verified toolchain layouts
+  # of TOOL-01 (configuration and attributes in /usr/local/etc); any other
+  # prefix is rightly refused as an unverified layout. `make install`
   # hard-links bin/git to the exec path's git, so direct-mode identification
   # accepts it. The gates job above covers the runners' current Git.
   git-minimum:
@@ -105,15 +108,18 @@ jobs:
           # Git 2.45 predates C23, which GCC 15 uses by default and whose
           # <stddef.h> defines an unreachable() macro that collides with a
           # Git function; build it as the C17 it was written for.
-          make -C "$RUNNER_TEMP/git-${GIT_VERSION}" -j"$(nproc)" prefix="$RUNNER_TEMP/git-install" \
-            CFLAGS="-O2 -std=gnu17" NO_GETTEXT=YesPlease NO_TCLTK=YesPlease NO_PERL=YesPlease NO_PYTHON=YesPlease \
-            NO_CURL=YesPlease NO_EXPAT=YesPlease NO_OPENSSL=YesPlease install
-          echo "$RUNNER_TEMP/git-install/bin" >> "$GITHUB_PATH"
+          options=(prefix=/usr/local CFLAGS="-O2 -std=gnu17" NO_GETTEXT=YesPlease NO_TCLTK=YesPlease
+            NO_PERL=YesPlease NO_PYTHON=YesPlease NO_CURL=YesPlease NO_EXPAT=YesPlease NO_OPENSSL=YesPlease)
+          make -C "$RUNNER_TEMP/git-${GIT_VERSION}" -j"$(nproc)" "${options[@]}" all
+          sudo make -C "$RUNNER_TEMP/git-${GIT_VERSION}" "${options[@]}" install
 
       - name: Git toolchain
         run: |
           which -a git
+          test "$(command -v git)" = /usr/local/bin/git
           test "$(git --version)" = "git version ${GIT_VERSION}"
+          test "$(git --exec-path)" = /usr/local/libexec/git-core
+          test ! -e /usr/local/etc/gitconfig && test ! -e /usr/local/etc/gitattributes
           git --exec-path
           ls -li "$(command -v git)" "$(git --exec-path)/git"
 
