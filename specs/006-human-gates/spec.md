@@ -114,6 +114,11 @@
 
 - **Authority record (2026-11-19): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Amendments 1–4, of which this is Amendment 4 (cross-references) of Feature 007 (`specs/007-workflow-orchestration/spec.md`, section Required Amendments) in the words "si, apruebo las enmiendas 1 a 4, aplícalas". The approver identity is a declared, auditable assertion, not an authenticated identity. The amendment only renames the Feature 007 cross-references; it changes no observable behavior of this feature and approves no Feature 007 implementation, plan or autonomous capability.
 
+### Session 2026-11-20 (004 Amendment 5 inherited)
+
+- **Authority record (2026-11-20): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, decided to amend 004 FR-028 in the words "Hallazgo de 004 FR-028 enmendar", after the finding was reported during the Feature 007 follow-up work. The approver identity is a declared, auditable assertion, not an authenticated identity.
+- 004 FR-028's escaped, quoted form is now Go's double-quoted form with every `$`, backquote and `!` additionally backslash-escaped (004 Amendment 5). It applies by reference to the feature identifier and approver identity its reports render in 004's form (FR-028), and equally to the reason and the supplied target its reports quote. No other requirement of this feature changes.
+
 ## Responsibility Boundary *(context for all requirements)*
 
 A **Human Gate** is the point at which ai-dev requires an explicit human acceptance decision before

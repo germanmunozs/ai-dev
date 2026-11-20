@@ -46,13 +46,13 @@ func WriteGuideText(w io.Writer, report guide.Report) error {
 	var out strings.Builder
 	switch report.Outcome {
 	case sdd.StepRecommended:
-		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%q state=%s activity=%s role=%s agent=%s availability=%s note=%q\n", report.Outcome, report.FeatureID, report.State, report.Activity, report.Role, report.Agent, report.Availability, report.Statement)
+		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%s state=%s activity=%s role=%s agent=%s availability=%s note=%q\n", report.Outcome, shellInertQuote(report.FeatureID), report.State, report.Activity, report.Role, report.Agent, report.Availability, report.Statement)
 	case sdd.WorkflowTerminal:
-		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%q state=%s note=%q\n", report.Outcome, report.FeatureID, report.State, report.Statement)
+		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%s state=%s note=%q\n", report.Outcome, shellInertQuote(report.FeatureID), report.State, report.Statement)
 	case sdd.ArtifactsInconsistent:
-		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%q state=%s missing=%s note=%q\n", report.Outcome, report.FeatureID, report.State, strings.Join(report.Missing, ","), report.Statement)
+		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%s state=%s missing=%s note=%q\n", report.Outcome, shellInertQuote(report.FeatureID), report.State, strings.Join(report.Missing, ","), report.Statement)
 	case sdd.FeatureUnknown, sdd.StateInvalid:
-		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%q note=%q\n", report.Outcome, report.FeatureID, report.Statement)
+		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%s note=%q\n", report.Outcome, shellInertQuote(report.FeatureID), report.Statement)
 	default:
 		return fmt.Errorf("workflow guide outcome %q cannot be rendered", report.Outcome)
 	}

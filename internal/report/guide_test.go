@@ -439,9 +439,8 @@ func TestGuideCommandsCarryNoDerivedValues(t *testing.T) {
 // labels included, into every shell mode. Only the complete read-only
 // templates without human slots (select, state) may run; no template with
 // an unfilled slot, no agent, no label word and no file change may result.
-// The status line keeps 004 FR-028's double-quoted %q form, which a shell
-// still expands; making it inert needs a cross-feature amendment, so it is
-// out of this test's scope (see contracts/workflow-guide.md).
+// The status line itself is covered by TestStatusLinesPasteInert (004 FR-028,
+// Amendment 5).
 func TestGuideWholeReportPastesSafely(t *testing.T) {
 	shells := guideShells(t)
 	sentinels := sentinelPath(t)

@@ -50,6 +50,11 @@ Every statement in this specification is one of:
 - **Option separator.** The existing commands `workflow state`, `workflow transition`, `workflow next`, `workflow approve`, `agent select` and `agent run` all accept `--` before their positional arguments, including an identifier that starts with `-`. This was verified on 2026-11-19 against a build of `dev` at `0e99128`.
 - **Positive non-authorization statement.** 005 requires its human-readable report to say visibly that a recommendation does not authorize the activity or any transition (005 FR-017, lines 228–232).
 
+### Session 2026-11-20 (004 Amendment 5 inherited)
+
+- **Authority record (2026-11-20): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, decided to amend 004 FR-028 in the words "Hallazgo de 004 FR-028 enmendar", after the finding was reported during the Feature 007 follow-up work. The approver identity is a declared, auditable assertion, not an authenticated identity.
+- 004 FR-028's escaped, quoted form is now Go's double-quoted form with every `$`, backquote and `!` additionally backslash-escaped (004 Amendment 5). It applies by reference to the feature identifier its status line renders in 004's form (F007-FR-006). It resolves the status-line residual documented for the guidance report. No other requirement of this feature changes.
+
 ## Ownership Boundaries
 
 | Capability | Owner | Feature 007 obligation |
