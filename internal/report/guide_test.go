@@ -75,25 +75,25 @@ func TestWriteGuideTextEveryOutcome(t *testing.T) {
 	}{
 		{"step available", guideReport(t, "f", "specified", selection.RoleSelected, false),
 			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=available " + guideNote + "\n" +
-				"  select the agent for this role (003): ai-dev agent select -- planning\n" +
-				"  run the agent (002): ai-dev agent run -- claude-code )instruction(\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
-				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
+				"  # select the agent for this role (003)\n  ai-dev agent select -- planning\n" +
+				"  # run the agent (002)\n  ai-dev agent run -- claude-code )instruction(\n" +
+				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"step unavailable", guideReport(t, "f", "tasked", selection.AgentUnavailable, false),
 			"ai-dev: outcome=step_recommended feature=\"f\" state=tasked activity=implement role=implementation agent=codex-cli availability=unavailable " + guideNote + "\n" +
-				"  select the agent for this role (003): ai-dev agent select -- implementation\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
-				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
+				"  # select the agent for this role (003)\n  ai-dev agent select -- implementation\n" +
+				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"step inconsistent", guideReport(t, "f", "", selection.SelectionInconsistent, false),
 			"ai-dev: outcome=step_recommended feature=\"f\" state=draft activity=specify role=specification agent=claude-code availability=inconsistent " + guideNote + "\n" +
-				"  after completing the activity, check the transition (004): ai-dev workflow transition -- 'f' )target-state(\n" +
-				"  then record your decision (006): ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
-				"  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
+				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
+				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
+				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"terminal", guideReport(t, "f", "approved", selection.RoleSelected, false),
 			"ai-dev: outcome=workflow_terminal feature=\"f\" state=approved " + guideNote + "\n" +
-				"  report the state (004): ai-dev workflow state -- 'f'\n"},
+				"  # report the state (004)\n  ai-dev workflow state -- 'f'\n"},
 		{"artifacts inconsistent", guideReport(t, "f", "planned", selection.RoleSelected, true),
 			"ai-dev: outcome=artifacts_inconsistent feature=\"f\" state=planned missing=spec.md,plan.md " + guideNote + "\n"},
 		{"feature unknown", guide.Evaluate(fstest.MapFS{}, "missing", guideTestSelector{}),
@@ -102,7 +102,7 @@ func TestWriteGuideTextEveryOutcome(t *testing.T) {
 			"ai-dev: outcome=state_invalid feature=\"f\" " + guideNote + "\n"},
 		{"quoted identifier", guideReport(t, "it's", "approved", selection.RoleSelected, false),
 			"ai-dev: outcome=workflow_terminal feature=\"it's\" state=approved " + guideNote + "\n" +
-				"  report the state (004): ai-dev workflow state -- 'it'\\''s'\n"},
+				"  # report the state (004)\n  ai-dev workflow state -- 'it'\\''s'\n"},
 		{"unsafe identifier", guideReport(t, "a"+string(rune(0x202e))+"b", "approved", selection.RoleSelected, false),
 			"ai-dev: outcome=workflow_terminal feature=\"a\\u202eb\" state=approved " + guideNote + "\n"},
 	}
@@ -272,13 +272,15 @@ func guideShells(t *testing.T) map[string]pasteShell {
 	return shells
 }
 
-// sentinelPath creates ai-dev, claude and codex sentinels that append their
-// name and argv to $SENTINEL_LOG, NUL-separated, one invocation per line.
+// sentinelPath creates sentinels for ai-dev, both agents and the first word
+// of every label and note line, so a label word run as a command is caught.
+// Each appends its name and argv to $SENTINEL_LOG, NUL-separated, one
+// invocation per line.
 func sentinelPath(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	script := "#!/bin/sh\n{ printf '%s' \"$(basename \"$0\")\"; for a in \"$@\"; do printf '\\0%s' \"$a\"; done; printf '\\n'; } >> \"$SENTINEL_LOG\"\n"
-	for _, name := range []string{"ai-dev", "claude", "codex"} {
+	for _, name := range []string{"ai-dev", "claude", "codex", "select", "run", "after", "then", "report", "replace"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -430,5 +432,50 @@ func TestGuideCommandsCarryNoDerivedValues(t *testing.T) {
 	}
 	if user := os.Getenv("USER"); user != "" && strings.Contains(text.String()+wire.String(), user) {
 		t.Fatalf("output carries the operating-system user %q", user)
+	}
+}
+
+// TestGuideWholeReportPastesSafely pastes the entire human-readable report,
+// labels included, into every shell mode. Only the complete read-only
+// templates without human slots (select, state) may run; no template with
+// an unfilled slot, no agent, no label word and no file change may result.
+// The status line keeps 004 FR-028's double-quoted %q form, which a shell
+// still expands; making it inert needs a cross-feature amendment, so it is
+// out of this test's scope (see contracts/workflow-guide.md).
+func TestGuideWholeReportPastesSafely(t *testing.T) {
+	shells := guideShells(t)
+	sentinels := sentinelPath(t)
+	reports := []guide.Report{
+		guideReport(t, "a;b", "specified", selection.RoleSelected, false),
+		guideReport(t, "it's", "tasked", selection.AgentUnavailable, false),
+		guideReport(t, "-f", "", selection.SelectionInconsistent, false),
+		guideReport(t, "$(x)", "approved", selection.RoleSelected, false),
+	}
+	for _, report := range reports {
+		var text bytes.Buffer
+		if err := WriteGuideText(&text, report); err != nil {
+			t.Fatal(err)
+		}
+		var allowed [][]string
+		for _, template := range report.Templates {
+			if len(template.HumanSlots) == 0 {
+				allowed = append(allowed, expectedArgv(report.FeatureID, template))
+			}
+		}
+		for name, shell := range shells {
+			invocations, changed := paste(t, sentinels, shell, text.String())
+			if changed {
+				t.Fatalf("%s %q: pasting the whole report changed files", name, report.FeatureID)
+			}
+			for _, invocation := range invocations {
+				ok := false
+				for _, want := range allowed {
+					ok = ok || reflect.DeepEqual(invocation, want)
+				}
+				if !ok {
+					t.Fatalf("%s %q: pasting the whole report ran %q; only %q may run\n%s", name, report.FeatureID, invocation, allowed, text.String())
+				}
+			}
+		}
 	}
 }
