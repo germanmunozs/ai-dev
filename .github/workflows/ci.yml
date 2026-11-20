@@ -1,6 +1,7 @@
-# Quality gates of plan.md (T117/T133). macOS runs on APFS; the Linux job
-# runs its temporary directories on the runner's local ext4 disk, so the
-# real-Git acceptance suites run there instead of skipping on tmpfs.
+# Quality gates of plan.md (T117/T133) and the Git 2.45 minimum (T132).
+# macOS runs on APFS; the Linux jobs run their temporary directories on the
+# runner's local ext4 disk, so the real-Git acceptance suites run there
+# instead of skipping on tmpfs.
 name: ci
 
 on:
@@ -84,3 +85,60 @@ jobs:
           for target in FuzzWildmatch FuzzCanonicalWriter FuzzAttributeParser FuzzPlanDecoder; do
             go test -run '^$' -fuzz "^${target}\$" -fuzztime 20s ./internal/gitmanager
           done
+
+  # T132 / VER-01: the real-Git suites against Git 2.45.0, the declared
+  # minimum in internal/gitprocess/identify.go. The release tarball is
+  # pinned by its published SHA-256 and built on the runner. It is
+  # installed with prefix /usr/local, one of the verified toolchain layouts
+  # of TOOL-01 (configuration and attributes in /usr/local/etc); any other
+  # prefix is rightly refused as an unverified layout. `make install`
+  # hard-links bin/git to the exec path's git, so direct-mode identification
+  # accepts it. The gates job above covers the runners' current Git.
+  git-minimum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GIT_VERSION: 2.45.0
+      GIT_TARBALL_SHA256: 0aac200bd06476e7df1ff026eb123c6827bc10fe69d2823b4bf2ebebe5953429
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build Git ${{ env.GIT_VERSION }} from the verified release tarball
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev
+          curl -fsSL -o "$RUNNER_TEMP/git.tar.xz" "https://mirrors.edge.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz"
+          echo "${GIT_TARBALL_SHA256}  $RUNNER_TEMP/git.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/git.tar.xz" -C "$RUNNER_TEMP"
+          # Git 2.45 predates C23, which GCC 15 uses by default and whose
+          # <stddef.h> defines an unreachable() macro that collides with a
+          # Git function; build it as the C17 it was written for.
+          options=(prefix=/usr/local CFLAGS="-O2 -std=gnu17" NO_GETTEXT=YesPlease NO_TCLTK=YesPlease
+            NO_PERL=YesPlease NO_PYTHON=YesPlease NO_CURL=YesPlease NO_EXPAT=YesPlease NO_OPENSSL=YesPlease)
+          make -C "$RUNNER_TEMP/git-${GIT_VERSION}" -j"$(nproc)" "${options[@]}" all
+          sudo make -C "$RUNNER_TEMP/git-${GIT_VERSION}" "${options[@]}" install
+
+      - name: Git toolchain
+        run: |
+          which -a git
+          test "$(command -v git)" = /usr/local/bin/git
+          test "$(git --version)" = "git version ${GIT_VERSION}"
+          test "$(git --exec-path)" = /usr/local/libexec/git-core
+          test ! -e /usr/local/etc/gitconfig && test ! -e /usr/local/etc/gitattributes
+          git --exec-path
+          ls -li "$(command -v git)" "$(git --exec-path)/git"
+
+      - name: Production filesystem for temporary directories
+        run: |
+          mkdir -p "$RUNNER_TEMP/go-tmp"
+          echo "TMPDIR=$RUNNER_TEMP/go-tmp" >> "$GITHUB_ENV"
+          fstype=$(findmnt -n -o FSTYPE -T "$RUNNER_TEMP/go-tmp")
+          echo "temporary filesystem: $fstype"
+          test "$fstype" = ext4
+
+      - name: Real-Git suites on Git ${{ env.GIT_VERSION }}
+        run: go test -count=1 -timeout 60m ./internal/gitprocess ./internal/gitmanager ./internal/gitstore ./internal/app ./cmd/ai-dev
