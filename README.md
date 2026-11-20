@@ -46,6 +46,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 006 Human Gates | `ai-dev workflow approve`, `ai-dev workflow abandon` | Implementada |
 | 007 Workflow Orchestration | `ai-dev workflow guide` | Modo guiado implementado (solo lectura); modo autónomo diferido hasta superar sus gates de seguridad |
 | 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS, Linux/ext4 (VM) y Git 2.45.0 en CI |
+| 009 CLI Help and Version | `ai-dev version`, `ai-dev help` | Implementada |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -62,7 +63,14 @@ Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas
 
 ```sh
 go build -o ai-dev ./cmd/ai-dev
+./ai-dev --version
 ./ai-dev doctor
+```
+
+Un build local informa de la versión que Go le asigna y de su commit. Para un release se fija la versión al enlazar:
+
+```sh
+go build -ldflags "-X ai-dev/internal/version.Version=v0.1.0" -o ai-dev ./cmd/ai-dev
 ```
 
 ---
@@ -89,6 +97,8 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 | `ai-dev init apply --plan FILE --confirm-plan sha256:… --authorization-id UUID …` | Emite o consume una autorización y aplica el plan | Sí: repositorio y configuración |
 | `ai-dev init reconcile --plan FILE --authorization-id UUID` | Informe de reconciliación de un intento interrumpido | No |
 | `ai-dev git commit validate (--message T \| --file F)` | Valida un mensaje Conventional Commits | No |
+| `ai-dev version` (o `--version`) | Indica qué build se está ejecutando: versión, commit, Go y plataforma | No |
+| `ai-dev help` (o `--help`, `-h`) | Lista todas las órdenes con su descripción | No |
 
 **Códigos de salida (uniformes):**
 

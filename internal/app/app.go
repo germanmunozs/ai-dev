@@ -16,6 +16,9 @@ import (
 	"ai-dev/internal/system"
 )
 
+// topLevelUsage names every command group (F009-FR-005).
+const topLevelUsage = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]"
+
 // Dependencies is the composition bundle for one CLI invocation. Supplying a
 // dependency grants no authority by itself: each command receives only the
 // capabilities its own entry point declares.
@@ -54,8 +57,14 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 	executor, launcher, root, store := deps.Executor, deps.Launcher, deps.Root, deps.GateStore
 	stdin, stdout, stderr := deps.Stdin, deps.Stdout, deps.Stderr
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]")
+		fmt.Fprintln(stderr, topLevelUsage)
 		return 2
+	}
+	switch args[0] {
+	case "version", "--version":
+		return RunVersion(args[1:], stdout, stderr)
+	case "help", "--help", "-h":
+		return RunHelp(args[1:], stdout, stderr)
 	}
 	if args[0] == "git" {
 		if len(args) >= 3 && args[1] == "commit" && args[2] == "validate" {
@@ -113,7 +122,7 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 	}
 	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev doctor [--format text|json]") }
 	if args[0] != "doctor" {
-		fmt.Fprintln(stderr, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]")
+		fmt.Fprintln(stderr, topLevelUsage)
 		return 2
 	}
 	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)

@@ -177,7 +177,7 @@ func TestNoAutonomousCapabilityExists(t *testing.T) {
 	env := []string{"PATH=" + guideAgentPath(t, marker, "claude", "codex"), "HOME=" + t.TempDir()}
 	const (
 		workflowUsage = "Usage: ai-dev workflow <state|transition> [options]\n"
-		topUsage      = "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]\n"
+		topUsage      = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]\n"
 		guideUsage    = "Usage: ai-dev workflow guide [--format text|json] <feature-id>\n"
 	)
 	cases := []struct {
