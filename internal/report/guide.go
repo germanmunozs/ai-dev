@@ -36,6 +36,9 @@ func RenderGuideCommand(featureID string, template guide.Template) string {
 }
 
 // WriteGuideText writes one human-readable guidance report in a single write.
+// Each template's label is a shell comment on its own line above the
+// command, so pasting a whole line, or the whole report, never turns a label
+// word into a command.
 func WriteGuideText(w io.Writer, report guide.Report) error {
 	if !report.Valid() {
 		return fmt.Errorf("invalid workflow guide report: %+v", report)
@@ -55,12 +58,12 @@ func WriteGuideText(w io.Writer, report guide.Report) error {
 	}
 	humanSlots, reason := false, false
 	for _, template := range report.Templates {
-		fmt.Fprintf(&out, "  %s: %s\n", template.Label, RenderGuideCommand(report.FeatureID, template))
+		fmt.Fprintf(&out, "  # %s\n  %s\n", template.Label, RenderGuideCommand(report.FeatureID, template))
 		humanSlots = humanSlots || len(template.HumanSlots) > 0
 		reason = reason || template.Kind == guide.KindApprove
 	}
 	if humanSlots {
-		out.WriteString("  replace each )slot( before running")
+		out.WriteString("  # replace each )slot( before running")
 		if reason {
 			out.WriteString("; --reason )reason( is optional for approval (006 FR-010)")
 		}
