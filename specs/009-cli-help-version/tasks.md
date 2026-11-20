@@ -42,4 +42,5 @@
   - `go vet ./...` and `GOOS=linux go vet ./...`;
   - `go test -count=1 ./...`;
   - `go test -race -count=3` on `internal/version`, `internal/report`, `internal/app` and `cmd/ai-dev`.
-- [ ] T013 PR to `dev` with CI green (branch protection requires it). The owner decides the merge.
+- [X] T013 PR to `dev` with CI green (branch protection requires it). The owner decides the merge.
+  - **Done 2026-11-20.** PR #10 passed all three required checks and was merged into `dev` as `f30e87c`, under the owner's authorization "si, autorizo el commit, los push, los PR y los merges".

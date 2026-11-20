@@ -65,4 +65,5 @@ On 2026-11-20 the owner, German Munoz, explicitly confirmed REC-06 and REC-07 as
 - **Interrupt during the first `begin`:** an interrupt delivered while the first operation's `mutation_intent` and CAS are being written lets that operation run. This is consistent with "observed only between operations".
 - **Same-user concurrent tampering:** a TOCTOU window remains between `owned()` and the rename of the index lock. R-04 and R-06 narrowed it but did not close it.
 - **Residual crash window (REC-06):** after the initial reference CAS and before the index is installed, recovery needs Git's own commands.
-- **Git 2.45 minimum (VER-01):** not executed. Block-level power loss (DUR-01): not executed.
+- **Git 2.45 minimum (VER-01):** executed after this review by the CI job `git-minimum` (first green run: job 136054532762, commit `5f2733c`; see T132).
+- **Block-level power loss (DUR-01):** not executed. On 2026-11-20 the owner confirmed closing T134 as declined ("si, bórralas y arranca con el 8 y el 9"); this is a declared, unauthenticated assertion. Publication durability rests on the fsync and directory-sync order, covered by step-level fault injection and SIGKILL at every durable step.

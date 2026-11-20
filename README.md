@@ -771,6 +771,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
 - **Claims huérfanos (REC-07):** una autorización cuyo claim quedó huérfano por un crash antes de la intención no se reasigna; hay que emitir una nueva.
 - **SIGKILL:** no se puede aplazar; se recupera por la vía de crash.
+- **Pérdida de energía (DUR-01):** no se simuló a nivel de bloque (T134, cerrada como declinada por el responsable). El orden de fsync y de sincronización de directorios está cubierto por inyección de fallos en cada paso y por SIGKILL en cada paso duradero.
 - **Fuera de alcance por diseño:**
   - autenticación de agentes;
   - selección automática, reintentos o encadenamiento de agentes (el modo autónomo de 007 está diferido);
@@ -783,3 +784,5 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 ## Licencia
 
 ai-dev se distribuye bajo la [Apache License 2.0](LICENSE).
+
+Para contribuir, consulta [CONTRIBUTING.md](CONTRIBUTING.md). Las vulnerabilidades se reportan de forma privada, como indica [SECURITY.md](SECURITY.md).
