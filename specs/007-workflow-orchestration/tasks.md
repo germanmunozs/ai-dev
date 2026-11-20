@@ -168,7 +168,7 @@ It executes, writes and derives nothing.
 - [X] T025 Run `quickstart.md` scenarios 1–7 against a fresh build, and confirm that `git status` is unchanged after each read-only command.
 - [X] T026 Independent review of the implementation diff by a separate read-only agent. Record the implementing and reviewing agents, the findings and the resolutions in the PR description (constitution VIII). Fix every blocking or high finding before requesting merge.
   - **Done 2026-11-19.** A read-only reviewer agent (Claude Opus 5.5) reviewed `dev..HEAD`, with the implementation by Claude Opus 5.5 in this session. It reported R7-01 (high): `(slot)` runs under some zsh options. The fix renders slots as `)slot(` and extends the paste test to dash, bash `extglob` and six zsh option sets, with zsh required in CI. Also fixed: R7-02 (medium), coverage of those shells; R7-03 (low), the R-03 evidence; R7-04 (low), the boundary now also forbids `selection.Selector`; R7-05 (info), the README.
-- [ ] T027 Open the PR to `dev`, with CI green on macOS and Ubuntu. The owner decides the merge (constitution IX).
+- [X] T027 Open the PR to `dev`, with CI green on macOS and Ubuntu. The owner decides the merge (constitution IX).
 
 ---
 
