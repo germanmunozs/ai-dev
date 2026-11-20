@@ -453,6 +453,7 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
 
 - [ ] T132 **(needs owner authorization)** Run the real-Git suites against Git 2.45.0, the declared minimum in `internal/gitprocess/identify.go`, and against the current release. Record versions, commands, exit codes and hashes with the T115/T116 evidence. Today only 2.54.0 (macOS) and 2.55.0 (Linux VM) are exercised.
   - **Blocked (VER-01).** The agent's tool-permission policy refused the build of Git 2.45.0 from source. Running it needs explicit permission for that build, or a prebuilt Git 2.45 binary.
+  - **Unblocked through CI (2026-11-19, owner's delegation).** The `git-minimum` job of `.github/workflows/ci.yml` builds Git 2.45.0 on the Ubuntu runner, never on the developer's machine, from the release tarball pinned by its published SHA-256. It then runs the real-Git suites (`internal/gitprocess`, `internal/gitmanager`, `internal/gitstore`, `internal/app`, `cmd/ai-dev`) with that Git first on `PATH`, on ext4. The `gates` job keeps covering the runners' current Git. This task stays open until the job's first green run is recorded here.
 - [x] T133 **(needs owner authorization: outward-facing, uses CI runners)** Add `.github/workflows/ci.yml` with macOS and Linux jobs:
   - `gofmt -l`, `go vet ./...` and `go test ./...`;
   - repeated `go test -race -timeout 60m` for `gitstore`, `gitmanager`, `app` and `cmd/ai-dev`;

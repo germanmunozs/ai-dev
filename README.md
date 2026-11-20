@@ -750,7 +750,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 - **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management. Windows nativo no está soportado; en Windows se usa WSL2, con el proyecto en el filesystem de Linux. El uso en WSL2 no tiene evidencia propia: se apoya en la de Linux/ext4.
 - **Plantillas de guía (007):** solo se garantizan para shells POSIX (sh, dash, bash y zsh, con las opciones probadas). fish y PowerShell no están cubiertos.
 - **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
-- **Versión mínima de Git (2.45):** está declarada, pero no se ha ejecutado la suite con esa versión (VER-01).
+- **Versión mínima de Git (2.45):** el job de CI `git-minimum` compila Git 2.45.0 en el runner, desde el tarball oficial con su SHA-256 fijado, y ejecuta con él las suites que usan Git de verdad (VER-01, T132). Hasta su primera ejecución en verde, la versión mínima solo está verificada por las pruebas unitarias de identificación.
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
 - **Claims huérfanos (REC-07):** una autorización cuyo claim quedó huérfano por un crash antes de la intención no se reasigna; hay que emitir una nueva.
 - **SIGKILL:** no se puede aplazar; se recupera por la vía de crash.
