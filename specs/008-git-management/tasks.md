@@ -470,8 +470,9 @@ Today the fault matrix (T110) uses a fake store, and crash evidence is simulated
     - The Feature 006 concurrency test assumed every process evaluates before the winner commits (`84b6b94`).
     
     The workflow's toolchain step confirmed that each runner's Git reads exactly the system configuration that ai-dev evaluates: `/opt/homebrew/etc/gitconfig` and `/etc/gitconfig`.
-- [ ] T134 **(optional; needs owner authorization)** Verify power-loss durability of the store and project-config publication sequences. Use `dm-log-writes` or `dm-flakey` on a Linux ext4 device: replay every write prefix and assert that the recovered state is a consistent prefix that T123 classifies. Record the result as T116 evidence.
+- [x] T134 **(optional; needs owner authorization)** Verify power-loss durability of the store and project-config publication sequences. Use `dm-log-writes` or `dm-flakey` on a Linux ext4 device: replay every write prefix and assert that the recovered state is a consistent prefix that T123 classifies. Record the result as T116 evidence.
   - **Declined under the owner's delegation (DUR-01); not executed.** The fsync and directory-sync order is covered by step-level fault injection and SIGKILL at every durable step. Block-level power-loss simulation remains residual risk.
+  - **Closed as declined, confirmed by the owner (2026-11-20).** German Munoz approved closing T134 as declined, in the words "si, bórralas y arranca con el 8 y el 9", in answer to the architecture review's item 8 (close T134 as declined, DUR-01). This is a declared, unauthenticated assertion. Block-level power loss stays a documented residual risk.
 
 ### Recovery after a crash
 
