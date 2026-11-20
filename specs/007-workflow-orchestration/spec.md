@@ -183,7 +183,7 @@ Nothing in ai-dev can start, plan or authorize an autonomous chain. Autonomous e
 - **SC-002**: Across 100% of guidance requests:
   - zero processes are started;
   - zero changes appear in the project tree, compared by content digest before and after;
-  - zero network attempts are observed by the test harness.
+  - zero network-capable code paths, proven by the structural boundary test, and zero network attempts in the end-to-end test, which runs without agents on `PATH`.
 - **SC-003**: In 100% of `step_recommended` fixtures, the reported agent equals 003's mapping and the availability equals 002's determination, or `inconsistent` for the 003 FR-009 condition. Zero reports substitute or suggest another agent.
 - **SC-004**: Across 100% of fixtures, including hostile names (shell metacharacters, a leading `-`, quotes, spaces), pasting each rendered template into a POSIX shell passes the identifier to ai-dev as exactly one positional argument. Zero templates are rendered for identifiers with a control or format character, with fixtures that include U+202E and U+200B. Pasting a template with any placeholder unfilled invokes ai-dev or an agent in 0% of cases and changes zero files. Zero templates contain a derived value for `{target-state}`, `{approver}` or `{instruction}`. For each human slot separately, pasting the template with only that slot unfilled invokes nothing and changes zero files.
 - **SC-005**: 100% of human-readable and machine-readable reports carry the non-authorization statement of F007-FR-008.

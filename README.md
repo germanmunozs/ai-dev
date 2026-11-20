@@ -23,6 +23,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
    - [004 · Workflow State](#004--workflow-state)
    - [005 · SDD Workflow](#005--sdd-workflow)
    - [006 · Human Gates](#006--human-gates)
+   - [007 · Workflow Orchestration (modo guiado)](#007--workflow-orchestration-modo-guiado)
    - [008 · Git Management](#008--git-management)
 6. [Modelo de seguridad](#modelo-de-seguridad)
 7. [Persistencia](#persistencia)
@@ -42,7 +43,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 004 Workflow State | `ai-dev workflow state`, `ai-dev workflow transition` | Implementada |
 | 005 SDD Workflow | `ai-dev workflow next` | Implementada (solo lectura) |
 | 006 Human Gates | `ai-dev workflow approve`, `ai-dev workflow abandon` | Implementada |
-| 007 Interactive CLI | — | No incluida en este repositorio |
+| 007 Workflow Orchestration | `ai-dev workflow guide` | Modo guiado implementado (solo lectura); modo autónomo diferido hasta superar sus gates de seguridad |
 | 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS y Linux/ext4 (VM); pendiente T132 (Git 2.45) |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
@@ -78,6 +79,7 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 | `ai-dev workflow state <feature-id>` | Informa del estado actual de una feature | No |
 | `ai-dev workflow transition <feature-id> <target>` | Evalúa si una transición es válida | No |
 | `ai-dev workflow next <feature-id>` | Recomienda el siguiente paso SDD | No |
+| `ai-dev workflow guide <feature-id>` | Guía la siguiente acción humana: paso SDD, agente del rol, su disponibilidad y plantillas de comandos para completar | No |
 | `ai-dev workflow approve --approver ID [--reason T] <feature-id> <target>` | Registra una aprobación humana y aplica la transición | Sí: `workflow-state.json` |
 | `ai-dev workflow abandon --approver ID --reason T <feature-id> abandoned` | Registra un abandono humano | Sí: `workflow-state.json` |
 | `ai-dev init [--project-dir PATH]` | Asistente interactivo de Git (requiere TTY) | Solo tras confirmar el digest del plan |
@@ -150,6 +152,7 @@ flowchart TB
         instruction["instruction"]
         workflow["workflow"]
         sdd["sdd"]
+        guide["guide"]
         gate["gate"]
         gitmanager["gitmanager<br/>(dominio + safety kernel)"]
         cc["conventionalcommit"]
@@ -165,11 +168,12 @@ flowchart TB
 
     main --> app
     app --> report
-    app --> doctor & checks & agentpkg & selection & execution & instruction & workflow & sdd & gate & gitmanager & cc
+    app --> doctor & checks & agentpkg & selection & execution & instruction & workflow & sdd & guide & gate & gitmanager & cc
     app --> system & adapterspkg & gatestore & gitprocess & gitstore
     checks --> doctor
     selection --> role & agentpkg
     sdd --> workflow & role
+    guide --> sdd & selection
     gate --> workflow
     gitmanager --> cc
     adapterspkg --> execution
@@ -183,6 +187,7 @@ Pruebas estructurales en el propio repositorio hacen cumplir estas fronteras:
 - `os/exec` está prohibido fuera de `gitprocess` (para Git) y `system`.
 - Git Management no importa `workflow`, `gate`, `gatestore`, `role`, `selection`, `agent` ni `execution`: no puede conceder autoridad de Workflow ni de Human Gate.
 - Ningún archivo de producción fuera de `safety.go` puede construir un `MutationPermit`.
+- `guide` solo importa `sdd`, `selection`, `agent`, `role`, `workflow` y tres paquetes de la biblioteca estándar. No puede construir su propio registro de agentes, evaluar transiciones, lanzar procesos ni leer el entorno.
 
 ### Estructura del repositorio
 
@@ -392,6 +397,41 @@ Outcomes posibles:
 - `persistence_failed`: no se pudo escribir el registro.
 - También se reutilizan los refusals de 004.
 
+### 007 · Workflow Orchestration (modo guiado)
+
+`ai-dev workflow guide` responde, para una feature, a la pregunta "¿qué hago ahora?". Reúne en un solo informe de solo lectura:
+- el paso SDD de 005 (resultado, estado, actividad y rol), idéntico al de `workflow next`;
+- el agente que corresponde a ese rol según 003 y su disponibilidad (`available`, `unavailable` o `inconsistent`);
+- las plantillas de las siguientes acciones humanas (`agent select`, `agent run`, `workflow transition`, `workflow approve`), o `workflow state` si la feature es terminal;
+- una declaración fija: las acciones son opciones para el humano, no autorización. Ejecutar un agente o una revisión no es aprobar.
+
+No ejecuta ninguna plantilla, no lanza procesos, no escribe nada y no lee stdin. Sus códigos de salida son los de `workflow next`. El JSON lleva `schema_version: "ai-dev.workflow-guide/v1"`.
+
+```text
+$ ai-dev workflow guide 009-search
+ai-dev: outcome=step_recommended feature="009-search" state=specified activity=plan role=planning agent=claude-code availability=available note="options for the human only; not authorization. …"
+  select the agent for this role (003): ai-dev agent select -- planning
+  run the agent (002): ai-dev agent run -- claude-code )instruction(
+  after completing the activity, check the transition (004): ai-dev workflow transition -- '009-search' )target-state(
+  then record your decision (006): ai-dev workflow approve --approver )approver( -- '009-search' )target-state(
+  replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)
+```
+
+**Las plantillas son para completar, no para pegar tal cual:**
+- **Huecos humanos:** cada valor que decide el humano (`)instruction(`, `)approver(`, `)target-state(`) aparece sin comillas entre paréntesis invertidos. Ese `)` que no cierra nada es un error de sintaxis en cualquier shell POSIX, así que una plantilla pegada sin completar no invoca `ai-dev` ni ningún agente y no toca archivos. Las pruebas lo verifican en sh, dash, bash y zsh, también con opciones de zsh como `emulate sh`, `shglob` o `kshglob`, con las que un `(hueco)` normal sí se ejecutaría.
+- **Nada derivado:** la guía nunca rellena esos huecos. No deduce el estado destino, el aprobador ni la instrucción a partir del entorno, de Git ni del usuario del sistema.
+- **Identificador de la feature:** va entre comillas simples después de `--`, de modo que nombres con `;`, `$( )`, espacios o un `-` inicial llegan como un único argumento. Si el identificador contiene caracteres de control o de formato (por ejemplo, U+202E o U+200B), el informe sale sin plantillas.
+
+```mermaid
+flowchart LR
+    sdd["sdd.Evaluate (005)"] --> g["guide.Evaluate"]
+    sel["selector 003<br/>(solo LookPath)"] --> g
+    g --> rep["informe + plantillas<br/>con huecos )slot("]
+    rep -. "el humano completa y ejecuta" .-> cmds["agent select / agent run /<br/>workflow transition / workflow approve"]
+```
+
+El **modo autónomo** (encadenar agentes sin intervención) no existe en el código. Su diseño está en la especificación como sección diferida y no normativa, bloqueado hasta superar sus gates de seguridad.
+
 ### 008 · Git Management
 
 Inicializa y configura repositorios Git de forma **supervisada, determinista y auditada** en macOS (APFS) y Linux (ext4 local). Separa estrictamente cuatro fases: **inspeccionar → planificar → autorizar → aplicar**, más una **reconciliación** de solo lectura.
@@ -597,6 +637,7 @@ flowchart TB
         s3["recomendación SDD"]
         s4["transition_valid"]
         s5["informe de estrategia / reconcile"]
+        s6["guía de workflow (007)"]
     end
     subgraph authority["Autoridad humana explícita"]
         h1["workflow approve/abandon<br/>--approver"]
@@ -707,6 +748,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 ## Limitaciones conocidas
 
 - **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management. Windows nativo no está soportado; en Windows se usa WSL2, con el proyecto en el filesystem de Linux. El uso en WSL2 no tiene evidencia propia: se apoya en la de Linux/ext4.
+- **Plantillas de guía (007):** solo se garantizan para shells POSIX (sh, dash, bash y zsh, con las opciones probadas). fish y PowerShell no están cubiertos.
 - **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
 - **Versión mínima de Git (2.45):** está declarada, pero no se ha ejecutado la suite con esa versión (VER-01).
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
@@ -714,7 +756,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 - **SIGKILL:** no se puede aplazar; se recupera por la vía de crash.
 - **Fuera de alcance por diseño:**
   - autenticación de agentes;
-  - selección automática, reintentos o encadenamiento de agentes;
+  - selección automática, reintentos o encadenamiento de agentes (el modo autónomo de 007 está diferido);
   - orquestación en segundo plano;
   - operaciones Git remotas (push, fetch);
   - commits más allá del inicial.
