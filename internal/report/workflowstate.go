@@ -15,10 +15,10 @@ func WriteWorkflowStateText(w io.Writer, r workflow.StateReport) error {
 		return fmt.Errorf("invalid workflow state report: %+v", r)
 	}
 	if r.Outcome == workflow.StateReported {
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q state=%s terminal=%t\n", r.Outcome, r.FeatureID, r.State, r.Terminal)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s state=%s terminal=%t\n", r.Outcome, shellInertQuote(r.FeatureID), r.State, r.Terminal)
 		return err
 	}
-	_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q\n", r.Outcome, r.FeatureID)
+	_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s\n", r.Outcome, shellInertQuote(r.FeatureID))
 	return err
 }
 

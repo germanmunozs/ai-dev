@@ -15,19 +15,19 @@ func WriteWorkflowNextText(w io.Writer, report sdd.Report) error {
 		return fmt.Errorf("invalid workflow next report: %+v", report)
 	}
 	if report.Outcome == sdd.StepRecommended {
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q state=%s activity=%s role=%s note=\"recommendation only; does not authorize this activity or any transition\"\n", report.Outcome, report.FeatureID, report.State, report.Activity, report.Role)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s state=%s activity=%s role=%s note=\"recommendation only; does not authorize this activity or any transition\"\n", report.Outcome, shellInertQuote(report.FeatureID), report.State, report.Activity, report.Role)
 		return err
 	}
 	if report.Outcome == sdd.WorkflowTerminal {
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q state=%s\n", report.Outcome, report.FeatureID, report.State)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s state=%s\n", report.Outcome, shellInertQuote(report.FeatureID), report.State)
 		return err
 	}
 	if report.Outcome == sdd.ArtifactsInconsistent {
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q state=%s missing=%s\n", report.Outcome, report.FeatureID, report.State, strings.Join(report.Missing, ","))
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s state=%s missing=%s\n", report.Outcome, shellInertQuote(report.FeatureID), report.State, strings.Join(report.Missing, ","))
 		return err
 	}
 	if report.Outcome == sdd.FeatureUnknown || report.Outcome == sdd.StateInvalid {
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q\n", report.Outcome, report.FeatureID)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s\n", report.Outcome, shellInertQuote(report.FeatureID))
 		return err
 	}
 	return fmt.Errorf("workflow next outcome %q cannot be rendered", report.Outcome)

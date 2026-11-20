@@ -17,11 +17,11 @@ func WriteWorkflowTransitionText(w io.Writer, r workflow.TransitionReport) error
 	var err error
 	switch r.Outcome {
 	case workflow.TransitionValid, workflow.TransitionInvalid:
-		_, err = fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q current=%s target=%s\n", r.Outcome, r.FeatureID, r.CurrentState, r.Target)
+		_, err = fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s current=%s target=%s\n", r.Outcome, shellInertQuote(r.FeatureID), r.CurrentState, r.Target)
 	case workflow.TargetUnsupported:
-		_, err = fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q target=%q\n", r.Outcome, r.FeatureID, r.SuppliedTarget)
+		_, err = fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s target=%s\n", r.Outcome, shellInertQuote(r.FeatureID), shellInertQuote(r.SuppliedTarget))
 	default:
-		_, err = fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q\n", r.Outcome, r.FeatureID)
+		_, err = fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s\n", r.Outcome, shellInertQuote(r.FeatureID))
 	}
 	return err
 }

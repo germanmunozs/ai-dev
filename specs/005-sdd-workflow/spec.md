@@ -31,6 +31,11 @@
 
 - **Authority record (2026-11-19): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Amendments 1–4, of which these are Amendment 3 (FR-024) and Amendment 4 (cross-references) of Feature 007 (`specs/007-workflow-orchestration/spec.md`, section Required Amendments) in the words "si, apruebo las enmiendas 1 a 4, aplícalas". The approver identity is a declared, auditable assertion, not an authenticated identity. Amendment 3 adds a permission for an explicit Feature 007 guidance request only, and Amendment 4 only renames the Feature 007 cross-references; neither changes any observable behavior of this feature and approves no Feature 007 implementation, plan or autonomous capability.
 
+### Session 2026-11-20 (004 Amendment 5 inherited)
+
+- **Authority record (2026-11-20): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, decided to amend 004 FR-028 in the words "Hallazgo de 004 FR-028 enmendar", after the finding was reported during the Feature 007 follow-up work. The approver identity is a declared, auditable assertion, not an authenticated identity.
+- 004 FR-028's escaped, quoted form is now Go's double-quoted form with every `$`, backquote and `!` additionally backslash-escaped (004 Amendment 5). It applies by reference to the feature identifier its reports render in 004's form. No other requirement of this feature changes.
+
 ## Responsibility Boundary *(context for all requirements)*
 
 "SDD Workflow" in `ai-dev` is the deterministic association between each non-terminal Workflow State (004) and the single Spec-Driven Development activity that corresponds to it. The activities are the steps of the constitution's mandated Specification → Plan → Tasks → Implementation sequence, plus review, which the constitution defines as a quality-gate activity, and which is the SDD activity associated here with the `implemented` state. This feature makes that association observable through one read-only capability, **next-step evaluation**. Next-step evaluation answers "which SDD activity corresponds to this feature's current Workflow State, and under which development role?"

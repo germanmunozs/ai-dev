@@ -20,22 +20,22 @@ func WriteWorkflowGateText(w io.Writer, r gate.Report) error {
 	switch r.Outcome {
 	case gate.TransitionApplied:
 		if r.ReasonSet {
-			_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q decision=%s approver=%q from=%s to=%s reason=%q note=%q\n", r.Outcome, r.FeatureID, r.Decision, r.Approver, r.FromState, r.Target, r.Reason, gateAppliedNote)
+			_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s decision=%s approver=%s from=%s to=%s reason=%s note=%q\n", r.Outcome, shellInertQuote(r.FeatureID), r.Decision, shellInertQuote(r.Approver), r.FromState, r.Target, shellInertQuote(r.Reason), gateAppliedNote)
 			return err
 		}
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q decision=%s approver=%q from=%s to=%s note=%q\n", r.Outcome, r.FeatureID, r.Decision, r.Approver, r.FromState, r.Target, gateAppliedNote)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s decision=%s approver=%s from=%s to=%s note=%q\n", r.Outcome, shellInertQuote(r.FeatureID), r.Decision, shellInertQuote(r.Approver), r.FromState, r.Target, gateAppliedNote)
 		return err
 	case gate.TransitionInvalid, gate.StateConflict, gate.PersistenceFailed:
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q decision=%s approver=%q from=%s target=%s note=%q\n", r.Outcome, r.FeatureID, r.Decision, r.Approver, r.FromState, r.Target, gateNotAppliedNote)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s decision=%s approver=%s from=%s target=%s note=%q\n", r.Outcome, shellInertQuote(r.FeatureID), r.Decision, shellInertQuote(r.Approver), r.FromState, r.Target, gateNotAppliedNote)
 		return err
 	case gate.ArtifactsMissing:
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q decision=%s approver=%q from=%s target=%s missing=%s note=%q\n", r.Outcome, r.FeatureID, r.Decision, r.Approver, r.FromState, r.Target, strings.Join(r.Missing, ","), gateNotAppliedNote)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s decision=%s approver=%s from=%s target=%s missing=%s note=%q\n", r.Outcome, shellInertQuote(r.FeatureID), r.Decision, shellInertQuote(r.Approver), r.FromState, r.Target, strings.Join(r.Missing, ","), gateNotAppliedNote)
 		return err
 	case gate.TargetUnsupported:
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q decision=%s approver=%q target=%q note=%q\n", r.Outcome, r.FeatureID, r.Decision, r.Approver, r.SuppliedTarget, gateNotAppliedNote)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s decision=%s approver=%s target=%s note=%q\n", r.Outcome, shellInertQuote(r.FeatureID), r.Decision, shellInertQuote(r.Approver), shellInertQuote(r.SuppliedTarget), gateNotAppliedNote)
 		return err
 	case gate.FeatureUnknown, gate.StateInvalid:
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%q decision=%s approver=%q note=%q\n", r.Outcome, r.FeatureID, r.Decision, r.Approver, gateNotAppliedNote)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s feature=%s decision=%s approver=%s note=%q\n", r.Outcome, shellInertQuote(r.FeatureID), r.Decision, shellInertQuote(r.Approver), gateNotAppliedNote)
 		return err
 	default:
 		return fmt.Errorf("workflow gate outcome %q cannot be rendered", r.Outcome)
