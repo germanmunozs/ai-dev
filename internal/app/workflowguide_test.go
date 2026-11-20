@@ -193,8 +193,8 @@ func TestRunUsageTextsUnchangedWithGuide(t *testing.T) {
 		{[]string{"workflow"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
 		{[]string{"workflow", "run", "f"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
 		{[]string{"workflow", "Guide", "f"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
-		{nil, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]\n"},
-		{[]string{"orchestrate", "f"}, "Usage: ai-dev <doctor|agents|agent|workflow|init> [options]\n"},
+		{nil, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]\n"},
+		{[]string{"orchestrate", "f"}, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]\n"},
 	}
 	for _, tc := range cases {
 		code, stdout, stderr, executor, launcher := runDispatcher(t, tc.args, workflowFixture(nil))
