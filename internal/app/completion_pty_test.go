@@ -50,6 +50,13 @@ func openPTY(t *testing.T) (*os.File, *os.File) {
 		master.Close()
 		t.Skipf("open %s: %v", slavePath, err)
 	}
+	// A wide terminal keeps each command line on one screen line, so zsh
+	// never redraws it in pieces that a substring match would miss.
+	size := struct{ rows, cols, x, y uint16 }{50, 200, 0, 0}
+	setSize := map[string]uintptr{"darwin": 0x80087467, "linux": 0x5414}[runtime.GOOS] // TIOCSWINSZ
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, slave.Fd(), setSize, uintptr(unsafe.Pointer(&size))); errno != 0 {
+		t.Fatalf("set terminal size: %v", errno)
+	}
 	return master, slave
 }
 
@@ -69,7 +76,7 @@ func startZsh(t *testing.T, dir string) *zshSession {
 	master, slave := openPTY(t)
 	cmd := exec.Command(zsh, "-f", "-i")
 	cmd.Dir = dir
-	cmd.Env = []string{"HOME=" + t.TempDir(), "TERM=xterm", "PATH=" + os.Getenv("PATH")}
+	cmd.Env = []string{"HOME=" + t.TempDir(), "TERM=xterm", "PATH=" + os.Getenv("PATH"), "PS1=> "}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true}
 	if err := cmd.Start(); err != nil {
@@ -142,7 +149,7 @@ func (s *zshSession) complete(line, want string) {
 func TestZshCompletionInRealShell(t *testing.T) {
 	script, dir := writeScript(t, "zsh"), fileFixture(t)
 	s := startZsh(t, dir)
-	s.send("autoload -U compinit; compinit -u -D; eval \"$(<" + filepath.ToSlash(script) + ")\"; print READY\n")
+	s.send("PS1='> '; autoload -U compinit; compinit -u -D; eval \"$(<" + filepath.ToSlash(script) + ")\"; print READY\n")
 	s.waitFor("READY")
 	s.complete("ai-dev git commit validate --file no\t", "notes.txt")
 	s.complete("ai-dev agent run --format=json c\t", "codex-cli")
@@ -162,7 +169,7 @@ func TestZshCompletionAutoloadedFromFpath(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := startZsh(t, dir)
-	s.send("fpath=(" + filepath.ToSlash(functions) + " $fpath); autoload -U compinit; compinit -u -D; print READY\n")
+	s.send("PS1='> '; fpath=(" + filepath.ToSlash(functions) + " $fpath); autoload -U compinit; compinit -u -D; print READY\n")
 	s.waitFor("READY")
 	s.complete("ai-dev workflow st\t", "workflow state")
 }
