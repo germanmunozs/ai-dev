@@ -54,7 +54,7 @@ Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas
 
 ## Instalación y requisitos
 
-- **Go 1.27.1** (ver [`go.mod`](go.mod)). El módulo no tiene dependencias externas: solo la biblioteca estándar.
+- **Go 1.27.4** (ver [`go.mod`](go.mod)). El módulo no tiene dependencias externas: solo la biblioteca estándar.
 - **Plataformas:** macOS y Linux. Las operaciones con estado duradero fallan de forma cerrada (`platform_unsupported`) en Windows nativo (incluido PowerShell), iOS y Android.
 - **Windows:** usa ai-dev dentro de **WSL2**, con una distribución Linux y el Git de esa distribución. El proyecto y `HOME` deben estar en el filesystem de Linux (por ejemplo `~/proyectos/…`, que es ext4). Un proyecto en `/mnt/c/…` se monta como `9p` (drvfs) y Git Management lo rechaza (`filesystem_unsupported`), porque no es un filesystem local de producción.
 - **Git ≥ 2.45** para Git Management (usa `init --ref-format` y `config --end-of-options`).
@@ -743,7 +743,7 @@ Incluye:
 - **Hooks:** ninguno se ejecuta con Git real, con un control negativo que demuestra que los hooks estaban activos.
 - **Git Flow:** `git-flow-next` validado con la herramienta real 2.1.0.
 
-La revisión independiente está en [`specs/008-git-management/review.md`](specs/008-git-management/review.md). El workflow de CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) pasa en GitHub Actions en macOS (Git de Homebrew) y Ubuntu (ext4): gofmt, vet, cross-builds, pruebas, `-race -count=3` y fuzzing.
+La revisión independiente está en [`specs/008-git-management/review.md`](specs/008-git-management/review.md). El workflow de CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) pasa en GitHub Actions en macOS (Git de Homebrew) y Ubuntu (ext4): gofmt, vet, cross-builds, pruebas, `-race -count=3` y fuzzing. El job `static-analysis` ejecuta govulncheck y staticcheck, y todas las actions están fijadas por SHA de commit.
 
 ---
 

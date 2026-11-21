@@ -22,7 +22,7 @@ Se usa Git Flow:
 - `dev` es la rama de integración y `main` la de releases;
 - las ramas de trabajo salen de `dev` con el prefijo `feature/` o `bugfix/`;
 - los pull requests apuntan a `dev` y se integran con merge commit;
-- `dev` y `main` están protegidas: exigen un pull request, los checks `gates (macos-latest)`, `gates (ubuntu-latest)` y `git-minimum` en verde, y las conversaciones resueltas. No se permite force push.
+- `dev` y `main` están protegidas: exigen un pull request, los checks `gates (macos-latest)`, `gates (ubuntu-latest)`, `git-minimum` y `static-analysis` en verde, y las conversaciones resueltas. No se permite force push.
 
 Los mensajes de commit siguen [Conventional Commits](https://www.conventionalcommits.org/), por ejemplo `feat(cli): add version and help commands`.
 
@@ -39,7 +39,11 @@ gofmt -l .                               # no debe listar nada
 go vet ./...
 go test ./...
 go test -race -timeout 60m ./internal/gitstore ./internal/gitmanager ./internal/app ./cmd/ai-dev
+go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
 ```
+
+Las versiones de govulncheck y staticcheck son las que fija el CI. No se añaden a `go.mod`.
 
 El CI ejecuta además cross-builds, fuzzing y las suites con Git real contra Git 2.45.0 (ver [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 

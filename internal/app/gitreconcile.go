@@ -19,6 +19,7 @@ import (
 // --reconciles-authorization naming the prior authorization (REC-04).
 func InspectGitReconciliation(ctx context.Context, deps GitManagementDependencies, planFile []byte, authorizationID string) (gitmanager.ReconciliationReport, *gitmanager.PlanRejection, error) {
 	if deps.OpenStore == nil || deps.LookupEnv == nil {
+		//lint:ignore ST1005 "Git" is a proper noun, and the text is the CLI's existing output.
 		return gitmanager.ReconciliationReport{}, nil, fmt.Errorf("Git reconciliation is unavailable in this build")
 	}
 	stateRoot, err := gitmanager.ResolveStateRoot(deps.GOOS, deps.LookupEnv)

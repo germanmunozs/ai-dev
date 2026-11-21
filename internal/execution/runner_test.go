@@ -202,7 +202,7 @@ type completedThenCanceledLauncher struct {
 }
 
 func (l completedThenCanceledLauncher) Launch(context.Context, system.Spec) (system.Handle, error) {
-	return completedThenCanceledHandle{cancel: l.cancel}, nil
+	return completedThenCanceledHandle(l), nil
 }
 
 func TestRunnerRetainsNaturalCompletionWhenCancellationBecomesObservableAfterWait(t *testing.T) {
