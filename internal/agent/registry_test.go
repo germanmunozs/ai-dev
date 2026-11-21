@@ -84,3 +84,24 @@ func TestRegistryResolveUsesOnlyCanonicalIDs(t *testing.T) {
 		})
 	}
 }
+
+// Catalog and Known are read-only views of the fixed set (F011 R-06): they
+// probe nothing and cannot change the catalog.
+func TestCatalogIsAReadOnlyCopyInCatalogOrder(t *testing.T) {
+	catalog := Catalog()
+	if len(catalog) != 2 || catalog[0].ID != ClaudeCode || catalog[1].ID != CodexCLI {
+		t.Fatalf("Catalog() = %#v", catalog)
+	}
+	catalog[0].ID = "changed"
+	if Catalog()[0].ID != ClaudeCode {
+		t.Fatal("mutating the Catalog() result changed the catalog")
+	}
+	for _, test := range []struct {
+		id   ID
+		want bool
+	}{{ClaudeCode, true}, {CodexCLI, true}, {"Claude-Code", false}, {"", false}, {"gemini", false}} {
+		if got := Known(test.id); got != test.want {
+			t.Errorf("Known(%q) = %t, want %t", test.id, got, test.want)
+		}
+	}
+}

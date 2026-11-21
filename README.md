@@ -25,6 +25,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
    - [006 · Human Gates](#006--human-gates)
    - [007 · Workflow Orchestration (modo guiado)](#007--workflow-orchestration-modo-guiado)
    - [008 · Git Management](#008--git-management)
+   - [011 · Agent Detection and Role Configuration](#011--agent-detection-and-role-configuration)
 6. [Modelo de seguridad](#modelo-de-seguridad)
 7. [Persistencia](#persistencia)
 8. [Desarrollo y calidad](#desarrollo-y-calidad)
@@ -48,6 +49,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS, Linux/ext4 (VM) y Git 2.45.0 en CI |
 | 009 CLI Help and Version | `ai-dev version`, `ai-dev help` | Implementada |
 | 010 Command Help and Shell Completion | `ai-dev <comando> --help`, `ai-dev help <comando>`, `ai-dev completion` | Implementada |
+| 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implementada |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -116,6 +118,9 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 | `ai-dev help` (o `--help`, `-h`) | Lista todas las órdenes con su descripción | No |
 | `ai-dev <comando> --help` (o `-h`, o `ai-dev help <comando>`) | Ayuda de un comando o grupo: uso, argumentos, opciones con sus valores, qué cambia y códigos de salida | No |
 | `ai-dev completion bash\|zsh` | Escribe un script de autocompletado estático | No |
+| `ai-dev setup` | Asistente interactivo (requiere TTY): elige los agentes del proyecto y asigna uno a cada rol | Solo tras confirmar: `.ai-dev/agents.json` |
+| `ai-dev setup show` | Muestra los agentes detectados y la asignación de roles vigente, y de dónde sale | No |
+| `ai-dev setup apply --agent A… --role ROL=AGENTE… [--replace]` | Escribe la misma configuración sin preguntar | Sí: `.ai-dev/agents.json` |
 
 `--help` y `-h` solo se reconocen justo después del comando: `ai-dev agent run claude-code --help` envía `--help` como instrucción, sin mostrar la ayuda.
 
@@ -187,6 +192,7 @@ flowchart TB
         agentpkg["agent"]
         role["role"]
         selection["selection"]
+        projectconfig["projectconfig<br/>(lectura y validación de agents.json)"]
         execution["execution"]
         instruction["instruction"]
         workflow["workflow"]
@@ -201,16 +207,19 @@ flowchart TB
         system["system<br/>(único os/exec general)"]
         adapterspkg["execution/adapters<br/>claude, codex"]
         gatestore["gatestore<br/>(única escritura de Workflow State)"]
+        configstore["configstore<br/>(única escritura de agents.json)"]
         gitprocess["gitprocess<br/>(único os/exec de Git)"]
         gitstore["gitstore<br/>(autorización, auditoría, locks)"]
     end
 
-    main --> app
+    main --> app & configstore
     app --> report
-    app --> doctor & checks & agentpkg & selection & execution & instruction & workflow & sdd & guide & gate & gitmanager & cc
+    app --> doctor & checks & agentpkg & selection & projectconfig & execution & instruction & workflow & sdd & guide & gate & gitmanager & cc
     app --> system & adapterspkg & gatestore & gitprocess & gitstore
     checks --> doctor
-    selection --> role & agentpkg
+    selection --> role & agentpkg & projectconfig
+    projectconfig --> role & agentpkg
+    configstore --> projectconfig
     sdd --> workflow & role
     guide --> sdd & selection
     gate --> workflow
@@ -226,6 +235,7 @@ Pruebas estructurales en el propio repositorio hacen cumplir estas fronteras:
 - `os/exec` está prohibido fuera de `gitprocess` (para Git) y `system`.
 - Git Management no importa `workflow`, `gate`, `gatestore`, `role`, `selection`, `agent` ni `execution`: no puede conceder autoridad de Workflow ni de Human Gate.
 - Ningún archivo de producción fuera de `safety.go` puede construir un `MutationPermit`.
+- Solo `configstore` puede escribir `.ai-dev/agents.json`, solo `cmd/ai-dev/main.go` lo importa y `configstore` no puede nombrar el `config.json` de la 008.
 - `guide` solo importa `sdd`, `selection`, `agent`, `role`, `workflow` y tres paquetes de la biblioteca estándar. No puede construir su propio registro de agentes, evaluar transiciones, lanzar procesos ni leer el entorno.
 
 ### Estructura del repositorio
@@ -239,7 +249,9 @@ internal/
   agent/ execution/      002 — catálogo de agentes y modelo de ejecución
     execution/adapters/        adaptadores claude/codex
   instruction/           002 — fuente de la instrucción (argumento o stdin)
-  role/ selection/       003 — roles y política rol → agente
+  role/ selection/       003 — roles y política rol → agente (fija o del proyecto, 011)
+  projectconfig/         011 — lectura y validación estricta de .ai-dev/agents.json
+  configstore/           011 — escritura atómica de .ai-dev/agents.json
   workflow/              004 — estados, reglas de transición, registro
   sdd/                   005 — recomendación del siguiente paso
   gate/ gatestore/       006 — decisiones humanas y su persistencia atómica
@@ -328,7 +340,7 @@ sequenceDiagram
 
 ### 003 · Agent Role Selection
 
-Dado un rol de desarrollo explícito, determina qué agente usar e informa de ello. La selección es determinista y de solo lectura: **no ejecuta, lanza, autentica ni reconfigura ningún agente**. La tabla es código, no datos, así que no se puede modificar en tiempo de ejecución.
+Dado un rol de desarrollo explícito, determina qué agente usar e informa de ello. La selección es determinista y de solo lectura: **no ejecuta, lanza, autentica ni reconfigura ningún agente**. La tabla siguiente es la asignación fija (`source=built_in`); un proyecto puede sustituirla con su configuración de la [Feature 011](#011--agent-detection-and-role-configuration) (`source=project`).
 
 ```mermaid
 flowchart LR
@@ -344,6 +356,7 @@ Outcomes posibles:
 - `role_unsupported`: el rol no es uno de los cinco canónicos.
 - `agent_unavailable`: el agente que corresponde al rol no está disponible localmente.
 - `selection_inconsistent`: el resultado no supera la validación contra la política fija.
+- `configuration_invalid`: la configuración del proyecto (`.ai-dev/agents.json`) no es válida; no se nombra ningún agente ni se vuelve a la asignación fija.
 
 ### 004 · Workflow State
 
@@ -671,6 +684,24 @@ ai-dev init reconcile --plan ../plan.json --authorization-id <uuid>
 
 ---
 
+### 011 · Agent Detection and Role Configuration
+
+Detecta los agentes del catálogo instalados en la máquina (solo buscando su ejecutable, sin arrancarlos), deja elegir con cuáles trabaja el proyecto y qué agente usa cada rol, y lo guarda en `.ai-dev/agents.json`. Ese archivo está pensado para versionarse con el proyecto, así todo el equipo usa la misma asignación y sus cambios se revisan en pull requests; ai-dev nunca lo añade ni hace commit.
+
+```sh
+ai-dev setup show                    # agentes detectados y asignación vigente (built_in o project)
+ai-dev setup                         # asistente: elegir agentes, asignar roles, confirmar con "yes"
+ai-dev setup apply --agent claude-code --agent codex-cli \
+  --role specification=claude-code --role planning=claude-code \
+  --role implementation=codex-cli --role review=claude-code --role remediation=codex-cli
+```
+
+- Con una configuración válida, `ai-dev agent select` y `ai-dev workflow guide` usan su asignación e informan `source=project`. Sin configuración siguen igual que antes, con `source=built_in`.
+- Una configuración inválida (JSON malformado, campos desconocidos, un agente fuera del catálogo, un rol sin agente, un enlace simbólico…) da `configuration_invalid` con cada motivo en `ai-dev setup show`, y nunca se vuelve en silencio a la asignación fija.
+- El archivo llega con los repositorios clonados, así que se trata como entrada no confiable: tamaño máximo de 64 KiB, JSON estricto y solo identificadores del catálogo y nombres de rol. No puede nombrar ningún ejecutable, ruta ni argumento.
+- Elegir agentes no restringe `ai-dev agent run`, que sigue ejecutando cualquier agente del catálogo que se nombre explícitamente.
+- `.ai-dev/config.json` pertenece a la 008 (estrategia Git) y la 011 no lo lee ni lo escribe.
+
 ## Modelo de seguridad
 
 ```mermaid
@@ -708,6 +739,7 @@ flowchart TB
 |---|---|---|
 | Workflow State + evidencia de Gate | `specs/<feature-id>/workflow-state.json` | `gatestore` (atómico, con flock) |
 | Configuración de proyecto | `<proyecto>/.ai-dev/config.json` | `gitmanager` (sin sobrescritura) |
+| Agentes y roles del proyecto (011) | `<proyecto>/.ai-dev/agents.json` | `configstore` (reemplazo atómico) |
 | Autorizaciones, auditoría y locks de Git | macOS: `~/Library/Application Support/ai-dev/state/git`<br/>Linux: `$XDG_STATE_HOME/ai-dev/git` o `~/.local/state/ai-dev/git` | `gitstore` |
 
 ```text

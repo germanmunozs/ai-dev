@@ -66,7 +66,7 @@ func Templates(outcome sdd.Outcome, availability Availability, nextRole role.Rol
 			templates = append(templates, selectTemplate(nextRole), runTemplate(agentID))
 		case Unavailable:
 			templates = append(templates, selectTemplate(nextRole))
-		case Inconsistent:
+		case Inconsistent, ConfigurationInvalid:
 		default:
 			return []Template{}
 		}

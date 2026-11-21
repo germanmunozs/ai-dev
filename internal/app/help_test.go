@@ -99,7 +99,7 @@ func TestHelpCommandsAreRouted(t *testing.T) {
 func TestTopLevelUsageNamesEveryGroup(t *testing.T) {
 	for _, args := range [][]string{nil, {"bogus"}, {"--bogus"}} {
 		code, stdout, stderr, _, _ := runTopLevel(t, args...)
-		if code != 2 || stdout != "" || stderr != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n" {
+		if code != 2 || stdout != "" || stderr != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]\n" {
 			t.Fatalf("%v: exit=%d stdout=%q stderr=%q", args, code, stdout, stderr)
 		}
 	}

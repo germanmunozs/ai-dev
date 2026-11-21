@@ -32,8 +32,8 @@ func TestGitManagementRegression(t *testing.T) {
 		}},
 	} {
 		for _, test := range []call{
-			{nil, 2, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"},
-			{[]string{"unknown"}, 2, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"},
+			{nil, 2, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]\n"},
+			{[]string{"unknown"}, 2, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]\n"},
 			{[]string{"doctor", "--format", "yaml"}, 2, "Usage: ai-dev doctor [--format text|json]\n"},
 			{[]string{"workflow", "state", "missing"}, 1, ""},
 			{[]string{"init", "inspect", "--project-dir", t.TempDir()}, 1, "Git inspection is unavailable in this build"},

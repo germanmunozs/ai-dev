@@ -20,7 +20,7 @@
 ai-dev setup apply --agent claude-code --agent codex-cli \
   --role specification=claude-code --role planning=claude-code \
   --role implementation=claude-code --role review=claude-code --role remediation=codex-cli
-# outcome=configuration_written; .ai-dev/config.json in canonical form (contracts/config-file.md)
+# outcome=configuration_written; .ai-dev/agents.json in canonical form (contracts/config-file.md)
 ai-dev agent select implementation      # agent=claude-code source=project
 # same apply again                       # outcome=configuration_unchanged
 # apply with a different role set        # outcome=configuration_exists, exit 1; with --replace: written
@@ -30,10 +30,10 @@ ai-dev setup apply --agent claude-code --role specification=codex-cli ...   # co
 ## Invalid configuration
 
 ```sh
-printf '{"schema_version":"ai-dev.config/v1","agents":["gemini"],"roles":{}}' > .ai-dev/config.json
+printf '{"schema_version":"ai-dev.agents/v1","agents":["gemini"],"roles":{}}' > .ai-dev/agents.json
 ai-dev setup show                        # configuration_invalid, reasons unknown_agent "gemini", missing_role …; exit 1
 ai-dev agent select review               # outcome=configuration_invalid source=project; exit 1
-ln -sf /etc/hosts .ai-dev/config.json; ai-dev setup show   # file_not_regular
+ln -sf /etc/hosts .ai-dev/agents.json; ai-dev setup show   # file_not_regular
 ```
 
 ## Assistant

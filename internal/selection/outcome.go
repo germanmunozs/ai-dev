@@ -9,7 +9,8 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/role"
 )
 
-// Outcome is one of the four canonical results of a Role Selection Request.
+// Outcome is one of the canonical results of a Role Selection Request: the
+// four of 003, plus configuration_invalid (F011 Amendment A1).
 type Outcome string
 
 const (
@@ -17,6 +18,7 @@ const (
 	RoleUnsupported       Outcome = "role_unsupported"
 	AgentUnavailable      Outcome = "agent_unavailable"
 	SelectionInconsistent Outcome = "selection_inconsistent"
+	ConfigurationInvalid  Outcome = "configuration_invalid"
 )
 
 // Report is the result of one recognized Role Selection Request, in both
@@ -26,6 +28,10 @@ const (
 //	role_unsupported:        SuppliedRole
 //	agent_unavailable:       SuppliedRole, RequestedRole, MappedAgentID
 //	selection_inconsistent:  SuppliedRole, RequestedRole, MappedAgentID
+//	configuration_invalid:   SuppliedRole, RequestedRole
+//
+// Source is always present. selection_inconsistent only arises under the
+// built-in assignment, configuration_invalid only under a project one.
 //
 // SelectedAgentID and MappedAgentID are never both non-empty on the same
 // Report.
@@ -35,4 +41,5 @@ type Report struct {
 	SelectedAgentID agent.ID
 	MappedAgentID   agent.ID
 	Outcome         Outcome
+	Source          Source
 }

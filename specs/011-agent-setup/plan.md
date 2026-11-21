@@ -4,7 +4,7 @@
 
 ## Summary
 
-Add `ai-dev setup` (interactive assistant), `ai-dev setup show` (read-only) and `ai-dev setup apply` (non-interactive). They detect the catalog agents through the existing 002 registry, and read or write a per-project `.ai-dev/config.json` holding the chosen agents and one agent per role.
+Add `ai-dev setup` (interactive assistant), `ai-dev setup show` (read-only) and `ai-dev setup apply` (non-interactive). They detect the catalog agents through the existing 002 registry, and read or write a per-project `.ai-dev/agents.json` holding the chosen agents and one agent per role.
 
 Three new pieces carry the feature:
 
@@ -15,7 +15,7 @@ Three new pieces carry the feature:
 ## Technical Context
 
 - **Language and dependencies:** Go 1.27.4, standard library only.
-- **Storage:** one JSON file, `.ai-dev/config.json`, in the current directory. Written only by `internal/configstore`, on macOS and Linux local filesystems.
+- **Storage:** one JSON file, `.ai-dev/agents.json`, in the current directory. Written only by `internal/configstore`, on macOS and Linux local filesystems.
 - **Testing:** `go test`:
   - `projectconfig`: a fixture per validation rule of F011-FR-005, plus canonical encoding round trips;
   - `configstore`: atomic replacement, symbolic links refused, fault injection at each step (as `gatestore` does), unsupported platform;
@@ -51,7 +51,7 @@ Post-design re-check: PASS. The changes to 003 and 007 code are limited to what 
 ## Design
 
 - **`internal/projectconfig`** (new):
-  - `const FileName = ".ai-dev/config.json"`, `SchemaVersion = "ai-dev.config/v1"`, `MaxSize = 64 << 10`;
+  - `const FileName = ".ai-dev/agents.json"`, `SchemaVersion = "ai-dev.agents/v1"`, `MaxSize = 64 << 10`;
   - `type Config` with unexported fields (chosen agents, role assignment); only `Parse` and `New` build one, and both validate;
   - `Load(root fs.FS) (Config, State, []Reason)` with `State` = `Absent | Valid | Invalid` (R-02);
   - `New(agents []agent.ID, roles map[role.Role]agent.ID) (Config, []Reason)` for `setup apply` and the assistant;

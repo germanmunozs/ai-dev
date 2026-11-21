@@ -20,11 +20,11 @@ Order: catalog order, as in `ai-dev agents`.
 
 Never persisted.
 
-## Project Configuration (`.ai-dev/config.json`)
+## Project Configuration (`.ai-dev/agents.json`)
 
 | Field | Type | Rules |
 |---|---|---|
-| `schema_version` | string | Exactly `ai-dev.config/v1` |
+| `schema_version` | string | Exactly `ai-dev.agents/v1` |
 | `agents` | array of strings | One or more; distinct; each a catalog identifier |
 | `roles` | object | Exactly the keys `specification`, `planning`, `implementation`, `review`, `remediation`; each value one of `agents` |
 

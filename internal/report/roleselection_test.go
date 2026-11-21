@@ -17,13 +17,14 @@ func TestWriteRoleSelectionTextAndJSONForRoleSelected(t *testing.T) {
 		RequestedRole:   role.Implementation,
 		SelectedAgentID: agent.CodexCLI,
 		Outcome:         selection.RoleSelected,
+		Source:          selection.SourceBuiltIn,
 	}
 
 	var text bytes.Buffer
 	if err := WriteRoleSelectionText(&text, r); err != nil {
 		t.Fatalf("WriteRoleSelectionText: %v", err)
 	}
-	if got, want := text.String(), "ai-dev: outcome=role_selected role=implementation agent=codex-cli\n"; got != want {
+	if got, want := text.String(), "ai-dev: outcome=role_selected role=implementation agent=codex-cli source=built_in\n"; got != want {
 		t.Fatalf("text = %q, want %q", got, want)
 	}
 
@@ -35,7 +36,7 @@ func TestWriteRoleSelectionTextAndJSONForRoleSelected(t *testing.T) {
 	if err := json.Unmarshal(jsonBuf.Bytes(), &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	for _, key := range []string{"supplied_role", "requested_role", "selected_agent_id", "outcome"} {
+	for _, key := range []string{"supplied_role", "requested_role", "selected_agent_id", "outcome", "source"} {
 		if _, ok := decoded[key]; !ok {
 			t.Fatalf("missing key %q in %v", key, decoded)
 		}
@@ -46,13 +47,13 @@ func TestWriteRoleSelectionTextAndJSONForRoleSelected(t *testing.T) {
 }
 
 func TestWriteRoleSelectionTextAndJSONForRoleUnsupported(t *testing.T) {
-	r := selection.Report{SuppliedRole: "Implementation", Outcome: selection.RoleUnsupported}
+	r := selection.Report{SuppliedRole: "Implementation", Outcome: selection.RoleUnsupported, Source: selection.SourceBuiltIn}
 
 	var text bytes.Buffer
 	if err := WriteRoleSelectionText(&text, r); err != nil {
 		t.Fatalf("WriteRoleSelectionText: %v", err)
 	}
-	if got, want := text.String(), `ai-dev: outcome=role_unsupported role="Implementation"`+"\n"; got != want {
+	if got, want := text.String(), `ai-dev: outcome=role_unsupported role="Implementation" source=built_in`+"\n"; got != want {
 		t.Fatalf("text = %q, want %q", got, want)
 	}
 	if strings.Contains(text.String(), "agent=") {
@@ -67,7 +68,7 @@ func TestWriteRoleSelectionTextAndJSONForRoleUnsupported(t *testing.T) {
 	if err := json.Unmarshal(jsonBuf.Bytes(), &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	for _, key := range []string{"supplied_role", "outcome"} {
+	for _, key := range []string{"supplied_role", "outcome", "source"} {
 		if _, ok := decoded[key]; !ok {
 			t.Fatalf("missing key %q in %v", key, decoded)
 		}
@@ -94,13 +95,14 @@ func TestWriteRoleSelectionTextAndJSONForAgentUnavailableAndSelectionInconsisten
 				RequestedRole: role.Implementation,
 				MappedAgentID: agent.CodexCLI,
 				Outcome:       tt.outcome,
+				Source:        selection.SourceBuiltIn,
 			}
 
 			var text bytes.Buffer
 			if err := WriteRoleSelectionText(&text, r); err != nil {
 				t.Fatalf("WriteRoleSelectionText: %v", err)
 			}
-			wantText := "ai-dev: outcome=" + string(tt.outcome) + " role=implementation agent=codex-cli\n"
+			wantText := "ai-dev: outcome=" + string(tt.outcome) + " role=implementation agent=codex-cli source=built_in\n"
 			if text.String() != wantText {
 				t.Fatalf("text = %q, want %q", text.String(), wantText)
 			}
@@ -244,5 +246,30 @@ func TestWriteRoleSelectionRejectsInvalidReportsBeforeWriting(t *testing.T) {
 				t.Fatalf("WriteRoleSelectionJSON wrote %d bytes for invalid report %+v", buf.Len(), tt.r)
 			}
 		})
+	}
+}
+
+// configuration_invalid renders role and source only, and project reports
+// carry source=project (contracts/selection-and-guide.md, A1).
+func TestWriteRoleSelectionConfigurationInvalidAndProjectSource(t *testing.T) {
+	for _, test := range []struct {
+		report selection.Report
+		text   string
+		json   string
+	}{
+		{selection.Report{SuppliedRole: "implementation", RequestedRole: role.Implementation, Outcome: selection.ConfigurationInvalid, Source: selection.SourceProject},
+			"ai-dev: outcome=configuration_invalid role=implementation source=project\n",
+			`{"supplied_role":"implementation","requested_role":"implementation","outcome":"configuration_invalid","source":"project"}` + "\n"},
+		{selection.Report{SuppliedRole: "implementation", RequestedRole: role.Implementation, SelectedAgentID: agent.ClaudeCode, Outcome: selection.RoleSelected, Source: selection.SourceProject},
+			"ai-dev: outcome=role_selected role=implementation agent=claude-code source=project\n",
+			`{"supplied_role":"implementation","requested_role":"implementation","selected_agent_id":"claude-code","outcome":"role_selected","source":"project"}` + "\n"},
+	} {
+		var text, js bytes.Buffer
+		if err := WriteRoleSelectionText(&text, test.report); err != nil || text.String() != test.text {
+			t.Errorf("text = %q, %v; want %q", text.String(), err, test.text)
+		}
+		if err := WriteRoleSelectionJSON(&js, test.report); err != nil || js.String() != test.json {
+			t.Errorf("json = %q, %v; want %q", js.String(), err, test.json)
+		}
 	}
 }

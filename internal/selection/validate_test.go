@@ -18,7 +18,7 @@ func TestValidAcceptsEveryProducibleReport(t *testing.T) {
 	reports = append(reports,
 		NewSelector(agent.NewRegistry(onlyClaude)).Select("implementation"),
 		NewSelector(agent.NewRegistry(bothAgentsAvailable())).Select("architect"),
-		resolveAgainstRegistry("review", role.Review, agent.ClaudeCode, agent.NewRegistry(&fakeExecutor{})),
+		withSource(resolveAgainstRegistry("review", role.Review, agent.ClaudeCode, agent.NewRegistry(&fakeExecutor{})), SourceBuiltIn),
 	)
 	outcomes := map[Outcome]bool{}
 	for _, report := range reports {
@@ -64,6 +64,9 @@ func TestValidRejectsInconsistentReports(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Each case carries a valid source, so it fails only for the
+			// rule it names.
+			tc.report.Source = SourceBuiltIn
 			if tc.report.Valid() {
 				t.Fatalf("Valid() = true for %+v", tc.report)
 			}
@@ -72,11 +75,16 @@ func TestValidRejectsInconsistentReports(t *testing.T) {
 	// The same shapes with the mapped agent are accepted, so each
 	// rejection above is caused by the rule it names.
 	for _, report := range []Report{
-		{SuppliedRole: "review", RequestedRole: role.Review, MappedAgentID: agent.ClaudeCode, Outcome: AgentUnavailable},
-		{SuppliedRole: "implementation", RequestedRole: role.Implementation, MappedAgentID: agent.CodexCLI, Outcome: SelectionInconsistent},
+		{SuppliedRole: "review", RequestedRole: role.Review, MappedAgentID: agent.ClaudeCode, Outcome: AgentUnavailable, Source: SourceBuiltIn},
+		{SuppliedRole: "implementation", RequestedRole: role.Implementation, MappedAgentID: agent.CodexCLI, Outcome: SelectionInconsistent, Source: SourceBuiltIn},
 	} {
 		if !report.Valid() {
 			t.Errorf("Valid() = false for consistent %+v", report)
 		}
 	}
+}
+
+func withSource(r Report, source Source) Report {
+	r.Source = source
+	return r
 }

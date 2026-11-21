@@ -41,8 +41,15 @@ var completionCases = []struct {
 	words []string
 	want  []string
 }{
+	// F011-FR-020: setup, its agents and the ROLE=AGENT pairs.
+	{[]string{"ai-dev", "setup", ""}, []string{"show", "apply"}},
+	{[]string{"ai-dev", "setup", "apply", "--agent", "c"}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", ""}, []string{"specification=claude-code", "specification=codex-cli", "planning=claude-code", "planning=codex-cli", "implementation=claude-code", "implementation=codex-cli", "review=claude-code", "review=codex-cli", "remediation=claude-code", "remediation=codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "impl"}, []string{"implementation=claude-code", "implementation=codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation=cl"}, []string{"implementation=claude-code"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "review=claude-code", "--r"}, []string{"--role", "--replace"}},
 	{[]string{"ai-dev", "wo"}, []string{"workflow"}},
-	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "version", "help", "completion"}},
+	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "version", "help", "completion"}},
 	{[]string{"ai-dev", "workflow", ""}, []string{"state", "transition", "next", "guide", "approve", "abandon"}},
 	{[]string{"ai-dev", "workflow", "state", "--f"}, []string{"--format"}},
 	{[]string{"ai-dev", "workflow", "state", "--format", ""}, []string{"text", "json"}},
@@ -51,7 +58,7 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "agent", "run", "--format", "json", "c"}, []string{"claude-code", "codex-cli"}},
 	{[]string{"ai-dev", "agent", "select", "re"}, []string{"review", "remediation"}},
 	{[]string{"ai-dev", "help", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
-	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "version", "help", "completion"}},
+	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "version", "help", "completion"}},
 	{[]string{"ai-dev", "completion", ""}, []string{"bash", "zsh"}},
 	{[]string{"ai-dev", "git", "commit", ""}, []string{"validate"}},
 	{[]string{"ai-dev", "version", "-"}, []string{"--format", "--help"}},
@@ -74,6 +81,11 @@ var bashSplitCases = []struct {
 	words []string
 	want  []string
 }{
+	// bash 4 splits ROLE=AGENT too: the agent part completes alone, and the
+	// candidates drop the ROLE= that is already on the line.
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "=", "cl"}, []string{"claude-code"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "="}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "=", "claude-code", "--role", "re"}, []string{"review=claude-code", "review=codex-cli", "remediation=claude-code", "remediation=codex-cli"}},
 	{[]string{"ai-dev", "agent", "run", "--format", "=", "json", ""}, []string{"claude-code", "codex-cli"}},
 	{[]string{"ai-dev", "agent", "run", "--format", "="}, []string{"text", "json"}},
 	{[]string{"ai-dev", "agent", "run", "--format", "=", "j"}, []string{"json"}},

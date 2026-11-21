@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/germanmunozs/ai-dev/internal/agent"
-	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/projectconfig"
 )
 
 // The command catalog is the single source of the general help, each
@@ -49,6 +49,7 @@ const (
 	changesRepository    = "the repository and its project configuration"
 	changesPlanFile      = "the plan file only"
 	changesAgent         = "whatever the agent does, under its own sandbox"
+	changesConfiguration = "the project configuration file .ai-dev/agents.json"
 
 	exitCodesDomain = "0 positive result, 1 negative domain result, 2 usage or internal failure."
 	exitCodesPlain  = "0 success, 2 usage failure."
@@ -57,10 +58,40 @@ const (
 var (
 	formatValues   = []string{"text", "json"}
 	strategyValues = []string{"basic", "git-flow", "github-flow", "trunk-based"}
-	agentValues    = []string{string(agent.ClaudeCode), string(agent.CodexCLI)}
-	roleValues     = []string{string(role.Specification), string(role.Planning), string(role.Implementation), string(role.Review), string(role.Remediation)}
-	shellValues    = []string{"bash", "zsh"}
+	// Agents and roles come from the catalog and the role list, so a new
+	// catalog agent appears in help and completion unchanged (F011-FR-003).
+	agentValues     = catalogAgentValues()
+	roleValues      = roleNames()
+	roleAgentValues = roleAgentPairs()
+	shellValues     = []string{"bash", "zsh"}
 )
+
+func catalogAgentValues() []string {
+	var values []string
+	for _, a := range agent.Catalog() {
+		values = append(values, string(a.ID))
+	}
+	return values
+}
+
+func roleNames() []string {
+	var values []string
+	for _, r := range projectconfig.Roles() {
+		values = append(values, string(r))
+	}
+	return values
+}
+
+// roleAgentPairs are the ROLE=AGENT values of setup apply --role (R-07).
+func roleAgentPairs() []string {
+	var values []string
+	for _, r := range roleNames() {
+		for _, a := range catalogAgentValues() {
+			values = append(values, r+"="+a)
+		}
+	}
+	return values
+}
 
 func formatOption() optionSpec {
 	return optionSpec{name: "format", value: "FORMAT", values: formatValues, description: "Output format (default text)"}
@@ -183,6 +214,18 @@ var catalog = []commandSpec{
 	{path: []string{"git", "commit", "validate"}, description: "Validate a Conventional Commits message", usage: gitCommitValidateUsage,
 		options: []optionSpec{textOption("message", "TEXT", "The message"), fileOption("file", "FILE", "A file holding the message"), formatOption()},
 		changes: changesNothing, exitCodes: exitCodesDomain},
+	{path: []string{"setup"}, description: "Choose the project's agents and assign one to each role (needs a terminal)", usage: setupWizardUsage,
+		changes: changesConfiguration + ", only after confirmation", exitCodes: exitCodesDomain},
+	{path: []string{"setup", "show"}, description: "Show the detected agents and the role assignment in effect", usage: setupShowUsage,
+		options: []optionSpec{formatOption()}, changes: changesNothing, exitCodes: exitCodesDomain},
+	{path: []string{"setup", "apply"}, description: "Write the project's agents and role assignment from options", usage: setupApplyUsage,
+		options: []optionSpec{
+			{name: "agent", value: "AGENT", values: agentValues, repeatable: true, description: "An agent the project works with"},
+			{name: "role", value: "ROLE=AGENT", values: roleAgentValues, repeatable: true, description: "The agent for one role; give all five"},
+			boolOption("replace", "Replace an existing, different configuration"),
+			formatOption(),
+		},
+		changes: changesConfiguration, exitCodes: exitCodesDomain},
 	{path: []string{"version"}, description: "Print which build of ai-dev is running", usage: versionUsage,
 		options: []optionSpec{formatOption()}, changes: changesNothing, exitCodes: exitCodesPlain},
 	{path: []string{"help"}, description: "Print this help, or one command's help", usage: helpUsage,

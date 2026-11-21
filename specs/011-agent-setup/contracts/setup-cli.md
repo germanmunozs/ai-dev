@@ -82,7 +82,7 @@ Agent for planning (1 claude-code, 2 codex-cli): 1
 Agent for implementation (1 claude-code, 2 codex-cli): 2
 Agent for review (1 claude-code, 2 codex-cli): 1
 Agent for remediation (1 claude-code, 2 codex-cli): 2
-This configuration will be written to .ai-dev/config.json:
+This configuration will be written to .ai-dev/agents.json:
   agents: claude-code, codex-cli
   specification: claude-code
   ...

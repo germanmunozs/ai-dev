@@ -17,10 +17,10 @@
 
 - **Decision:** `projectconfig.Load(root fs.FS)`:
   1. `Lstat(".ai-dev")` through `fs.ReadLinkFS` (as `internal/workflow` does for the record). Absent: `Absent`. Symbolic link or not a directory: `Invalid`.
-  2. `Lstat(".ai-dev/config.json")`. Absent: `Absent`. Symbolic link, not a regular file or larger than 64 KiB: `Invalid`.
+  2. `Lstat(".ai-dev/agents.json")`. Absent: `Absent`. Symbolic link, not a regular file or larger than 64 KiB: `Invalid`.
   3. Read at most 64 KiB + 1 bytes; more is `too_large` (the file can grow between the two steps).
   4. Decode strictly: one JSON object, no trailing data, no duplicate keys at any level (checked by a token walk, because `encoding/json` keeps the last duplicate silently), exactly the fields `schema_version`, `agents` and `roles`, the right JSON types, no `null`.
-  5. Validate: schema `ai-dev.config/v1`; at least one agent; no duplicate agent; every agent in the catalog; exactly the five roles; every role assigned to a chosen agent. Matching is exact and case-sensitive.
+  5. Validate: schema `ai-dev.agents/v1`; at least one agent; no duplicate agent; every agent in the catalog; exactly the five roles; every role assigned to a chosen agent. Matching is exact and case-sensitive.
 
   A root that does not implement `fs.ReadLinkFS` is treated as `Invalid` (`cannot_verify_symlinks`), never as trusted.
 - **Reasons:** every violation is reported, in a fixed order (contracts/config-file.md). Untrusted values (an unknown agent or role name) appear in 004's shell-inert quoted form, so no reason can break a line or fake an outcome.
@@ -34,11 +34,13 @@
 
 ## R-03 Writing atomically
 
+- **Shared directory (Amendment 1).** `.ai-dev/` also holds Feature 008's `config.json`, which `gitmanager` writes during `init apply`. This feature writes only `agents.json`, never names `config.json` (the boundary test enforces both directions of that rule for `configstore`), and creates `.ai-dev` with an explicit `chmod 0755`, because Feature 008's plan requires mode `040755` on an existing `.ai-dev` and a restrictive umask would otherwise block `ai-dev init`. Verified: `init plan` succeeds next to an existing `agents.json`.
+
 - **Decision:** `internal/configstore`, POSIX build tags like `gatestore`:
   1. `os.OpenRoot(dir)`.
   2. `Lstat(".ai-dev")`: if absent, `root.Mkdir(".ai-dev", 0o755)`; if a symbolic link or not a directory, fail.
   3. Open `.ai-dev`, check it is the same file as the path just checked (`os.SameFile`), so a swap between the check and the open is detected.
-  4. `Lstat(".ai-dev/config.json")`: a symbolic link or a non-regular file fails; an existing file keeps its permission bits, a new one gets 0o644 (it is meant to be committed).
+  4. `Lstat(".ai-dev/agents.json")`: a symbolic link or a non-regular file fails; an existing file keeps its permission bits, a new one gets 0o644 (it is meant to be committed).
   5. Write `.ai-dev/.config.<random>.tmp` with `O_CREATE|O_EXCL`, `fsync`, close, `rename` over the file, `fsync` the directory. A failure before `rename` removes the temporary file; a failure of the directory `fsync` after `rename` is a warning, as in `gatestore`.
 
   Other platforms: always `persistence_failed`, with the warning that writing is supported on macOS and Linux only.

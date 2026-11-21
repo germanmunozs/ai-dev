@@ -27,6 +27,7 @@ func TestTemplatesSetAndOrder(t *testing.T) {
 		{"step available", sdd.StepRecommended, Available, []TemplateKind{KindSelect, KindRun, KindTransition, KindApprove}},
 		{"step unavailable", sdd.StepRecommended, Unavailable, []TemplateKind{KindSelect, KindTransition, KindApprove}},
 		{"step inconsistent", sdd.StepRecommended, Inconsistent, []TemplateKind{KindTransition, KindApprove}},
+		{"step configuration invalid", sdd.StepRecommended, ConfigurationInvalid, []TemplateKind{KindTransition, KindApprove}},
 		{"step without availability", sdd.StepRecommended, "", []TemplateKind{}},
 		{"terminal", sdd.WorkflowTerminal, "", []TemplateKind{KindState}},
 		{"artifacts inconsistent", sdd.ArtifactsInconsistent, "", []TemplateKind{}},

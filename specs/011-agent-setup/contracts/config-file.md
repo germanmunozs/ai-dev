@@ -1,10 +1,10 @@
-# Contract: `.ai-dev/config.json`
+# Contract: `.ai-dev/agents.json`
 
 ## Canonical form
 
 ```json
 {
-  "schema_version": "ai-dev.config/v1",
+  "schema_version": "ai-dev.agents/v1",
   "agents": [
     "claude-code",
     "codex-cli"
@@ -28,7 +28,7 @@ Reasons are reported in this order. A file-level reason stops further checks; co
 | Code | When |
 |---|---|
 | `directory_not_regular` | `.ai-dev` is a symbolic link or not a directory |
-| `file_not_regular` | `config.json` is a symbolic link or not a regular file |
+| `file_not_regular` | `agents.json` is a symbolic link or not a regular file |
 | `cannot_verify_symlinks` | the filesystem view cannot report symbolic links |
 | `too_large` | more than 65536 bytes |
 | `unreadable` | the file cannot be read |
@@ -37,7 +37,7 @@ Reasons are reported in this order. A file-level reason stops further checks; co
 | `unknown_field <v>` | a top-level field other than the three |
 | `missing_field <v>` | `schema_version`, `agents` or `roles` is absent |
 | `wrong_type <v>` | a field, an agent or a role value has the wrong JSON type, including `null` |
-| `unsupported_schema <v>` | `schema_version` is not `ai-dev.config/v1` |
+| `unsupported_schema <v>` | `schema_version` is not `ai-dev.agents/v1` |
 | `no_agents` | `agents` is empty |
 | `duplicate_agent <v>` | an agent appears twice |
 | `unknown_agent <v>` | an agent, in `agents` or `roles`, is not in the catalog |
@@ -49,5 +49,5 @@ Reasons are reported in this order. A file-level reason stops further checks; co
 
 ## Read and write rules
 
-- Read: no symbolic link is followed for `.ai-dev` or `config.json`; read at most 65537 bytes.
+- Read: no symbolic link is followed for `.ai-dev` or `agents.json`; read at most 65537 bytes.
 - Write: research R-03. ai-dev never stages or commits the file.

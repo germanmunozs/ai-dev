@@ -3,12 +3,14 @@ package selection
 import (
 	"strings"
 
+	"github.com/germanmunozs/ai-dev/internal/agent"
 	"github.com/germanmunozs/ai-dev/internal/role"
 )
 
 // Valid reports whether r is a Report the approved selection model could
 // actually have produced: an exhaustive check of field presence, role
-// recognition, and mapping correctness against the fixed production policy.
+// recognition, and mapping correctness against the fixed production policy
+// for a built_in report, or catalog membership for a project report.
 //
 // This is a read-only predicate over one already-built Report. It exposes no
 // way to view, edit, override, persist, or otherwise reach the underlying
@@ -29,6 +31,9 @@ func (r Report) Valid() bool {
 	if r.SelectedAgentID != "" && r.MappedAgentID != "" {
 		return false
 	}
+	if r.Source != SourceBuiltIn && r.Source != SourceProject {
+		return false
+	}
 
 	recognized, isRecognized := role.Recognized(r.SuppliedRole)
 
@@ -36,6 +41,28 @@ func (r Report) Valid() bool {
 	case RoleUnsupported:
 		return !isRecognized && r.RequestedRole == "" && r.SelectedAgentID == "" && r.MappedAgentID == ""
 
+	case ConfigurationInvalid:
+		return isRecognized && r.RequestedRole == recognized && r.Source == SourceProject && r.SelectedAgentID == "" && r.MappedAgentID == ""
+	}
+
+	if r.Source == SourceProject {
+		// A project report cannot be checked against the file, which the
+		// caller has just read; it must still name a catalog agent, and a
+		// project never yields selection_inconsistent (F011-FR-018).
+		if !isRecognized || r.RequestedRole != recognized {
+			return false
+		}
+		switch r.Outcome {
+		case RoleSelected:
+			return agent.Known(r.SelectedAgentID) && r.MappedAgentID == ""
+		case AgentUnavailable:
+			return agent.Known(r.MappedAgentID) && r.SelectedAgentID == ""
+		default:
+			return false
+		}
+	}
+
+	switch r.Outcome {
 	case RoleSelected:
 		if !isRecognized || r.RequestedRole != recognized {
 			return false

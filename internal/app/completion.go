@@ -203,18 +203,28 @@ _AI_DEV_FILES_
 # bash 4 and later split --option=value into "--option", "=" and "value"
 # (COMP_WORDBREAKS); bash 3.2 does not. The words before the cursor are
 # joined back, and a value typed after "=" completes as that option's value.
+# An option value can itself hold "=" (setup apply --role ROLE=AGENT): it is
+# joined the same way, and the candidates drop the "ROLE=" already on the
+# line, because bash replaces only the part after the last "=".
+_ai_dev_option() {
+	[ "${1#-}" != "$1" ]
+}
+
 _ai_dev() {
 	local -a w
-	local cw i n word _ai_dev_cur _ai_dev_r
+	local cw i n word strip pending _ai_dev_cur _ai_dev_r
 	i=0
 	n=0
+	strip=""
+	pending=0
 	while [ "$i" -lt "$COMP_CWORD" ]; do
 		word="${COMP_WORDS[i]}"
-		if [ "$word" = "=" ] && [ "$n" -gt 0 ] && [ "${w[n-1]#--}" != "${w[n-1]}" ]; then
+		if [ "$word" = "=" ] && [ "$n" -gt 0 ] && { _ai_dev_option "${w[n-1]}" || { [ "$n" -gt 1 ] && _ai_dev_option "${w[n-2]}"; }; }; then
 			if [ "$((i + 1))" -lt "$COMP_CWORD" ]; then
 				w[n-1]="${w[n-1]}=${COMP_WORDS[i+1]}"
 				i=$((i + 2))
 			else
+				pending=1
 				i=$((i + 1))
 			fi
 			continue
@@ -224,13 +234,30 @@ _ai_dev() {
 		i=$((i + 1))
 	done
 	word="${COMP_WORDS[COMP_CWORD]}"
-	if [ "$word" = "=" ] && [ "$n" -gt 0 ] && [ "${w[n-1]#--}" != "${w[n-1]}" ]; then
-		word=""
+	if [ "$word" = "=" ] && [ "$n" -gt 0 ]; then
+		if _ai_dev_option "${w[n-1]}"; then
+			word=""
+		elif [ "$n" -gt 1 ] && _ai_dev_option "${w[n-2]}"; then
+			pending=1
+			word=""
+		fi
+	fi
+	if [ "$pending" -eq 1 ] && ! _ai_dev_option "${w[n-1]}"; then
+		n=$((n - 1))
+		strip="${w[n]}="
+		word="$strip$word"
 	fi
 	w[n]="$word"
 	cw=$n
 	COMPREPLY=()
 	_ai_dev_run
+	if [ -n "$strip" ]; then
+		i=0
+		while [ "$i" -lt "${#COMPREPLY[@]}" ]; do
+			COMPREPLY[i]="${COMPREPLY[i]#"$strip"}"
+			i=$((i + 1))
+		done
+	fi
 }
 
 complete -o filenames -F _ai_dev ai-dev

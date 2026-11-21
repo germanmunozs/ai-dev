@@ -32,7 +32,11 @@ func (s guideTestSelector) Select(supplied string) selection.Report {
 	if requested == role.Implementation {
 		mapped = agent.CodexCLI
 	}
-	report := selection.Report{SuppliedRole: supplied, RequestedRole: requested, Outcome: s.outcome}
+	report := selection.Report{SuppliedRole: supplied, RequestedRole: requested, Outcome: s.outcome, Source: selection.SourceBuiltIn}
+	if s.outcome == selection.ConfigurationInvalid {
+		report.Source = selection.SourceProject
+		return report
+	}
 	if s.outcome == selection.RoleSelected {
 		report.SelectedAgentID = mapped
 	} else {
@@ -74,20 +78,20 @@ func TestWriteGuideTextEveryOutcome(t *testing.T) {
 		want   string
 	}{
 		{"step available", guideReport(t, "f", "specified", selection.RoleSelected, false),
-			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=available " + guideNote + "\n" +
+			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=available source=built_in " + guideNote + "\n" +
 				"  # select the agent for this role (003)\n  ai-dev agent select -- planning\n" +
 				"  # run the agent (002)\n  ai-dev agent run -- claude-code )instruction(\n" +
 				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
 				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
 				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"step unavailable", guideReport(t, "f", "tasked", selection.AgentUnavailable, false),
-			"ai-dev: outcome=step_recommended feature=\"f\" state=tasked activity=implement role=implementation agent=codex-cli availability=unavailable " + guideNote + "\n" +
+			"ai-dev: outcome=step_recommended feature=\"f\" state=tasked activity=implement role=implementation agent=codex-cli availability=unavailable source=built_in " + guideNote + "\n" +
 				"  # select the agent for this role (003)\n  ai-dev agent select -- implementation\n" +
 				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
 				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
 				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
 		{"step inconsistent", guideReport(t, "f", "", selection.SelectionInconsistent, false),
-			"ai-dev: outcome=step_recommended feature=\"f\" state=draft activity=specify role=specification agent=claude-code availability=inconsistent " + guideNote + "\n" +
+			"ai-dev: outcome=step_recommended feature=\"f\" state=draft activity=specify role=specification agent=claude-code availability=inconsistent source=built_in " + guideNote + "\n" +
 				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
 				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
 				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n"},
@@ -130,7 +134,7 @@ func TestWriteGuideJSONEveryOutcome(t *testing.T) {
 	if err := WriteGuideJSON(&out, step); err != nil {
 		t.Fatal(err)
 	}
-	const wantStep = `{"schema_version":"ai-dev.workflow-guide/v1","feature_id":"f","outcome":"step_recommended","current_state":"specified","activity":"plan","role":"planning","agent":"claude-code","agent_availability":"available","templates":[` +
+	const wantStep = `{"schema_version":"ai-dev.workflow-guide/v1","feature_id":"f","outcome":"step_recommended","current_state":"specified","activity":"plan","role":"planning","agent":"claude-code","agent_availability":"available","source":"built_in","templates":[` +
 		`{"kind":"select","label":"select the agent for this role (003)","command":"ai-dev agent select -- planning","human_slots":[]},` +
 		`{"kind":"run","label":"run the agent (002)","command":"ai-dev agent run -- claude-code )instruction(","human_slots":["instruction"]},` +
 		`{"kind":"transition","label":"after completing the activity, check the transition (004)","command":"ai-dev workflow transition -- 'f' )target-state(","human_slots":["target-state"]},` +
@@ -145,11 +149,11 @@ func TestWriteGuideJSONEveryOutcome(t *testing.T) {
 		report guide.Report
 		keys   []string
 	}{
-		{"step", step, []string{"activity", "agent", "agent_availability", "current_state", "feature_id", "outcome", "role", "schema_version", "statement", "templates"}},
+		{"step", step, []string{"activity", "agent", "agent_availability", "current_state", "feature_id", "outcome", "role", "schema_version", "source", "statement", "templates"}},
 		{"terminal", guideReport(t, "f", "abandoned", selection.RoleSelected, false), []string{"current_state", "feature_id", "outcome", "schema_version", "statement", "templates"}},
 		{"artifacts inconsistent", guideReport(t, "f", "tasked", selection.RoleSelected, true), []string{"current_state", "feature_id", "missing_artifacts", "outcome", "schema_version", "statement", "templates"}},
 		{"feature unknown", guide.Evaluate(fstest.MapFS{}, "missing", guideTestSelector{}), []string{"feature_id", "outcome", "schema_version", "statement", "templates"}},
-		{"unsafe identifier", guideReport(t, "a"+string(rune(0x200b))+"b", "", selection.RoleSelected, false), []string{"activity", "agent", "agent_availability", "current_state", "feature_id", "outcome", "role", "schema_version", "statement", "templates"}},
+		{"unsafe identifier", guideReport(t, "a"+string(rune(0x200b))+"b", "", selection.RoleSelected, false), []string{"activity", "agent", "agent_availability", "current_state", "feature_id", "outcome", "role", "schema_version", "source", "statement", "templates"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -476,5 +480,31 @@ func TestGuideWholeReportPastesSafely(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// F011 A2: with an invalid project configuration the line and the JSON name
+// no agent and carry source=project.
+func TestWriteGuideConfigurationInvalid(t *testing.T) {
+	r := guideReport(t, "f", "specified", selection.ConfigurationInvalid, false)
+	var text, js bytes.Buffer
+	if err := WriteGuideText(&text, r); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(text.String(), "ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning availability=configuration_invalid source=project note=") {
+		t.Fatalf("text: %q", text.String())
+	}
+	if strings.Contains(text.String(), "agent=") {
+		t.Fatalf("text names an agent: %q", text.String())
+	}
+	if err := WriteGuideJSON(&js, r); err != nil {
+		t.Fatal(err)
+	}
+	var object map[string]any
+	if err := json.Unmarshal(js.Bytes(), &object); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := object["agent"]; ok || object["agent_availability"] != "configuration_invalid" || object["source"] != "project" {
+		t.Fatalf("json: %v", object)
 	}
 }

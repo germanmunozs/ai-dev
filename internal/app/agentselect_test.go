@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/germanmunozs/ai-dev/internal/agent"
 	"github.com/germanmunozs/ai-dev/internal/system"
@@ -361,7 +363,7 @@ func TestRunAgentSelectRoleSelectedAcrossAllFiveRoles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.role, func(t *testing.T) {
 			executor := agentSelectExecutorBothAvailable()
-			wantText := "ai-dev: outcome=role_selected role=" + tt.role + " agent=" + tt.wantAgent + "\n"
+			wantText := "ai-dev: outcome=role_selected role=" + tt.role + " agent=" + tt.wantAgent + " source=built_in\n"
 
 			var firstOut, firstErr bytes.Buffer
 			code := Run(context.Background(), []string{"agent", "select", tt.role}, executor, nil, readyFS(), bytes.NewReader(nil), &firstOut, &firstErr)
@@ -396,6 +398,7 @@ func TestRunAgentSelectRoleSelectedAcrossAllFiveRoles(t *testing.T) {
 				"requested_role":    tt.role,
 				"selected_agent_id": tt.wantAgent,
 				"outcome":           "role_selected",
+				"source":            "built_in",
 			})
 		})
 	}
@@ -407,7 +410,7 @@ func TestRunAgentSelectRoleSelectedDoesNotMutateFilesystem(t *testing.T) {
 
 	registry := agent.NewRegistry(agentSelectExecutorBothAvailable())
 	var stdout, stderr bytes.Buffer
-	if code := RunAgentSelect([]string{"specification"}, registry, &stdout, &stderr); code != 0 {
+	if code := RunAgentSelect([]string{"specification"}, registry, fstest.MapFS{}, &stdout, &stderr); code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 	}
 
@@ -434,7 +437,7 @@ func TestRunAgentSelectRoleUnsupported(t *testing.T) {
 			if code != 1 {
 				t.Fatalf("text exit code = %d, want 1; stderr=%q", code, textErr.String())
 			}
-			wantText := "ai-dev: outcome=role_unsupported role=" + strconv.Quote(tt.suppliedRole) + "\n"
+			wantText := "ai-dev: outcome=role_unsupported role=" + strconv.Quote(tt.suppliedRole) + " source=built_in\n"
 			if textOut.String() != wantText {
 				t.Fatalf("stdout = %q, want %q", textOut.String(), wantText)
 			}
@@ -455,6 +458,7 @@ func TestRunAgentSelectRoleUnsupported(t *testing.T) {
 			assertExactJSONFields(t, got, map[string]string{
 				"supplied_role": tt.suppliedRole,
 				"outcome":       "role_unsupported",
+				"source":        "built_in",
 			})
 
 			if len(executor.lookups) != 0 {
@@ -513,7 +517,7 @@ func TestRunAgentSelectRoleUnsupportedAndUsageFailureDoNotMutateFilesystem(t *te
 		before := snapshotDir(t, dir)
 		registry := agent.NewRegistry(agentSelectExecutorBothAvailable())
 		var stdout, stderr bytes.Buffer
-		if code := RunAgentSelect([]string{"nonsense"}, registry, &stdout, &stderr); code != 1 {
+		if code := RunAgentSelect([]string{"nonsense"}, registry, fstest.MapFS{}, &stdout, &stderr); code != 1 {
 			t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 		}
 		after := snapshotDir(t, dir)
@@ -526,7 +530,7 @@ func TestRunAgentSelectRoleUnsupportedAndUsageFailureDoNotMutateFilesystem(t *te
 		before := snapshotDir(t, dir)
 		registry := agent.NewRegistry(agentSelectExecutorBothAvailable())
 		var stdout, stderr bytes.Buffer
-		if code := RunAgentSelect([]string{""}, registry, &stdout, &stderr); code != 2 {
+		if code := RunAgentSelect([]string{""}, registry, fstest.MapFS{}, &stdout, &stderr); code != 2 {
 			t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 		}
 		after := snapshotDir(t, dir)
@@ -544,7 +548,7 @@ func TestRunAgentSelectAgentUnavailable(t *testing.T) {
 		if code != 1 {
 			t.Fatalf("exit code = %d, want 1; stderr=%q", code, stderr.String())
 		}
-		wantText := "ai-dev: outcome=agent_unavailable role=implementation agent=codex-cli\n"
+		wantText := "ai-dev: outcome=agent_unavailable role=implementation agent=codex-cli source=built_in\n"
 		if stdout.String() != wantText {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), wantText)
 		}
@@ -570,20 +574,21 @@ func TestRunAgentSelectAgentUnavailable(t *testing.T) {
 			"requested_role":  "implementation",
 			"mapped_agent_id": "codex-cli",
 			"outcome":         "agent_unavailable",
+			"source":          "built_in",
 		})
 	})
 }
 
 func TestRunAgentSelectSelectionInconsistentTextMode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := RunAgentSelect([]string{"implementation"}, agent.Registry{}, &stdout, &stderr)
+	code := RunAgentSelect([]string{"implementation"}, agent.Registry{}, fstest.MapFS{}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("code = %d, want 1", code)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	want := "ai-dev: outcome=selection_inconsistent role=implementation agent=codex-cli\n"
+	want := "ai-dev: outcome=selection_inconsistent role=implementation agent=codex-cli source=built_in\n"
 	if got := stdout.String(); got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
@@ -592,7 +597,7 @@ func TestRunAgentSelectSelectionInconsistentTextMode(t *testing.T) {
 
 func TestRunAgentSelectSelectionInconsistentJSONMode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := RunAgentSelect([]string{"--format", "json", "implementation"}, agent.Registry{}, &stdout, &stderr)
+	code := RunAgentSelect([]string{"--format", "json", "implementation"}, agent.Registry{}, fstest.MapFS{}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("code = %d, want 1", code)
 	}
@@ -605,6 +610,7 @@ func TestRunAgentSelectSelectionInconsistentJSONMode(t *testing.T) {
 		"requested_role":  "implementation",
 		"mapped_agent_id": "codex-cli",
 		"outcome":         "selection_inconsistent",
+		"source":          "built_in",
 	})
 }
 
@@ -623,18 +629,18 @@ func TestNoFailureOutcomeResemblesRoleSelected(t *testing.T) {
 	t.Run("role_unsupported", func(t *testing.T) {
 		registry := agent.NewRegistry(agentSelectExecutorBothAvailable())
 		var stdout, stderr bytes.Buffer
-		RunAgentSelect([]string{"--format", "json", "nonsense"}, registry, &stdout, &stderr)
+		RunAgentSelect([]string{"--format", "json", "nonsense"}, registry, fstest.MapFS{}, &stdout, &stderr)
 		assertNoRoleSelected(t, stdout.String(), stderr.String())
 	})
 	t.Run("agent_unavailable", func(t *testing.T) {
 		registry := agent.NewRegistry(agentSelectExecutorCodexUnavailable())
 		var stdout, stderr bytes.Buffer
-		RunAgentSelect([]string{"--format", "json", "implementation"}, registry, &stdout, &stderr)
+		RunAgentSelect([]string{"--format", "json", "implementation"}, registry, fstest.MapFS{}, &stdout, &stderr)
 		assertNoRoleSelected(t, stdout.String(), stderr.String())
 	})
 	t.Run("selection_inconsistent", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
-		RunAgentSelect([]string{"--format", "json", "implementation"}, agent.Registry{}, &stdout, &stderr)
+		RunAgentSelect([]string{"--format", "json", "implementation"}, agent.Registry{}, fstest.MapFS{}, &stdout, &stderr)
 		assertNoRoleSelected(t, stdout.String(), stderr.String())
 	})
 }
@@ -644,7 +650,7 @@ func TestNoFurtherAutomaticActionAfterNonSelectedOutcome(t *testing.T) {
 		executor := agentSelectExecutorBothAvailable()
 		registry := agent.NewRegistry(executor)
 		var stdout, stderr bytes.Buffer
-		RunAgentSelect([]string{"nonsense"}, registry, &stdout, &stderr)
+		RunAgentSelect([]string{"nonsense"}, registry, fstest.MapFS{}, &stdout, &stderr)
 		if len(executor.lookups) != 0 {
 			t.Fatalf("LookPath calls = %v, want none", executor.lookups)
 		}
@@ -653,7 +659,7 @@ func TestNoFurtherAutomaticActionAfterNonSelectedOutcome(t *testing.T) {
 		executor := agentSelectExecutorCodexUnavailable()
 		registry := agent.NewRegistry(executor)
 		var stdout, stderr bytes.Buffer
-		RunAgentSelect([]string{"implementation"}, registry, &stdout, &stderr)
+		RunAgentSelect([]string{"implementation"}, registry, fstest.MapFS{}, &stdout, &stderr)
 		if want := []string{"claude", "codex"}; !reflect.DeepEqual(executor.lookups, want) {
 			t.Fatalf("LookPath calls = %v, want %v", executor.lookups, want)
 		}
@@ -662,14 +668,14 @@ func TestNoFurtherAutomaticActionAfterNonSelectedOutcome(t *testing.T) {
 		executor := agentSelectExecutorBothAvailable()
 		registry := agent.NewRegistry(executor)
 		var stdout, stderr bytes.Buffer
-		RunAgentSelect([]string{"specification"}, registry, &stdout, &stderr)
+		RunAgentSelect([]string{"specification"}, registry, fstest.MapFS{}, &stdout, &stderr)
 		if want := []string{"claude", "codex"}; !reflect.DeepEqual(executor.lookups, want) {
 			t.Fatalf("LookPath calls = %v, want %v", executor.lookups, want)
 		}
 	})
 	t.Run("selection_inconsistent never dereferences an executor", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
-		code := RunAgentSelect([]string{"implementation"}, agent.Registry{}, &stdout, &stderr)
+		code := RunAgentSelect([]string{"implementation"}, agent.Registry{}, fstest.MapFS{}, &stdout, &stderr)
 		if code != 1 {
 			t.Fatalf("code = %d, want 1 (call completing without panic proves no LookPath was attempted)", code)
 		}
@@ -679,7 +685,7 @@ func TestNoFurtherAutomaticActionAfterNonSelectedOutcome(t *testing.T) {
 func TestRunAgentSelectReportWriteFailureIsNotReclassified(t *testing.T) {
 	registry := agent.NewRegistry(agentSelectExecutorBothAvailable())
 	var stderr bytes.Buffer
-	code := RunAgentSelect([]string{"specification"}, registry, errWriter{}, &stderr)
+	code := RunAgentSelect([]string{"specification"}, registry, fstest.MapFS{}, errWriter{}, &stderr)
 	if code != 2 {
 		t.Fatalf("code = %d, want 2", code)
 	}
@@ -746,11 +752,68 @@ func TestRunAgentSelectAgentUnavailableDoesNotMutateFilesystem(t *testing.T) {
 	before := snapshotDir(t, dir)
 	registry := agent.NewRegistry(agentSelectExecutorCodexUnavailable())
 	var stdout, stderr bytes.Buffer
-	if code := RunAgentSelect([]string{"implementation"}, registry, &stdout, &stderr); code != 1 {
+	if code := RunAgentSelect([]string{"implementation"}, registry, fstest.MapFS{}, &stdout, &stderr); code != 1 {
 		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 	}
 	after := snapshotDir(t, dir)
 	if !reflect.DeepEqual(before, after) {
 		t.Fatalf("filesystem changed: before=%v after=%v", before, after)
+	}
+}
+
+// F011-FR-015 to FR-017: agent select follows the project assignment and
+// states its source; an invalid configuration never falls back.
+func TestAgentSelectFollowsTheProjectAssignment(t *testing.T) {
+	both := &setupExecutor{paths: map[string]string{"claude": "/tools/claude", "codex": "/tools/codex"}}
+	for _, test := range []struct {
+		name string
+		root fstest.MapFS
+		code int
+		want string
+	}{
+		{"no configuration", fstest.MapFS{}, 0, "ai-dev: outcome=role_selected role=implementation agent=codex-cli source=built_in\n"},
+		{"project", configFS(projectConfigImplementationClaude), 0, "ai-dev: outcome=role_selected role=implementation agent=claude-code source=project\n"},
+		{"invalid", configFS("{}"), 1, "ai-dev: outcome=configuration_invalid role=implementation source=project\n"},
+	} {
+		var stdout, stderr bytes.Buffer
+		code := RunWithDependencies(context.Background(), []string{"agent", "select", "implementation"}, Dependencies{Executor: both, Root: test.root, Stdout: &stdout, Stderr: &stderr})
+		if code != test.code || stdout.String() != test.want || stderr.Len() != 0 {
+			t.Errorf("%s: code=%d stdout=%q stderr=%q", test.name, code, stdout.String(), stderr.String())
+		}
+	}
+}
+
+// SC-004: every invalid configuration, for every role, is
+// configuration_invalid and names no agent.
+func TestAgentSelectEveryInvalidConfiguration(t *testing.T) {
+	roles := `"roles":{"specification":"claude-code","planning":"claude-code","implementation":"codex-cli","review":"claude-code","remediation":"codex-cli"}`
+	head := `"schema_version":"ai-dev.agents/v1","agents":["claude-code","codex-cli"]`
+	invalid := map[string]fstest.MapFS{
+		"directory is a file": {".ai-dev": &fstest.MapFile{Data: []byte("x")}},
+		"file is a symlink":   {".ai-dev/agents.json": &fstest.MapFile{Data: []byte("../elsewhere.json"), Mode: fs.ModeSymlink}, "elsewhere.json": &fstest.MapFile{Data: []byte("{" + head + "," + roles + "}")}},
+		"too large":           configFS(strings.Repeat(" ", 65537)),
+		"malformed":           configFS("{"),
+		"trailing data":       configFS("{" + head + "," + roles + "}{}"),
+		"duplicate key":       configFS("{" + head + `,"agents":["claude-code","codex-cli"],` + roles + "}"),
+		"unknown field":       configFS("{" + head + "," + roles + `,"command":"x"}`),
+		"missing field":       configFS(`{"schema_version":"ai-dev.agents/v1"}`),
+		"wrong type":          configFS(`{"schema_version":"ai-dev.agents/v1","agents":null,` + roles + "}"),
+		"unsupported schema":  configFS(`{"schema_version":"v2","agents":["claude-code","codex-cli"],` + roles + "}"),
+		"no agents":           configFS(`{"schema_version":"ai-dev.agents/v1","agents":[],` + roles + "}"),
+		"duplicate agent":     configFS(`{"schema_version":"ai-dev.agents/v1","agents":["claude-code","codex-cli","codex-cli"],` + roles + "}"),
+		"unknown agent":       configFS(`{"schema_version":"ai-dev.agents/v1","agents":["claude-code","codex-cli","gemini"],` + roles + "}"),
+		"unknown role":        configFS("{" + head + `,"roles":{"specification":"claude-code","planning":"claude-code","implementation":"codex-cli","review":"claude-code","remediation":"codex-cli","deploy":"codex-cli"}}`),
+		"missing role":        configFS("{" + head + `,"roles":{"specification":"claude-code"}}`),
+		"agent not chosen":    configFS(`{"schema_version":"ai-dev.agents/v1","agents":["claude-code"],` + roles + "}"),
+	}
+	both := &setupExecutor{paths: map[string]string{"claude": "/tools/claude", "codex": "/tools/codex"}}
+	for name, root := range invalid {
+		for _, r := range []string{"specification", "planning", "implementation", "review", "remediation"} {
+			var stdout, stderr bytes.Buffer
+			code := RunWithDependencies(context.Background(), []string{"agent", "select", r}, Dependencies{Executor: both, Root: root, Stdout: &stdout, Stderr: &stderr})
+			if code != 1 || stdout.String() != "ai-dev: outcome=configuration_invalid role="+r+" source=project\n" {
+				t.Errorf("%s/%s: code=%d stdout=%q stderr=%q", name, r, code, stdout.String(), stderr.String())
+			}
+		}
 	}
 }
