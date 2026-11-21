@@ -208,8 +208,8 @@ func TestNoNetworkShellOrPromptGitOperation(t *testing.T) {
 		}
 	}
 	// No production file starts a shell. The Feature 010 completion files
-	// name "bash" only as a completion target; they are exempt because
-	// they import nothing that can start a process, which is checked here.
+	// name "bash" as a completion target, so only that literal is allowed
+	// in them; they must still import nothing that can start a process.
 	completionTargets := map[string]bool{"internal/app/catalog.go": true, "internal/app/completion.go": true}
 	for _, file := range parsedTree(t) {
 		if completionTargets[file.path] {
@@ -219,10 +219,9 @@ func TestNoNetworkShellOrPromptGitOperation(t *testing.T) {
 					t.Errorf("%s names a shell and imports %s", file.path, path)
 				}
 			}
-			continue
 		}
 		if file.production && (strings.Contains(file.source, `"/bin/sh"`) || strings.Contains(file.source, `"sh", "-c"`) ||
-			strings.Contains(file.source, `"bash"`)) {
+			(strings.Contains(file.source, `"bash"`) && !completionTargets[file.path])) {
 			t.Errorf("%s may start a shell", file.path)
 		}
 	}

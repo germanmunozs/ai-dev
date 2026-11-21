@@ -30,4 +30,4 @@ bash --norc --noprofile -c 'source /tmp/ai-dev.bash; COMP_WORDS=(ai-dev init pla
 ./ai-dev completion fish; echo $?           # 2
 ```
 
-Interactive check: `source <(./ai-dev completion zsh)`, then press Tab after `./ai-dev wo`.
+Interactive check: `eval "$(./ai-dev completion zsh)"` (or `bash`), then press Tab after `ai-dev wo`. `TestZshCompletionInRealShell` drives the same check in a pseudo-terminal with the real `compinit` and `_files`.

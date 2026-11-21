@@ -111,7 +111,7 @@ func childWords(path []string) string {
 // _ai_dev_offer and _ai_dev_files.
 const completionBody = `# Complete the word at index cw of w.
 _ai_dev_run() {
-	local cmdpath sub list i n prev
+	local cmdpath sub list i n opts prev
 	_ai_dev_cur="${w[cw]}"
 	prev=""
 	if [ "$cw" -gt 1 ]; then prev="${w[cw-1]}"; fi
@@ -135,13 +135,17 @@ _ai_dev_run() {
 		_ai_dev_offer "$_ai_dev_r"
 		return 0
 	fi
-	# Count the positional arguments typed after the path.
+	# Count the positional arguments typed after the path, and note
+	# whether an option was: the router dispatches subcommands only on the
+	# word right after a group.
 	n=0
+	opts=0
 	while [ "$i" -lt "$cw" ]; do
 		case "${w[i]}" in
 		--) return 0 ;;
-		--*=*) ;;
+		--*=*) opts=1 ;;
 		-*)
+			opts=1
 			_ai_dev_value "$cmdpath ${w[i]}"
 			if [ -n "$_ai_dev_r" ]; then i=$((i + 1)); fi
 			;;
@@ -168,7 +172,7 @@ _ai_dev_run() {
 		;;
 	esac
 	list=""
-	if [ "$n" -eq 0 ]; then
+	if [ "$n" -eq 0 ] && [ "$opts" -eq 0 ]; then
 		_ai_dev_children "$cmdpath"
 		list="$_ai_dev_r"
 	fi
@@ -185,16 +189,46 @@ const bashEntry = `_ai_dev_offer() {
 	COMPREPLY=($(compgen -W "$1" -- "$_ai_dev_cur"))
 }
 
+# File names are read one per line, so they are never split or globbed.
 _ai_dev_files() {
-	local IFS=$'\n'
-	COMPREPLY=($(compgen -f -- "$_ai_dev_cur"))
+	local f
+	COMPREPLY=()
+	while IFS= read -r f; do
+		if [ -n "$f" ]; then COMPREPLY[${#COMPREPLY[@]}]="$f"; fi
+	done <<_AI_DEV_FILES_
+$(compgen -f -- "$_ai_dev_cur")
+_AI_DEV_FILES_
 }
 
+# bash 4 and later split --option=value into "--option", "=" and "value"
+# (COMP_WORDBREAKS); bash 3.2 does not. The words before the cursor are
+# joined back, and a value typed after "=" completes as that option's value.
 _ai_dev() {
 	local -a w
-	local cw _ai_dev_cur _ai_dev_r
-	w=("${COMP_WORDS[@]}")
-	cw=$COMP_CWORD
+	local cw i n word _ai_dev_cur _ai_dev_r
+	i=0
+	n=0
+	while [ "$i" -lt "$COMP_CWORD" ]; do
+		word="${COMP_WORDS[i]}"
+		if [ "$word" = "=" ] && [ "$n" -gt 0 ] && [ "${w[n-1]#--}" != "${w[n-1]}" ]; then
+			if [ "$((i + 1))" -lt "$COMP_CWORD" ]; then
+				w[n-1]="${w[n-1]}=${COMP_WORDS[i+1]}"
+				i=$((i + 2))
+			else
+				i=$((i + 1))
+			fi
+			continue
+		fi
+		w[n]="$word"
+		n=$((n + 1))
+		i=$((i + 1))
+	done
+	word="${COMP_WORDS[COMP_CWORD]}"
+	if [ "$word" = "=" ] && [ "$n" -gt 0 ] && [ "${w[n-1]#--}" != "${w[n-1]}" ]; then
+		word=""
+	fi
+	w[n]="$word"
+	cw=$n
 	COMPREPLY=()
 	_ai_dev_run
 }
@@ -206,7 +240,9 @@ const zshEntry = `_ai_dev_offer() {
 	compadd -- ${=1}
 }
 
+# _files expects zsh's own 1-based arrays.
 _ai_dev_files() {
+	setopt localoptions noksharrays
 	_files
 }
 
@@ -219,7 +255,7 @@ _ai_dev() {
 	_ai_dev_run
 }
 
-if [ "${funcstack[1]}" = "_ai_dev" ]; then
+if [[ ${zsh_eval_context[-1]} == loadautofunc ]]; then
 	_ai_dev "$@"
 else
 	compdef _ai_dev ai-dev

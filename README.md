@@ -119,13 +119,13 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 
 `--help` y `-h` solo se reconocen justo después del comando: `ai-dev agent run claude-code --help` envía `--help` como instrucción, sin mostrar la ayuda.
 
-**Autocompletado.** Los scripts son estáticos: al completar no ejecutan ningún programa ni leen el contenido de ningún archivo. Funcionan en bash 3.2 o posterior (el de macOS) y en zsh 5. ai-dev nunca modifica los archivos de inicio del shell:
+**Autocompletado.** Los scripts son estáticos: al completar no ejecutan ningún programa ni leen el contenido de ningún archivo. Funcionan en bash 3.2 o posterior (el de macOS) y en zsh 5. En zsh también se pueden instalar como `_ai-dev` en un directorio de `fpath`. ai-dev nunca modifica los archivos de inicio del shell:
 
 ```sh
-# bash (~/.bashrc)
-source <(ai-dev completion bash)
+# bash (~/.bashrc); eval también funciona en bash 3.2, donde source <(...) no lee nada
+eval "$(ai-dev completion bash)"
 # zsh (~/.zshrc, después de compinit)
-source <(ai-dev completion zsh)
+eval "$(ai-dev completion zsh)"
 ```
 
 **Códigos de salida (uniformes):**

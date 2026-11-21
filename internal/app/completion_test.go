@@ -61,6 +61,26 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "agent", "run", "claude-code", ""}, nil},
 	{[]string{"ai-dev", "init", "plan", "--author-name", ""}, nil},
 	{[]string{"ai-dev", "nope", ""}, nil},
+	{[]string{"ai-dev", "agent", "run", "--format=json", ""}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "agent", "run", "--format=j"}, nil},
+	{[]string{"ai-dev", "workflow", "state", "--", ""}, nil},
+	{[]string{"ai-dev", "init", "--project-dir", "x", ""}, nil},
+	{[]string{"ai-dev", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
+}
+
+// bashSplitCases are the words bash 4 and later produce for --option=value,
+// because "=" is in COMP_WORDBREAKS: "--option", "=" and the value.
+var bashSplitCases = []struct {
+	words []string
+	want  []string
+}{
+	{[]string{"ai-dev", "agent", "run", "--format", "=", "json", ""}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "agent", "run", "--format", "="}, []string{"text", "json"}},
+	{[]string{"ai-dev", "agent", "run", "--format", "=", "j"}, []string{"json"}},
+	{[]string{"ai-dev", "agent", "select", "--format", "=", "r"}, nil},
+	{[]string{"ai-dev", "git", "commit", "validate", "--file", "=", "no"}, []string{"FILES"}},
+	// A file name with a glob character is offered literally, never expanded.
+	{[]string{"ai-dev", "init", "plan", "--output", "q*"}, []string{"q*"}},
 }
 
 func writeScript(t *testing.T, shell string) string {
@@ -80,7 +100,7 @@ func writeScript(t *testing.T, shell string) string {
 // file-name completion has something known to offer.
 func fileFixture(t *testing.T) string {
 	dir := t.TempDir()
-	for _, name := range []string{"notes.txt", "now.md"} {
+	for _, name := range []string{"notes.txt", "now.md", "qa", "q*"} {
 		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -139,7 +159,7 @@ func TestBashCompletion(t *testing.T) {
 		if runtime.GOOS == "darwin" && bash == "/bin/bash" && strings.TrimSpace(string(version)) != "3" {
 			t.Fatalf("/bin/bash on macOS is version %s, want 3", version)
 		}
-		for _, test := range completionCases {
+		for _, test := range slices.Concat(completionCases, bashSplitCases) {
 			program := "source '" + script + "'\n" +
 				"COMP_WORDS=(" + shellWords(test.words) + ")\nCOMP_CWORD=" + strconv.Itoa(len(test.words)-1) + "\n" +
 				"_ai_dev\nprintf '%s\\n' \"${COMPREPLY[@]}\"\n" +

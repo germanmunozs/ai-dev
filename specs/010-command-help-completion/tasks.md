@@ -117,7 +117,20 @@
   - `go test -count=1 ./...`;
   - `go test -race -count=3 ./internal/app ./cmd/ai-dev`;
   - the quickstart scenarios by hand.
-- [ ] T019 Independent review (constitution VIII) of the diff against the spec and the contracts, then a PR to `dev` with CI green. The owner decides the merge.
+- [X] T019 Independent review (constitution VIII) of the diff against the spec and the contracts, then a PR to `dev` with CI green. The owner decides the merge.
+  - **Review (2026-11-20).** An independent reviewer agent, with no access to this conversation, checked the diff against the spec, the contracts and the constitution. It drove the scripts in interactive bash 3.2.57, bash 5.3 and zsh 5.9 under a pty, and compared about 30 help inputs with the binary before the change.
+    - **No findings:** F010-FR-003 (help recognized only right after the path), F010-FR-004 (help answered before routing) and F010-FR-010 (every usage line byte-identical).
+    - **Fixed, with a test that fails without the fix:**
+      - (1, high) zsh file completion failed because `ksharrays` leaked into `_files`. The test is `TestZshCompletionInRealShell`, with the real `compinit` in a pty.
+      - (3) bash 4+ splits `--opt=value` at `=`, so positionals were miscounted. The tests are the `bashSplitCases`.
+      - (6) file names were glob-expanded.
+      - (7) the first Tab did nothing when autoloaded from `fpath` as `_ai-dev`. The test is `TestZshCompletionAutoloadedFromFpath`.
+      - (8) subcommands were offered after an option.
+      - (9) the catalog's option kinds are now checked against `IsBoolFlag`.
+    - **Documentation:** (2) the bash install line is `eval "$(ai-dev completion bash)"`, because bash 3.2's `source <(...)` reads nothing.
+    - **Narrowed:** (4) the 008 shell-literal exemption now covers only `"bash"` in the two completion files.
+    - **Accepted as a documented limitation:** (5) bash `-o filenames` can append `/` to a word that also names a directory (contracts/completion.md).
+    - **Incident:** while comparing binaries, the reviewer ran `ai-dev agent run claude-code --help`, which launched Claude Code. It stopped at once with an out-of-credits error, and nothing was executed.
 
 ## Dependencies
 

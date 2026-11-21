@@ -100,6 +100,16 @@ func TestCatalogMatchesEachCommand(t *testing.T) {
 		var listed []string
 		for _, option := range spec.options {
 			listed = append(listed, option.name)
+			// Completion counts positionals by whether an option takes a
+			// value, so the catalog's kind must match the flag's.
+			if len(sets) > 0 {
+				if f := sets[len(sets)-1].Lookup(option.name); f != nil {
+					boolean, _ := f.Value.(interface{ IsBoolFlag() bool })
+					if (boolean != nil && boolean.IsBoolFlag()) != (option.value == "") {
+						t.Errorf("%s --%s: catalog value %q disagrees with the flag kind", path, option.name, option.value)
+					}
+				}
+			}
 		}
 		slices.Sort(defined)
 		slices.Sort(listed)

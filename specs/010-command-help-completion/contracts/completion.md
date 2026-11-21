@@ -31,15 +31,17 @@
 - It is byte-identical across runs for the same build.
 - Every embedded word matches `^[A-Za-z0-9._|-]+$`.
 - **bash:** it runs in bash 3.2 or later, and is registered with `complete -o filenames -F _ai_dev ai-dev`, without `-o default`.
-- **zsh:** it runs in zsh 5 or later, as a `#compdef ai-dev` function. When sourced, it registers itself with `compdef _ai_dev ai-dev`.
+- **zsh:** it runs in zsh 5 or later, as a `#compdef ai-dev` function. When evaluated or sourced, it registers itself with `compdef _ai_dev ai-dev`. When autoloaded from `fpath` (under any name), it completes on the first Tab.
+- **bash `--option=value`:** bash 4 and later split it at `=` (`COMP_WORDBREAKS`); the script joins the words back, so positionals are counted correctly, and a value typed after `=` completes as that option's value.
+- **Known limitation (bash):** `-o filenames` makes bash append `/` to a candidate that also names a directory in the working directory, for example `workflow/` when a `workflow` directory exists. bash 3.2 has no `compopt` to apply it to file values only, and dropping it would leave file names with spaces unescaped.
 
 ## Installation (documented in the README)
 
 ```sh
-# bash (~/.bashrc)
-source <(ai-dev completion bash)
-# zsh (~/.zshrc, after compinit)
-source <(ai-dev completion zsh)
+# bash (~/.bashrc); eval also works in bash 3.2, whose source <(...) reads nothing
+eval "$(ai-dev completion bash)"
+# zsh (~/.zshrc, after compinit), or save as _ai-dev in an fpath directory
+eval "$(ai-dev completion zsh)"
 ```
 
 ai-dev never writes shell startup files.
