@@ -265,7 +265,7 @@ func TestRunTopLevelUsageStringsAreIdenticalAndNameWorkflow(t *testing.T) {
 	if noArgs != unknown {
 		t.Fatalf("usage strings differ: %q vs %q", noArgs, unknown)
 	}
-	if noArgs != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]\n" {
+	if noArgs != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n" {
 		t.Fatalf("usage = %q, want workflow listed", noArgs)
 	}
 }

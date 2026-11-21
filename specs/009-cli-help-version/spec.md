@@ -17,6 +17,12 @@
 - Q: Where does the version come from? → A: From the build information Go embeds in the binary, read without starting any process. A release build may set an explicit version at link time. A development build reports its module version, as Go stamps it, and its commit.
 - Q: Does this change the top-level usage line, which Feature 007 kept unchanged? → A: Yes, explicitly. The line gains `git`, which already existed, plus `version` and `help`. 007's constraint applied to 007's own implementation. Every other usage text stays unchanged.
 
+### Session 2026-11-20 (amended by Feature 010)
+
+- Feature 010 (`specs/010-command-help-completion/spec.md`), approved by the owner on 2026-11-20 ("si, apruebo la 010 y abre el bugfix"), amends two requirements of this feature. This is a declared, unauthenticated assertion.
+  - **F009-FR-004:** `help` followed by a catalog command path is valid and prints that path's help (F010-FR-005). Only an unknown path or an argument after a complete path is a usage failure, and its usage line is now `Usage: ai-dev help [command...]`.
+  - **F009-FR-005:** the top-level usage line names `completion` too (F010-FR-010).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Know which build is running (Priority: P1)
@@ -61,8 +67,8 @@ A new user wants to see every command and what it does.
   The command MUST NOT start a process, read files, read standard input, or contact the network.
 - **F009-FR-002**: The text report MUST be one line. The JSON report MUST be one object with `schema_version: "ai-dev.version/v1"`. Unknown values are omitted, except `version`, which is always present.
 - **F009-FR-003**: `ai-dev --help`, `ai-dev -h` and `ai-dev help` MUST write the help to standard output and exit 0. The help lists every command group and subcommand with a one-line description, and the exit-code convention. Each listed command MUST exist: running it without arguments never yields the top-level usage.
-- **F009-FR-004**: Usage failures of `version` and `help` exit 2, write only their usage line to standard error, and write nothing to standard output.
-- **F009-FR-005**: The top-level usage line MUST be `Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]`. Every other command's behavior and usage text MUST remain unchanged.
+- **F009-FR-004**: Usage failures of `version` and `help` exit 2, write only their usage line to standard error, and write nothing to standard output. *(Amended by F010-FR-005: `help <command path>` is valid.)*
+- **F009-FR-005**: The top-level usage line MUST be `Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]`. Every other command's behavior and usage text MUST remain unchanged. *(Amended by F010-FR-010: the line also names `completion`.)*
 
 ### Key Entities
 

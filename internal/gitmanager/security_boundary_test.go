@@ -207,10 +207,21 @@ func TestNoNetworkShellOrPromptGitOperation(t *testing.T) {
 			t.Errorf("%s runs %s", op, invocation.Executable)
 		}
 	}
-	// No production file starts a shell.
+	// No production file starts a shell. The Feature 010 completion files
+	// name "bash" as a completion target, so only that literal is allowed
+	// in them; they must still import nothing that can start a process.
+	completionTargets := map[string]bool{"internal/app/catalog.go": true, "internal/app/completion.go": true}
 	for _, file := range parsedTree(t) {
+		if completionTargets[file.path] {
+			for _, spec := range file.ast.Imports {
+				if path, _ := strconv.Unquote(spec.Path.Value); path == "os" || path == "os/exec" || path == "syscall" ||
+					strings.HasSuffix(path, "/internal/system") || strings.HasSuffix(path, "/internal/gitprocess") {
+					t.Errorf("%s names a shell and imports %s", file.path, path)
+				}
+			}
+		}
 		if file.production && (strings.Contains(file.source, `"/bin/sh"`) || strings.Contains(file.source, `"sh", "-c"`) ||
-			strings.Contains(file.source, `"bash"`)) {
+			(strings.Contains(file.source, `"bash"`) && !completionTargets[file.path])) {
 			t.Errorf("%s may start a shell", file.path)
 		}
 	}

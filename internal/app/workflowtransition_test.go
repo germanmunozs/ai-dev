@@ -10,7 +10,7 @@ import (
 	"testing/fstest"
 )
 
-const workflowTransitionUsage = "Usage: ai-dev workflow transition [--format text|json] <feature-id> <target-state>\n"
+const wantWorkflowTransitionUsage = "Usage: ai-dev workflow transition [--format text|json] <feature-id> <target-state>\n"
 
 func assertWorkflowTransitionUsageFailure(t *testing.T, args []string) {
 	t.Helper()
@@ -22,7 +22,7 @@ func assertWorkflowTransitionUsageFailure(t *testing.T, args []string) {
 	if stdout.Len() != 0 {
 		t.Fatalf("%q: stdout = %q, want empty", args, stdout.String())
 	}
-	if stderr.String() != workflowTransitionUsage {
+	if stderr.String() != wantWorkflowTransitionUsage {
 		t.Fatalf("%q: stderr = %q, want usage", args, stderr.String())
 	}
 	if len(root.calls) != 0 {

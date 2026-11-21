@@ -1,7 +1,6 @@
 package app
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,16 +10,17 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
+const workflowTransitionUsage = "Usage: ai-dev workflow transition [--format text|json] <feature-id> <target-state>"
+
 // RunWorkflowTransition validates and executes the workflow transition
 // command. Usage validation (FR-029 step 1) completes here before
 // workflow.EvaluateTransition is called. It receives only a read-only fs.FS —
 // no executor, launcher, or registry — and never applies a transition.
 func RunWorkflowTransition(args []string, root fs.FS, stdout, stderr io.Writer) int {
 	usage := func() {
-		fmt.Fprintln(stderr, "Usage: ai-dev workflow transition [--format text|json] <feature-id> <target-state>")
+		fmt.Fprintln(stderr, workflowTransitionUsage)
 	}
-	flags := flag.NewFlagSet("workflow transition", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("workflow transition")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 2 || (*format != "text" && *format != "json") {
 		usage()

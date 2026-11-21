@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 
@@ -47,8 +46,7 @@ const gitReconcileUsage = "Usage: ai-dev init reconcile --plan FILE --authorizat
 // read-only steps 1–2 of supervised reconciliation. It creates no
 // authorization, transitions nothing and runs no mutation.
 func RunGitReconcile(ctx context.Context, args []string, deps GitManagementDependencies, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("init reconcile", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("init reconcile")
 	planPath := flags.String("plan", "", "")
 	authorizationID := flags.String("authorization-id", "", "")
 	format := flags.String("format", "text", "")

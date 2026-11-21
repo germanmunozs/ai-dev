@@ -1,7 +1,6 @@
 package app
 
 import (
-	"flag"
 	"fmt"
 	"io"
 
@@ -14,8 +13,7 @@ const versionUsage = "Usage: ai-dev version [--format text|json]"
 // RunVersion reports which build of ai-dev is running (F009-FR-001). It
 // reads only the build information embedded in the binary.
 func RunVersion(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("version", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("version")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || (*format != "text" && *format != "json") {
 		fmt.Fprintln(stderr, versionUsage)

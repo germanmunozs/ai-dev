@@ -27,8 +27,7 @@ var issuanceOptions = []string{"authorized-by", "authorization-expires-at", "con
 // RunGitApply implements "ai-dev init apply" in its issue-and-consume and
 // consume-existing forms (CLI contract §4–5).
 func RunGitApply(ctx context.Context, args []string, deps GitManagementDependencies, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("init apply", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("init apply")
 	planPath := flags.String("plan", "", "")
 	confirm := flags.String("confirm-plan", "", "")
 	authorizationID := flags.String("authorization-id", "", "")

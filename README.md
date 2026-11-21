@@ -47,6 +47,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 007 Workflow Orchestration | `ai-dev workflow guide` | Modo guiado implementado (solo lectura); modo autónomo diferido hasta superar sus gates de seguridad |
 | 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS, Linux/ext4 (VM) y Git 2.45.0 en CI |
 | 009 CLI Help and Version | `ai-dev version`, `ai-dev help` | Implementada |
+| 010 Command Help and Shell Completion | `ai-dev <comando> --help`, `ai-dev help <comando>`, `ai-dev completion` | Implementada |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -113,6 +114,19 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 | `ai-dev git commit validate (--message T \| --file F)` | Valida un mensaje Conventional Commits | No |
 | `ai-dev version` (o `--version`) | Indica qué build se está ejecutando: versión, commit, Go y plataforma | No |
 | `ai-dev help` (o `--help`, `-h`) | Lista todas las órdenes con su descripción | No |
+| `ai-dev <comando> --help` (o `-h`, o `ai-dev help <comando>`) | Ayuda de un comando o grupo: uso, argumentos, opciones con sus valores, qué cambia y códigos de salida | No |
+| `ai-dev completion bash\|zsh` | Escribe un script de autocompletado estático | No |
+
+`--help` y `-h` solo se reconocen justo después del comando: `ai-dev agent run claude-code --help` envía `--help` como instrucción, sin mostrar la ayuda.
+
+**Autocompletado.** Los scripts son estáticos: al completar no ejecutan ningún programa ni leen el contenido de ningún archivo. Funcionan en bash 3.2 o posterior (el de macOS) y en zsh 5. En zsh también se pueden instalar como `_ai-dev` en un directorio de `fpath`. ai-dev nunca modifica los archivos de inicio del shell:
+
+```sh
+# bash (~/.bashrc); eval también funciona en bash 3.2, donde source <(...) no lee nada
+eval "$(ai-dev completion bash)"
+# zsh (~/.zshrc, después de compinit)
+eval "$(ai-dev completion zsh)"
+```
 
 **Códigos de salida (uniformes):**
 

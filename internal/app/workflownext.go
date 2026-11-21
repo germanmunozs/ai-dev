@@ -1,7 +1,6 @@
 package app
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -10,6 +9,8 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/report"
 	"github.com/germanmunozs/ai-dev/internal/sdd"
 )
+
+const workflowNextUsage = "Usage: ai-dev workflow next [--format text|json] <feature-id>"
 
 // RunWorkflowNext evaluates and reports one read-only SDD next-step request.
 func RunWorkflowNext(args []string, root fs.FS, stdout, stderr io.Writer) int {
@@ -20,9 +21,8 @@ func runWorkflowNext(args []string, root fs.FS, stdout, stderr io.Writer, evalua
 	release := brokenPipeAsError()
 	defer release()
 
-	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev workflow next [--format text|json] <feature-id>") }
-	flags := flag.NewFlagSet("workflow next", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	usage := func() { fmt.Fprintln(stderr, workflowNextUsage) }
+	flags := newFlagSet("workflow next")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 1 || (*format != "text" && *format != "json") {
 		usage()
