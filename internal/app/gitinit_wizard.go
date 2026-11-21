@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -14,6 +13,8 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 	"github.com/germanmunozs/ai-dev/internal/report"
 )
+
+const gitWizardUsage = "Usage: ai-dev init [--project-dir PATH]"
 
 // wizardStrategies are shown in a fixed order with no preselection.
 var wizardStrategies = []gitmanager.Strategy{
@@ -38,11 +39,10 @@ type wizard struct {
 // RunGitWizard implements "ai-dev init". Without an interactive terminal it
 // refuses before inspecting, planning, locking, auditing or mutating.
 func RunGitWizard(ctx context.Context, args []string, deps GitManagementDependencies, stdin io.Reader, interactive bool, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("init", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("init")
 	projectDir := flags.String("project-dir", ".", "")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 {
-		fmt.Fprintln(stderr, "Usage: ai-dev init [--project-dir PATH]")
+		fmt.Fprintln(stderr, gitWizardUsage)
 		return 2
 	}
 	if !interactive {

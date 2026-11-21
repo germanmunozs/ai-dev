@@ -3,7 +3,6 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -16,8 +15,14 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
-// topLevelUsage names every command group (F009-FR-005).
-const topLevelUsage = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help> [options]"
+const doctorUsage = "Usage: ai-dev doctor [--format text|json]"
+
+const workflowGroupUsage = "Usage: ai-dev workflow <state|transition> [options]"
+
+const agentGroupUsage = "Usage: ai-dev agent <run|select> [options]"
+
+// topLevelUsage names every command group (F009-FR-005, F010-FR-010).
+const topLevelUsage = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]"
 
 // Dependencies is the composition bundle for one CLI invocation. Supplying a
 // dependency grants no authority by itself: each command receives only the
@@ -60,11 +65,18 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 		fmt.Fprintln(stderr, topLevelUsage)
 		return 2
 	}
+	// A help request is answered before routing, so no command code runs
+	// and no dependency is used (F010-FR-003, F010-FR-004).
+	if spec, ok := helpRequest(args); ok {
+		return writeHelp(pathHelp(spec), stdout, stderr)
+	}
 	switch args[0] {
 	case "version", "--version":
 		return RunVersion(args[1:], stdout, stderr)
 	case "help", "--help", "-h":
 		return RunHelp(args[1:], stdout, stderr)
+	case "completion":
+		return RunCompletion(args[1:], stdout, stderr)
 	}
 	if args[0] == "git" {
 		if len(args) >= 3 && args[1] == "commit" && args[2] == "validate" {
@@ -87,7 +99,7 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 			registry := agent.NewRegistry(executor)
 			return RunAgentSelect(args[2:], registry, stdout, stderr)
 		}
-		fmt.Fprintln(stderr, "Usage: ai-dev agent <run|select> [options]")
+		fmt.Fprintln(stderr, agentGroupUsage)
 		return 2
 	}
 	if args[0] == "workflow" {
@@ -117,16 +129,15 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 		if len(args) >= 2 && args[1] == "transition" {
 			return RunWorkflowTransition(args[2:], root, stdout, stderr)
 		}
-		fmt.Fprintln(stderr, "Usage: ai-dev workflow <state|transition> [options]")
+		fmt.Fprintln(stderr, workflowGroupUsage)
 		return 2
 	}
-	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev doctor [--format text|json]") }
+	usage := func() { fmt.Fprintln(stderr, doctorUsage) }
 	if args[0] != "doctor" {
 		fmt.Fprintln(stderr, topLevelUsage)
 		return 2
 	}
-	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("doctor")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 || (*format != "text" && *format != "json") {
 		usage()

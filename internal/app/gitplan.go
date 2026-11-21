@@ -25,8 +25,7 @@ var commitValueOptions = []string{
 // the canonical plan as one explicit external write; it never mutates the
 // project and never grants authorization.
 func RunGitPlan(ctx context.Context, args []string, deps GitManagementDependencies, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("init plan", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("init plan")
 	projectDir := flags.String("project-dir", ".", "")
 	strategy := flags.String("strategy", "", "")
 	initialize := flags.Bool("initialize-repository", false, "")

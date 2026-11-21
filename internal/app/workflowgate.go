@@ -1,7 +1,6 @@
 package app
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,6 +26,22 @@ func (v *setOnceValue) Set(value string) error {
 	return nil
 }
 
+// workflowGateUsage is the usage line of workflow approve and workflow
+// abandon; the command and the command catalog share it.
+func workflowGateUsage(decision gate.Decision) string {
+	if decision == gate.Abandonment {
+		return "Usage: ai-dev workflow abandon [--format text|json] --approver <identity> --reason <text> <feature-id> <target-state>"
+	}
+	return "Usage: ai-dev workflow approve [--format text|json] --approver <identity> [--reason <text>] <feature-id> <target-state>"
+}
+
+// The usage lines of workflow approve and workflow abandon, for the
+// command catalog, which does not import gate.
+var (
+	workflowApproveUsage = workflowGateUsage(gate.Approval)
+	workflowAbandonUsage = workflowGateUsage(gate.Abandonment)
+)
+
 // RunWorkflowGate validates and executes one explicit Human Gate request.
 func RunWorkflowGate(decision gate.Decision, args []string, root fs.FS, store gate.Store, stdout, stderr io.Writer) int {
 	return runWorkflowGate(decision, args, root, store, time.Now, stdout, stderr)
@@ -44,15 +59,9 @@ func runWorkflowGateWithEvaluator(decision gate.Decision, args []string, root fs
 	if decision == gate.Abandonment {
 		verb = "abandon"
 	}
-	usageText := fmt.Sprintf("Usage: ai-dev workflow %s [--format text|json] --approver <identity> ", verb)
-	if decision == gate.Abandonment {
-		usageText += "--reason <text> <feature-id> <target-state>"
-	} else {
-		usageText += "[--reason <text>] <feature-id> <target-state>"
-	}
+	usageText := workflowGateUsage(decision)
 	usage := func() { fmt.Fprintln(stderr, usageText) }
-	flags := flag.NewFlagSet("workflow "+verb, flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("workflow " + verb)
 	format := flags.String("format", "text", "output format")
 	var approver, reason setOnceValue
 	flags.Var(&approver, "approver", "approver identity")

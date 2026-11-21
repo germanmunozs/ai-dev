@@ -1,7 +1,6 @@
 package app
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,6 +13,8 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/selection"
 	"github.com/germanmunozs/ai-dev/internal/system"
 )
+
+const workflowGuideUsage = "Usage: ai-dev workflow guide [--format text|json] <feature-id>"
 
 // RunWorkflowGuide evaluates and reports one read-only guidance request. The
 // executor is reached only through the 003 selector's registry, which uses
@@ -28,9 +29,8 @@ func runWorkflowGuide(args []string, root fs.FS, stdout, stderr io.Writer, evalu
 	release := brokenPipeAsError()
 	defer release()
 
-	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev workflow guide [--format text|json] <feature-id>") }
-	flags := flag.NewFlagSet("workflow guide", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	usage := func() { fmt.Fprintln(stderr, workflowGuideUsage) }
+	flags := newFlagSet("workflow guide")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 1 || (*format != "text" && *format != "json") {
 		usage()

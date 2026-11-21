@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -46,8 +45,7 @@ func RunGitInit(ctx context.Context, args []string, deps GitManagementDependenci
 		fmt.Fprintln(stderr, gitInitUsage)
 		return 2
 	}
-	flags := flag.NewFlagSet("init inspect", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("init inspect")
 	projectDir := flags.String("project-dir", ".", "project directory")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 || (*format != "text" && *format != "json") || *projectDir == "" {

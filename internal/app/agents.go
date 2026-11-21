@@ -1,7 +1,6 @@
 package app
 
 import (
-	"flag"
 	"fmt"
 	"io"
 
@@ -10,11 +9,12 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
+const agentsUsage = "Usage: ai-dev agents [--format text|json]"
+
 // RunAgentsList validates and executes the supported-agent listing command.
 func RunAgentsList(args []string, executor system.Executor, stdout, stderr io.Writer) int {
-	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev agents [--format text|json]") }
-	flags := flag.NewFlagSet("agents", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	usage := func() { fmt.Fprintln(stderr, agentsUsage) }
+	flags := newFlagSet("agents")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || (*format != "text" && *format != "json") {
 		usage()

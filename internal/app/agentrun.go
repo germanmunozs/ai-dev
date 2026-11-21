@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/report"
 	"github.com/germanmunozs/ai-dev/internal/system"
 )
+
+const agentRunUsage = "Usage: ai-dev agent run [--format text|json] <agent-id> [instruction]"
 
 var getWorkingDirectory = os.Getwd
 
@@ -28,9 +29,8 @@ func RunAgentRun(
 	workdir string,
 	stdout, stderr io.Writer,
 ) int {
-	usage := func() { fmt.Fprintln(stderr, "Usage: ai-dev agent run [--format text|json] <agent-id> [instruction]") }
-	flags := flag.NewFlagSet("agent run", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	usage := func() { fmt.Fprintln(stderr, agentRunUsage) }
+	flags := newFlagSet("agent run")
 	format := flags.String("format", "text", "output format: text or json")
 	if err := flags.Parse(args); err != nil || flags.NArg() < 1 || flags.NArg() > 2 || (*format != "text" && *format != "json") {
 		usage()

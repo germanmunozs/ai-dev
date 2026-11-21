@@ -16,8 +16,7 @@ const gitCommitValidateUsage = "Usage: ai-dev git commit validate (--message TEX
 // state, and writes nothing but its result. A valid message exits 0, an
 // invalid one 1, and a usage or output error 2.
 func RunGitCommitValidate(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("git commit validate", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
+	flags := newFlagSet("git commit validate")
 	message := flags.String("message", "", "")
 	file := flags.String("file", "", "")
 	format := flags.String("format", "text", "")
