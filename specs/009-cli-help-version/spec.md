@@ -23,6 +23,12 @@
   - **F009-FR-004:** `help` followed by a catalog command path is valid and prints that path's help (F010-FR-005). Only an unknown path or an argument after a complete path is a usage failure, and its usage line is now `Usage: ai-dev help [command...]`.
   - **F009-FR-005:** the top-level usage line names `completion` too (F010-FR-010).
 
+### Session 2026-11-21 (amended by Feature 011, A4)
+
+- Feature 011 (`specs/011-agent-setup/spec.md`), approved by the owner on 2026-11-21 ("si, apruebo la 011, haz el commit y ejecuta /speckit-plan"), amends this feature. This is a declared, unauthenticated assertion.
+  - **F009-FR-003:** the general help lists `setup`, `setup show` and `setup apply`.
+  - **F009-FR-005:** the top-level usage line names `setup` too (F011-FR-020).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Know which build is running (Priority: P1)
