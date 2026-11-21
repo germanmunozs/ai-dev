@@ -83,8 +83,10 @@ Post-design re-check: PASS. The changes to 003 and 007 code are limited to what 
 specs/011-agent-setup/
   plan.md, research.md, data-model.md, quickstart.md
   contracts/setup-cli.md, contracts/config-file.md, contracts/selection-and-guide.md
-internal/projectconfig/{config.go,load.go,encode.go}, *_test.go     NEW
-internal/configstore/{store.go,write_posix.go,unsupported.go}, *_test.go, boundary_test.go   NEW
+internal/projectconfig/{config.go,load.go,encode.go,quote.go}, *_test.go   NEW (quote.go: the 004 shell-inert quoting, shared with internal/report)
+internal/configstore/{store.go,write_posix.go,unsupported.go,new_other.go}, *_test.go, boundary_test.go   NEW
+internal/report/quote.go                           MODIFIED (uses the shared quoting, output unchanged)
+internal/app/setupwrite.go, setupwrite_test.go     NEW (shared write decision for apply and the assistant)
 internal/agent/registry.go                         MODIFIED (Known, Catalog)
 internal/selection/{assignment.go,outcome.go,selector.go,validate.go}   MODIFIED/NEW (A1)
 internal/guide/{guide.go,templates.go}             MODIFIED (A2)

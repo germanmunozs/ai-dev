@@ -18,6 +18,7 @@
 - Q: What does "every installed agent" mean? → A: **Extensible catalog.** ai-dev detects the agents of its known catalog, and only by looking up each agent's executable. Today the catalog holds Claude Code and Codex CLI. Each new agent joins the catalog with its own execution support, in a separate decision. Executables outside the catalog are never detected, guessed or run.
 - Q: When are agents detected and the configuration written? → A: **Only on an explicit command,** started by a person: an interactive assistant and a non-interactive form. Nothing happens automatically on installation or on first use, and without a configuration ai-dev behaves exactly as it does today.
 - Q: Where is the configuration kept? → A: **Per project,** in one file inside the project, meant to be versioned with it, so everyone working on the project uses the same role assignment and its changes are reviewable.
+- **Analysis clarification (2026-11-21).** `/speckit-analyze` found that F011-FR-010 did not classify an invalid answer to a choice in the assistant. The owner authorized the fix ("si, aplica las correcciones y haz el commit"): it is a usage failure (exit 2, nothing written), consistent with `ai-dev init`. No other behavior changes.
 - **Proposed defaults, part of the approval.** An agent that is not installed can be chosen, with a visible warning, so a team can configure an agent some members have not installed yet. Every role must have an agent; there is no unassigned role. Choosing agents does not restrict `ai-dev agent run`, which keeps running any catalog agent a person names explicitly (002 is unchanged).
 
 ## User Scenarios & Testing *(mandatory)*
@@ -132,7 +133,7 @@ Once a project has a configuration, `ai-dev agent select <role>` and `ai-dev wor
   - warn, without refusing, when a chosen agent is unavailable;
   - show the complete resulting configuration and ask for confirmation, defaulting to no.
 
-  Only an explicit yes MAY write. Any other answer, end of input or an interrupt MUST write nothing and report `setup_cancelled`. An invalid existing configuration MUST be reported and the assistant MUST start with no preselection; the file is replaced only after confirmation.
+  Only an explicit yes MAY write. Any other answer, end of input or an interrupt MUST write nothing and report `setup_cancelled`. An invalid answer to a choice (an unknown agent, no agent chosen, a role given an agent that is not chosen) is a usage failure: exit 2, nothing written. An invalid existing configuration MUST be reported and the assistant MUST start with no preselection; the file is replaced only after confirmation.
 - **F011-FR-011**: `ai-dev setup apply` MUST take the chosen agents as one or more `--agent AGENT` options and the role assignment as exactly five `--role ROLE=AGENT` options, plus `--replace` and `--format text|json`. It MUST NOT prompt. Its outcomes MUST be:
   - `configuration_written` when it writes a new or replacing configuration;
   - `configuration_unchanged` when the requested configuration equals the existing one, and nothing is written;

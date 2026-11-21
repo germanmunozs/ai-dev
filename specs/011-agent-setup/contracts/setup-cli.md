@@ -58,7 +58,7 @@ JSON (`--format json`), exactly one object on stdout:
 - Validation uses the rules of contracts/config-file.md, applied to the options. Every violation is listed as a reason; `configuration_rejected` writes nothing.
 - Then the existing file is loaded:
   - absent: write, `configuration_written`;
-  - byte-identical to the requested canonical form: `configuration_unchanged`, nothing written;
+  - valid and equal in content to the requested configuration, whatever its formatting: `configuration_unchanged`, nothing written;
   - different, or invalid, without `--replace`: `configuration_exists`, nothing written;
   - different, or invalid, with `--replace`: write, `configuration_written`.
 - A write failure is `persistence_failed`, and the previous file is untouched.
@@ -93,7 +93,9 @@ Write it? [yes/no]
 - With an invalid existing configuration, its reasons are printed first and there is no preselection.
 - Only `yes` writes. `no`, any other answer, end of input or an interrupt: `Cancelled. Nothing was changed.`, outcome `setup_cancelled`, exit 1.
 - An invalid choice (unknown number or name, no agent chosen, an agent not chosen for a role): `ai-dev: setup: invalid input; nothing was changed` on stderr, exit 2.
+- After `yes`, an existing configuration, valid or invalid, is replaced: the confirmation is the explicit decision, so the assistant needs no `--replace`. An equal configuration is `configuration_unchanged`.
 - After writing: the `setup show` text for the new state, with outcome `configuration_written` (or `configuration_unchanged`).
+- On platforms without terminal detection (other than macOS and Linux), the assistant always refuses with `interactive_terminal_required`, which also fails closed before any write; `setup apply` reports `persistence_failed` there.
 
 ## Exit codes
 
