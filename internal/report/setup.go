@@ -169,16 +169,16 @@ func WriteSetupJSON(w io.Writer, r SetupReport) error {
 	}{SchemaVersion: SetupSchemaVersion, Command: r.Command, Outcome: r.Outcome, Source: r.Source,
 		Agents: []wireAgent{}, Roles: []wireRole{}, Warnings: []string{}, Reasons: []wireReason{}}
 	for _, a := range r.Agents {
-		wire.Agents = append(wire.Agents, wireAgent{a.ID, a.Label, a.Availability, a.Chosen})
+		wire.Agents = append(wire.Agents, wireAgent(a))
 		if warning := a.warning(); warning != "" {
 			wire.Warnings = append(wire.Warnings, warning+":"+a.ID)
 		}
 	}
 	for _, role := range r.Roles {
-		wire.Roles = append(wire.Roles, wireRole{role.Role, role.Agent})
+		wire.Roles = append(wire.Roles, wireRole(role))
 	}
 	for _, reason := range r.Reasons {
-		wire.Reasons = append(wire.Reasons, wireReason{reason.Code, reason.Value})
+		wire.Reasons = append(wire.Reasons, wireReason(reason))
 	}
 	return json.NewEncoder(w).Encode(wire)
 }
