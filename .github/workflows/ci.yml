@@ -14,6 +14,9 @@ on:
 permissions:
   contents: read
 
+# Third-party actions are pinned by full commit SHA, with the release tag as a
+# comment; Dependabot (.github/dependabot.yml) proposes the updates.
+
 # A newer push to the same pull request supersedes its running checks.
 # Pushes to dev and main always run to completion.
 concurrency:
@@ -29,8 +32,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -86,6 +91,33 @@ jobs:
             go test -run '^$' -fuzz "^${target}\$" -fuzztime 20s ./internal/gitmanager
           done
 
+  # Known vulnerabilities in the standard library and in reachable code, and
+  # staticcheck's default checks, for Linux and macOS. Both tools are fetched at
+  # pinned versions, verified by the Go checksum database; they are never added to
+  # go.mod, which stays free of external dependencies.
+  static-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+
+      # Installed once, so the macOS pass analyzes darwin files with a
+      # Linux binary.
+      - name: staticcheck
+        run: |
+          GOBIN="$RUNNER_TEMP/bin" go install honnef.co/go/tools/cmd/staticcheck@v0.8.2
+          "$RUNNER_TEMP/bin/staticcheck" ./...
+          GOOS=darwin "$RUNNER_TEMP/bin/staticcheck" ./...
+
   # T132 / VER-01: the real-Git suites against Git 2.45.0, the declared
   # minimum in internal/gitprocess/identify.go. The release tarball is
   # pinned by its published SHA-256 and built on the runner. It is
@@ -101,8 +133,10 @@ jobs:
       GIT_VERSION: 2.45.0
       GIT_TARBALL_SHA256: 0aac200bd06476e7df1ff026eb123c6827bc10fe69d2823b4bf2ebebe5953429
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false

@@ -111,6 +111,7 @@ func readPlanFile(path string) ([]byte, error) {
 // root, and the project the plan declares is inspected freshly.
 func applyPlan(ctx context.Context, deps GitManagementDependencies, request gitmanager.ApplyRequest) (gitmanager.GitApplyResult, error) {
 	if deps.OpenStore == nil || deps.IdentifyGit == nil || deps.LookupEnv == nil || deps.Commands == nil || deps.RandomSource == nil {
+		//lint:ignore ST1005 "Git" is a proper noun, and the text is the CLI's existing output.
 		return gitmanager.GitApplyResult{}, fmt.Errorf("Git apply is unavailable in this build")
 	}
 	stateRoot, err := gitmanager.ResolveStateRoot(deps.GOOS, deps.LookupEnv)

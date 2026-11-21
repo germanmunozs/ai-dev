@@ -88,6 +88,7 @@ func inspectWithEnvironment(ctx context.Context, deps GitManagementDependencies,
 		return gitmanager.GitInspection{}, gitmanager.EnvironmentProfile{}, err
 	}
 	if deps.Reader == nil || deps.IdentifyGit == nil || deps.LookupEnv == nil || deps.Environ == nil || deps.WorkingDir == nil {
+		//lint:ignore ST1005 "Git" is a proper noun, and the text is the CLI's existing output.
 		return fail(errors.New("Git inspection is unavailable in this build"))
 	}
 	stateRoot, err := gitmanager.ResolveStateRoot(deps.GOOS, deps.LookupEnv)
