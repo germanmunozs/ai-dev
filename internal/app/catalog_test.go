@@ -75,6 +75,27 @@ func TestCatalogCoversRoutedPaths(t *testing.T) {
 	}
 }
 
+// A group's usage line names exactly the subcommands the catalog routes
+// under it (F010-FR-010, Amendment 1).
+func TestGroupUsageNamesEverySubcommand(t *testing.T) {
+	for group, usage := range map[string]string{"agent": agentGroupUsage, "workflow": workflowGroupUsage} {
+		var names []string
+		for _, spec := range children([]string{group}) {
+			names = append(names, spec.path[1])
+		}
+		start, end := strings.Index(usage, "<"), strings.Index(usage, ">")
+		if start < 0 || end < start {
+			t.Fatalf("%s group usage %q has no <subcommand> list", group, usage)
+		}
+		listed := strings.Split(usage[start+1:end], "|")
+		slices.Sort(names)
+		slices.Sort(listed)
+		if !slices.Equal(listed, names) {
+			t.Errorf("%s group usage %q lists %v, catalog routes %v", group, usage, listed, names)
+		}
+	}
+}
+
 // For every command, the catalog's options are the options its flag set
 // defines (F010-FR-009, SC-004), and its usage line is the line it writes
 // on a usage failure (SC-002).

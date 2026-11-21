@@ -18,7 +18,7 @@
   - Each usage string refers to the command's existing usage text. Inline literals are extracted into constants with byte-identical content; dynamic ones (`workflow approve` and `workflow abandon`) use one function shared by the command and the catalog.
   - The catalog keeps the existing usage-failure line even where it is odd. `init inspect` prints the `init` group usage on failure today, and F010-FR-010 forbids changing that, so its help shows the line it really prints. A test compares each catalog usage line with the command's real usage-failure output (SC-002).
 - **Rationale:** a single source of truth (F010-FR-009) without changing any text.
-- **Found, out of scope:** the `workflow` group usage line still says `<state|transition>`, though the group has six commands. Changing it is a usage-text change that F010-FR-010 excludes. A group's help lists all six commands, so a user who asks for help sees them all.
+- **Found, out of scope:** the `workflow` group usage line still says `<state|transition>`, though the group has six commands. Changing it is a usage-text change that F010-FR-010 excludes. A group's help lists all six commands, so a user who asks for help sees them all. **Resolved 2026-11-21 by spec Amendment 1:** the line now names all six subcommands.
 
 ## R-03 Proving catalog options equal command options
 

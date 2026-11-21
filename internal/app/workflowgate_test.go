@@ -234,7 +234,7 @@ func TestRunWorkflowGateNilStoreAndDispatcherUsage(t *testing.T) {
 	out.Reset()
 	errOut.Reset()
 	code = RunWithGateStore(context.Background(), []string{"workflow", "bogus"}, &fakeExecutor{}, &appRunLauncher{}, appGateFixture(workflow.Draft), nil, stdin, &out, &errOut)
-	if code != 2 || out.Len() != 0 || errOut.String() != "Usage: ai-dev workflow <state|transition> [options]\n" || stdin.called {
+	if code != 2 || out.Len() != 0 || errOut.String() != "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n" || stdin.called {
 		t.Fatalf("code=%d out=%q err=%q stdin=%v", code, out.String(), errOut.String(), stdin.called)
 	}
 }

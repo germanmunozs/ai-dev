@@ -280,7 +280,7 @@ func TestRunWorkflowDispatchUsageFailures(t *testing.T) {
 		if stdout != "" {
 			t.Fatalf("%v: stdout = %q, want empty", args, stdout)
 		}
-		if stderr != "Usage: ai-dev workflow <state|transition> [options]\n" {
+		if stderr != "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n" {
 			t.Fatalf("%v: stderr = %q, want workflow usage", args, stderr)
 		}
 		if len(root.calls) != 0 {

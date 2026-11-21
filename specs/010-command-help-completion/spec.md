@@ -18,6 +18,14 @@
 - Q: Which shells get completion? → A: bash and zsh, the POSIX shells the project already supports for the 007 guide. fish and PowerShell are out of scope.
 - Q: Does this change Feature 009? → A: Yes, explicitly. F009-FR-004, under which `help` with an argument is a usage failure, is amended so that `help <command path>` is valid. F009-FR-005 is amended so that the top-level usage line names `completion`. Every other usage text and exit code stays unchanged.
 
+### Session 2026-11-21 (Amendment 1: the `workflow` group usage line)
+
+- **Defect.** The `workflow` group usage line, written for an unknown or missing `workflow` subcommand, still read `Usage: ai-dev workflow <state|transition> [options]`. Features 005, 006 and 007 added `next`, `approve`, `abandon` and `guide` and kept the line unchanged on purpose, and F010-FR-010 froze it again (research.md recorded it as found, out of scope).
+- **Authority record.** German Munoz, repository owner, asked for this fix on 2026-11-21 in the words "si, bórrala y corrige la línea de uso de workflow". This is a declared, unauthenticated assertion.
+- Q: What does the line say now? → A: `Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]`, the six subcommands in catalog order. The exit code (2), the stream (stderr) and the cases that print it do not change.
+- Q: How is drift prevented? → A: A test requires each group usage line (`agent` and `workflow`) to name exactly the subcommands the catalog routes under that group.
+- The usage expectations that Features 004–007 and 010 fixed in their tests are updated to the new line. No other usage text, behavior or exit code changes.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Learn one command's options (Priority: P1)
@@ -82,7 +90,7 @@ A user who types `ai-dev` often wants the shell to complete commands, options an
   It MUST NOT complete anything else.
 - **F010-FR-008**: The completion script MUST be static. Completing never runs ai-dev or any other program, and never reads project files or state. The script MUST contain no value taken from the environment, and MUST be byte-identical across runs for the same build. The bash script MUST work in bash 3.2 and later; the zsh script in zsh 5 and later.
 - **F010-FR-009**: The general help, each command's help and both completion scripts MUST come from one command catalog. Every catalogued path MUST be routed. Every option the catalog lists for a command MUST be accepted by that command, and every option the command accepts MUST be in the catalog.
-- **F010-FR-010**: The top-level usage line MUST be `Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]`. This amends F009-FR-005. Every other command's behavior, usage text and exit codes MUST remain unchanged.
+- **F010-FR-010**: The top-level usage line MUST be `Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]`. This amends F009-FR-005. The `workflow` group usage line MUST be `Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]`, and each group usage line MUST name exactly the subcommands routed under that group (Amendment 1, 2026-11-21). Every other command's behavior, usage text and exit codes MUST remain unchanged.
 
 ### Key Entities
 
@@ -94,7 +102,7 @@ A user who types `ai-dev` often wants the shell to complete commands, options an
 - **SC-002**: For 100% of commands, the usage line in the help is identical to the usage line of a usage failure.
 - **SC-003**: Both completion scripts load without errors in bash 3.2, current bash and zsh 5. They complete every catalogued command path, and the fixed values of each option that has them.
 - **SC-004**: For 100% of commands, the options the catalog lists equal the options the command accepts.
-- **SC-005**: The regression suites of Features 001–009 pass. The only updated expectations are the top-level usage line, the general help text, and `help` with an argument, as F010-FR-005 and F010-FR-010 require.
+- **SC-005**: The regression suites of Features 001–009 pass. The only updated expectations are the top-level usage line, the general help text, `help` with an argument, and the `workflow` group usage line (Amendment 1), as F010-FR-005 and F010-FR-010 require.
 
 ## Assumptions
 

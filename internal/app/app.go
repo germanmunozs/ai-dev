@@ -17,7 +17,7 @@ import (
 
 const doctorUsage = "Usage: ai-dev doctor [--format text|json]"
 
-const workflowGroupUsage = "Usage: ai-dev workflow <state|transition> [options]"
+const workflowGroupUsage = "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]"
 
 const agentGroupUsage = "Usage: ai-dev agent <run|select> [options]"
 

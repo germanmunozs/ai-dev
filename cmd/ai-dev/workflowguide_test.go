@@ -176,7 +176,7 @@ func TestNoAutonomousCapabilityExists(t *testing.T) {
 	marker := filepath.Join(t.TempDir(), "agent-ran")
 	env := []string{"PATH=" + guideAgentPath(t, marker, "claude", "codex"), "HOME=" + t.TempDir()}
 	const (
-		workflowUsage = "Usage: ai-dev workflow <state|transition> [options]\n"
+		workflowUsage = "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"
 		topUsage      = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"
 		guideUsage    = "Usage: ai-dev workflow guide [--format text|json] <feature-id>\n"
 	)
