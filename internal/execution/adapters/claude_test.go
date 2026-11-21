@@ -13,7 +13,7 @@ func TestClaudeAdapterBuildsPermissionPreservingOneShotCommand(t *testing.T) {
 	if name != "claude" {
 		t.Fatalf("name = %q, want claude", name)
 	}
-	if want := []string{"--print", instruction}; !reflect.DeepEqual(args, want) {
+	if want := []string{"--print", "--", instruction}; !reflect.DeepEqual(args, want) {
 		t.Fatalf("args = %#v, want %#v", args, want)
 	}
 	for _, forbidden := range []string{

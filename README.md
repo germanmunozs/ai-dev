@@ -276,10 +276,10 @@ Es una abstracción neutral respecto al proveedor para descubrir e invocar agent
 
 | Agente | Ejecutable | Invocación |
 |---|---|---|
-| `claude-code` | `claude` | `claude --print <instruction>` |
-| `codex-cli` | `codex` | `codex exec <instruction>` |
+| `claude-code` | `claude` | `claude --print -- <instruction>` |
+| `codex-cli` | `codex` | `codex exec -- <instruction>` |
 
-La instrucción llega como argumento **o** por stdin no interactivo, nunca por ambos a la vez. `ai-dev` no eleva permisos ni salta el sandbox o las aprobaciones del agente.
+La instrucción llega como argumento **o** por stdin no interactivo, nunca por ambos a la vez. `ai-dev` no eleva permisos ni salta el sandbox o las aprobaciones del agente. La instrucción va siempre después de `--`, así que una instrucción que empieza por `-` nunca se lee como una opción del agente (002, enmienda 1).
 
 El resultado distingue tres outcomes:
 - `agent_succeeded`: el agente terminó con éxito.
@@ -785,6 +785,7 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 - **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
 - **Claims huérfanos (REC-07):** una autorización cuyo claim quedó huérfano por un crash antes de la intención no se reasigna; hay que emitir una nueva.
 - **SIGKILL:** no se puede aplazar; se recupera por la vía de crash.
+- **Instrucción `-` en Codex CLI (002, enmienda 1):** si la instrucción es exactamente `-`, Codex CLI lee el prompt de stdin en vez de recibir `-`.
 - **Pérdida de energía (DUR-01):** no se simuló a nivel de bloque (T134, cerrada como declinada por el responsable). El orden de fsync y de sincronización de directorios está cubierto por inyección de fallos en cada paso y por SIGKILL en cada paso duradero.
 - **Fuera de alcance por diseño:**
   - autenticación de agentes;
