@@ -269,7 +269,7 @@ func TestPagerTimeoutTerminatesBlockedProcess(t *testing.T) {
 	naturalExitPath := filepath.Join(t.TempDir(), "blocked-pager-natural-exit")
 	replacePagerSentinel(t, sentinels, syntheticPagerHolderCommand(t, pidPath, naturalExitPath, "", false, false))
 
-	observation := triggerPagerWithTimeout(t, git, repository, sentinels, 500*time.Millisecond)
+	observation := triggerPagerOnceReady(t, git, repository, sentinels, pidPath)
 	if !errors.Is(observation.err, errPagerTimeout) || !observation.timedOut {
 		t.Fatalf("blocked pager result: err=%v timeout=%t output=%q", observation.err, observation.timedOut, observation.output)
 	}
@@ -294,7 +294,7 @@ func TestPagerTimeoutClosesPTYHeldByDescendant(t *testing.T) {
 	launcherExitPath := filepath.Join(t.TempDir(), "pager-launcher-exit")
 	replacePagerSentinel(t, sentinels, syntheticPagerHolderCommand(t, pidPath, naturalExitPath, launcherExitPath, false, true))
 
-	observation := triggerPagerWithTimeout(t, git, repository, sentinels, 500*time.Millisecond)
+	observation := triggerPagerOnceReady(t, git, repository, sentinels, pidPath, launcherExitPath)
 	if !errors.Is(observation.err, errPagerTimeout) || !observation.timedOut {
 		t.Fatalf("PTY holder result: err=%v timeout=%t output=%q", observation.err, observation.timedOut, observation.output)
 	}
@@ -322,13 +322,12 @@ func TestPagerTimeoutWithDetachedPTYHolderIsBounded(t *testing.T) {
 	launcherExitPath := filepath.Join(t.TempDir(), "detached-pager-launcher-exit")
 	replacePagerSentinel(t, sentinels, syntheticPagerHolderCommand(t, pidPath, naturalExitPath, launcherExitPath, true, true))
 
-	started := time.Now()
-	observation := triggerPagerWithTimeout(t, git, repository, sentinels, 500*time.Millisecond)
-	if elapsed, limit := time.Since(started), 500*time.Millisecond+pagerCleanupTimeout+500*time.Millisecond; elapsed >= limit {
-		t.Fatalf("detached PTY holder exceeded bounded cleanup: elapsed=%s limit=%s", elapsed, limit)
-	}
+	observation := triggerPagerOnceReady(t, git, repository, sentinels, pidPath, launcherExitPath)
 	if !errors.Is(observation.err, errPagerTimeout) || !observation.timedOut {
 		t.Fatalf("detached PTY holder result: err=%v timeout=%t output=%q", observation.err, observation.timedOut, observation.output)
+	}
+	if elapsed, limit := time.Since(observation.timedOutAt), pagerCleanupTimeout+500*time.Millisecond; elapsed >= limit {
+		t.Fatalf("detached PTY holder exceeded bounded cleanup: elapsed=%s limit=%s", elapsed, limit)
 	}
 	if !observation.processReaped || !observation.readerFinished {
 		t.Fatalf("detached PTY holder cleanup: reaped=%t reader_finished=%t", observation.processReaped, observation.readerFinished)
@@ -357,7 +356,6 @@ func TestPagerReportsGroupTerminationFailureWithoutBlocking(t *testing.T) {
 	simulatedErr := errors.New("simulated process-group termination failure")
 	var signaledGroupID int
 
-	started := time.Now()
 	observation := triggerPagerWithOptions(t, git, repository, sentinels, pagerRunOptions{
 		executionTimeout: 500 * time.Millisecond,
 		cleanupTimeout:   pagerCleanupTimeout,
@@ -365,12 +363,13 @@ func TestPagerReportsGroupTerminationFailureWithoutBlocking(t *testing.T) {
 			signaledGroupID = groupID
 			return simulatedErr
 		},
+		ready: filesExist(pidPath),
 	})
-	if elapsed, limit := time.Since(started), 500*time.Millisecond+pagerCleanupTimeout+500*time.Millisecond; elapsed >= limit {
-		t.Fatalf("termination failure exceeded bounded cleanup: elapsed=%s limit=%s", elapsed, limit)
-	}
 	if !errors.Is(observation.err, errPagerTimeout) || !errors.Is(observation.err, simulatedErr) {
 		t.Fatalf("termination failure result: %v", observation.err)
+	}
+	if elapsed, limit := time.Since(observation.timedOutAt), pagerCleanupTimeout+500*time.Millisecond; elapsed >= limit {
+		t.Fatalf("termination failure exceeded bounded cleanup: elapsed=%s limit=%s", elapsed, limit)
 	}
 	if !observation.processReaped || !observation.readerFinished {
 		t.Fatalf("termination failure cleanup: reaped=%t reader_finished=%t", observation.processReaped, observation.readerFinished)
@@ -402,6 +401,7 @@ func TestPagerCleanupVerificationRejectsDisabledGroupTermination(t *testing.T) {
 		executionTimeout: 500 * time.Millisecond,
 		cleanupTimeout:   pagerCleanupTimeout,
 		terminateGroup:   func(int) error { return nil },
+		ready:            filesExist(pidPath, launcherExitPath),
 	})
 	if !errors.Is(observation.err, errPagerTimeout) {
 		t.Fatalf("disabled cleanup result: %v", observation.err)
@@ -696,6 +696,7 @@ type commandObservation struct {
 	output         string
 	err            error
 	timedOut       bool
+	timedOutAt     time.Time
 	processReaped  bool
 	readerFinished bool
 	processGroupID int
@@ -762,10 +763,37 @@ func triggerPagerWithTimeout(t *testing.T, git, repository string, sentinels hos
 	})
 }
 
+// triggerPagerOnceReady runs the pager with the 500 ms synthetic timeout,
+// counted from the moment every readiness file exists.
+func triggerPagerOnceReady(t *testing.T, git, repository string, sentinels hostileGitSentinels, readinessFiles ...string) commandObservation {
+	return triggerPagerWithOptions(t, git, repository, sentinels, pagerRunOptions{
+		executionTimeout: 500 * time.Millisecond,
+		cleanupTimeout:   pagerCleanupTimeout,
+		terminateGroup:   terminatePseudoTerminalProcessGroup,
+		ready:            filesExist(readinessFiles...),
+	})
+}
+
+func filesExist(paths ...string) func() bool {
+	return func() bool {
+		for _, path := range paths {
+			if _, err := os.Stat(path); err != nil {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 type pagerRunOptions struct {
 	executionTimeout time.Duration
 	cleanupTimeout   time.Duration
 	terminateGroup   func(int) error
+	// ready, when set, delays the execution timeout until the synthetic
+	// fixture reaches the state the test exercises, so a slow start under
+	// load cannot be killed before it gets there. Readiness is bounded by
+	// pagerExecutionTimeout.
+	ready func() bool
 }
 
 func triggerPagerWithOptions(t *testing.T, git, repository string, sentinels hostileGitSentinels, options pagerRunOptions) commandObservation {
@@ -804,7 +832,11 @@ func triggerPagerWithOptions(t *testing.T, git, repository string, sentinels hos
 		return commandObservation{err: err, readerFinished: true}
 	}
 	_ = slave.Close()
+	ready := options.ready == nil
 	timer := time.NewTimer(options.executionTimeout)
+	if !ready {
+		timer.Reset(pagerExecutionTimeout)
+	}
 	defer timer.Stop()
 	poll := time.NewTicker(pagerPollInterval)
 	defer poll.Stop()
@@ -833,9 +865,14 @@ func triggerPagerWithOptions(t *testing.T, git, repository string, sentinels hos
 				processGroupID: processGroupID,
 			}
 		}
+		if !ready && options.ready() {
+			ready = true
+			timer.Reset(options.executionTimeout)
+		}
 		select {
 		case <-poll.C:
 		case <-timer.C:
+			timedOutAt := time.Now()
 			// Signal while the leader is deliberately still unreaped whenever
 			// the reader is open. This keeps the process-group identity reserved
 			// and prevents signaling through a released or reused PID.
@@ -859,6 +896,7 @@ func triggerPagerWithOptions(t *testing.T, git, repository string, sentinels hos
 						output:         output.String(),
 						err:            errors.Join(timeoutErr, killErr, waitErr, readErr),
 						timedOut:       true,
+						timedOutAt:     timedOutAt,
 						processReaped:  false,
 						readerFinished: true,
 						processGroupID: processGroupID,
@@ -878,6 +916,7 @@ func triggerPagerWithOptions(t *testing.T, git, repository string, sentinels hos
 				output:         output.String(),
 				err:            errors.Join(timeoutErr, killErr, waitErr, readErr, finalReadErr),
 				timedOut:       true,
+				timedOutAt:     timedOutAt,
 				processReaped:  waitFinished,
 				readerFinished: true,
 				processGroupID: processGroupID,
