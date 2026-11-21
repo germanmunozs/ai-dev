@@ -19,9 +19,12 @@ const workflowGuideUsage = "Usage: ai-dev workflow guide [--format text|json] <f
 // RunWorkflowGuide evaluates and reports one read-only guidance request. The
 // executor is reached only through the 003 selector's registry, which uses
 // executable lookup alone; guidance starts no process and reads no stdin.
+// The role assignment in effect comes from the Feature 011 project
+// configuration (A2).
 func RunWorkflowGuide(args []string, root fs.FS, executor system.Executor, stdout, stderr io.Writer) int {
 	return runWorkflowGuide(args, root, stdout, stderr, func(root fs.FS, featureID string) guide.Report {
-		return guide.Evaluate(root, featureID, selection.NewSelector(agent.NewRegistry(executor)))
+		assignment, _, _, _ := loadAssignment(root)
+		return guide.Evaluate(root, featureID, selection.NewSelectorFor(agent.NewRegistry(executor), assignment))
 	})
 }
 

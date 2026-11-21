@@ -73,8 +73,13 @@ func startZsh(t *testing.T, dir string) *zshSession {
 	if err != nil {
 		t.Skip("no zsh available")
 	}
+	return startShell(t, dir, zsh, "-f", "-i")
+}
+
+// startShell runs an interactive shell in a pseudo-terminal.
+func startShell(t *testing.T, dir, shell string, args ...string) *zshSession {
 	master, slave := openPTY(t)
-	cmd := exec.Command(zsh, "-f", "-i")
+	cmd := exec.Command(shell, args...)
 	cmd.Dir = dir
 	cmd.Env = []string{"HOME=" + t.TempDir(), "TERM=xterm", "PATH=" + os.Getenv("PATH"), "PS1=> "}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
@@ -123,7 +128,7 @@ func (s *zshSession) waitFor(want string) string {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.t.Fatalf("zsh never printed %q; output:\n%q", want, s.output.String())
+	s.t.Fatalf("the shell never printed %q; output:\n%q", want, s.output.String())
 	return ""
 }
 
@@ -172,4 +177,35 @@ func TestZshCompletionAutoloadedFromFpath(t *testing.T) {
 	s.send("PS1='> '; fpath=(" + filepath.ToSlash(functions) + " $fpath); autoload -U compinit; compinit -u -D; print READY\n")
 	s.waitFor("READY")
 	s.complete("ai-dev workflow st\t", "workflow state")
+}
+
+// TestBashCompletionInRealShell checks what readline really inserts, which
+// the COMP_WORDS simulation cannot show: bash replaces only the text after
+// the last "=", in bash 3.2 (one word) and in bash 4+ (split words)
+// (Feature 011 review M1, L1).
+func TestBashCompletionInRealShell(t *testing.T) {
+	script, dir := writeScript(t, "bash"), fileFixture(t)
+	for _, bash := range bashBinaries(t) {
+		t.Run(bash, func(t *testing.T) {
+			s := startShell(t, dir, bash, "--norc", "--noprofile", "-i")
+			s.send("source '" + filepath.ToSlash(script) + "'; echo READY\n")
+			s.waitFor("READY")
+			for typed, want := range map[string]string{
+				"ai-dev setup apply --role implementation=cl": "ai-dev setup apply --role implementation=claude-code",
+				"ai-dev setup apply --role=implementation=co": "ai-dev setup apply --role=implementation=codex-cli",
+				"ai-dev agent run --format=j":                 "ai-dev agent run --format=json",
+				"ai-dev setup apply --agent claude-code --ag": "ai-dev setup apply --agent claude-code --agent",
+			} {
+				s.mu.Lock()
+				s.output.Reset()
+				s.mu.Unlock()
+				// Tab completes; Ctrl-A, "echo LINE:", Ctrl-E and Enter
+				// print the line exactly as readline left it.
+				s.send(typed + "\t")
+				time.Sleep(300 * time.Millisecond)
+				s.send("\x01echo LINE:\x05\n")
+				s.waitFor("LINE:" + want + "\r\n")
+			}
+		})
+	}
 }

@@ -22,6 +22,16 @@
 
 - **Authority record (2026-11-19): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Amendments 1–4, of which this is Amendment 1 (FR-013) of Feature 007 (`specs/007-workflow-orchestration/spec.md`, section Required Amendments) in the words "si, apruebo las enmiendas 1 a 4, aplícalas". The approver identity is a declared, auditable assertion, not an authenticated identity. The amendment adds a permission for an explicit Feature 007 guidance request only; it changes no observable behavior of this feature and approves no Feature 007 implementation, plan or autonomous capability.
 
+### Session 2026-11-21 (Feature 011 cross-feature Amendment A1)
+
+- **Authority record (2026-11-21): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Feature 011 (`specs/011-agent-setup/spec.md`) with its Required Amendments in the words "si, apruebo la 011, haz el commit y ejecuta /speckit-plan". The approver identity is a declared, auditable assertion, not an authenticated identity.
+- **FR-003 and the Selection Policy:** the fixed mapping is the built-in assignment. It applies when the project has no configuration. A valid Feature 011 project configuration replaces it, with the same availability rules (F011-FR-015).
+- **FR-009:** `selection_inconsistent` stays reserved for a mismatch between the built-in assignment and the registry. A project configuration naming an unknown agent is `configuration_invalid` (F011-FR-018).
+- **FR-011:** the project configuration, or its confirmed absence, joins the determinism inputs.
+- **FR-012 and the outcomes:** a new outcome, `configuration_invalid` (exit 1), is reported when the project configuration is invalid; it names no agent and never falls back to the built-in assignment (F011-FR-016). Text and JSON reports state the assignment source, `built_in` or `project` (F011-FR-017).
+- **FR-026:** Feature 011's project configuration is the one permitted mapping-management capability. This feature itself still manages no mapping.
+- No other requirement of this feature changes.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Determine which agent is selected for a role that is ready to use (Priority: P1)
@@ -100,7 +110,7 @@ A developer requests selection for a development role that `ai-dev` does recogni
 
 - **FR-001**: The system MUST provide a capability through which a human explicitly requests selection of exactly one development role.
 - **FR-002**: The system MUST recognize exactly five development roles for this capability: specification, planning, implementation, review, and remediation. A development role is a distinct domain concept from a coding agent and MUST NOT be defined in terms of any specific coding agent's vendor, product name, or implementation. A supplied role value MUST be matched exactly and case-sensitively against these five identifiers; the system MUST NOT apply normalization, aliasing, abbreviation, or fuzzy matching to a supplied role value.
-- **FR-003**: The system MUST maintain the following fixed, built-in, deterministic mapping from each recognized development role to exactly one canonical coding agent identity drawn from the supported-agent model defined in 002-coding-agent-execution:
+- **FR-003**: The system MUST maintain the following fixed, built-in, deterministic mapping from each recognized development role to exactly one canonical coding agent identity drawn from the supported-agent model defined in 002-coding-agent-execution *(Amended by Feature 011, A1: this built-in assignment applies when the project has no configuration; a valid project configuration replaces it)*:
 
   | Development Role | Mapped Canonical Agent Identity |
   |---|---|
@@ -138,7 +148,7 @@ A developer requests selection for a development role that `ai-dev` does recogni
 - **FR-023**: For any role selection request whose outcome is not `role_selected`, the system MUST take no further automatic action for that request: it MUST NOT attempt another agent, choose an alternate agent, retry selection using another mapping, or execute any agent. Each such request ends at reporting; a subsequent attempt requires a new, separate, explicit human request.
 - **FR-024**: The system MUST NOT create, modify, or delete any repository or filesystem content as part of processing a role selection request, regardless of outcome. Role selection MUST remain observational and read-only with respect to both external coding agents and local project content.
 - **FR-025**: This feature MUST NOT change the approved observable behavior of the existing coding-agent listing capability or the existing coding-agent execution capability defined in 002-coding-agent-execution. This feature MUST reuse, and MUST NOT redefine, the existing meanings of canonical agent identity, supported agent, and local availability established by 002-coding-agent-execution.
-- **FR-026**: This feature MUST implement role selection strictly as role → select → report. It MUST NOT execute a selected agent as a consequence of selection, and MUST NOT implement routing, scoring, automatic retries, fallback, chained agent invocations, persistent workflow state, automatic SDD phase selection, automatic remediation triggering, dynamic plugin loading, MCP orchestration, authentication management, or any mapping-management capability.
+- **FR-026**: This feature MUST implement role selection strictly as role → select → report. It MUST NOT execute a selected agent as a consequence of selection, and MUST NOT implement routing, scoring, automatic retries, fallback, chained agent invocations, persistent workflow state, automatic SDD phase selection, automatic remediation triggering, dynamic plugin loading, MCP orchestration, authentication management, or any mapping-management capability. *(Amended by Feature 011, A1: Feature 011's project configuration is the one permitted mapping-management capability.)*
 - **FR-027**: Every human-readable presentation of a recognized role selection result MUST visibly display the exact canonical outcome value (`role_selected`, `role_unsupported`, `agent_unavailable`, or `selection_inconsistent`) required by FR-010. This requirement governs only that the exact value is visibly present; it does not prescribe surrounding cosmetic formatting.
 
 ### Key Entities

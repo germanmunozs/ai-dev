@@ -5,32 +5,44 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/role"
 )
 
-// Selector resolves one Role Selection Request against the fixed production
-// mapping and a supported-agent registry. It never launches, authenticates,
+// Selector resolves one Role Selection Request against the role assignment
+// in effect and a supported-agent registry. It never launches, authenticates,
 // probes the network, or otherwise invokes any coding agent — it holds no
 // system.Executor, no system.Launcher, and no execution.Runner, so it has no
 // path to do so.
 type Selector struct {
-	registry agent.Registry
+	registry   agent.Registry
+	assignment Assignment
 }
 
-// NewSelector builds a Selector against the given registry. Select always
-// resolves through the fixed, unexported mappedAgent function — there is no
-// way to supply a substitute policy through this or any other exported
-// constructor.
+// NewSelector builds a Selector that resolves through the fixed, unexported
+// mappedAgent function, the built-in assignment.
 func NewSelector(registry agent.Registry) Selector {
-	return Selector{registry: registry}
+	return NewSelectorFor(registry, BuiltIn())
+}
+
+// NewSelectorFor builds a Selector for the assignment in effect. The only
+// substitute for the built-in mapping is a validated project configuration
+// (F011 Amendment A1); see Assignment.
+func NewSelectorFor(registry agent.Registry, assignment Assignment) Selector {
+	return Selector{registry: registry, assignment: assignment}
 }
 
 // Select resolves exactly one supplied role value (verbatim, as the caller
 // supplied it) to a Role Selection Report.
 func (s Selector) Select(suppliedRole string) Report {
+	source := s.assignment.Source()
 	requested, ok := role.Recognized(suppliedRole)
 	if !ok {
-		return Report{SuppliedRole: suppliedRole, Outcome: RoleUnsupported}
+		return Report{SuppliedRole: suppliedRole, Outcome: RoleUnsupported, Source: source}
 	}
-	target, _ := mappedAgent(requested)
-	return resolveAgainstRegistry(suppliedRole, requested, target, s.registry)
+	target, ok := s.assignment.target(requested)
+	if s.assignment.invalid || !ok {
+		return Report{SuppliedRole: suppliedRole, RequestedRole: requested, Outcome: ConfigurationInvalid, Source: SourceProject}
+	}
+	report := resolveAgainstRegistry(suppliedRole, requested, target, s.registry)
+	report.Source = source
+	return report
 }
 
 // resolveAgainstRegistry determines the outcome for one already-recognized

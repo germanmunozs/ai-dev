@@ -26,6 +26,10 @@
 - Q: How is drift prevented? → A: A test requires each group usage line (`agent` and `workflow`) to name exactly the subcommands the catalog routes under that group.
 - The usage expectations that Features 004–007 and 010 fixed in their tests are updated to the new line. No other usage text, behavior or exit code changes.
 
+### Session 2026-11-21 (amended by Feature 011, A3)
+
+- Feature 011 (`specs/011-agent-setup/spec.md`), approved by the owner on 2026-11-21 ("si, apruebo la 011, haz el commit y ejecuta /speckit-plan"), amends F010-FR-010. This is a declared, unauthenticated assertion. Once Feature 011 is implemented, the top-level usage line is `Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]`, and the catalog holds `setup`, `setup show` and `setup apply` (F011-FR-020).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Learn one command's options (Priority: P1)

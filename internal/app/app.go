@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"strings"
 
 	"github.com/germanmunozs/ai-dev/internal/agent"
 	"github.com/germanmunozs/ai-dev/internal/doctor"
@@ -22,7 +23,7 @@ const workflowGroupUsage = "Usage: ai-dev workflow <state|transition|next|guide|
 const agentGroupUsage = "Usage: ai-dev agent <run|select> [options]"
 
 // topLevelUsage names every command group (F009-FR-005, F010-FR-010).
-const topLevelUsage = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]"
+const topLevelUsage = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]"
 
 // Dependencies is the composition bundle for one CLI invocation. Supplying a
 // dependency grants no authority by itself: each command receives only the
@@ -32,10 +33,13 @@ type Dependencies struct {
 	Launcher  system.Launcher
 	Root      fs.FS
 	GateStore gate.Store
-	Git       GitManagementDependencies
-	Stdin     io.Reader
-	Stdout    io.Writer
-	Stderr    io.Writer
+	// ConfigStore writes the Feature 011 project configuration; nil makes
+	// every write report persistence_failed.
+	ConfigStore ConfigStore
+	Git         GitManagementDependencies
+	Stdin       io.Reader
+	Stdout      io.Writer
+	Stderr      io.Writer
 }
 
 // Run executes the CLI application and returns its process exit code.
@@ -97,9 +101,23 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 		}
 		if len(args) >= 2 && args[1] == "select" {
 			registry := agent.NewRegistry(executor)
-			return RunAgentSelect(args[2:], registry, stdout, stderr)
+			return RunAgentSelect(args[2:], registry, root, stdout, stderr)
 		}
 		fmt.Fprintln(stderr, agentGroupUsage)
+		return 2
+	}
+	if args[0] == "setup" {
+		if len(args) >= 2 && args[1] == "show" {
+			return RunSetupShow(args[2:], executor, root, stdout, stderr)
+		}
+		if len(args) >= 2 && args[1] == "apply" {
+			return RunSetupApply(args[2:], executor, root, deps.ConfigStore, stdout, stderr)
+		}
+		if len(args) == 1 || strings.HasPrefix(args[1], "-") {
+			interactive := isTerminal(stdin) && writerIsTerminal(stdout)
+			return RunSetupWizard(ctx, args[1:], executor, root, deps.ConfigStore, stdin, interactive, stdout, stderr)
+		}
+		fmt.Fprintln(stderr, setupGroupUsage)
 		return 2
 	}
 	if args[0] == "workflow" {
@@ -158,6 +176,12 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 		return 0
 	}
 	return 1
+}
+
+// writerIsTerminal reports whether writer is a terminal device.
+func writerIsTerminal(writer io.Writer) bool {
+	file, ok := writer.(*os.File)
+	return ok && isTerminal(file)
 }
 
 func readerIsInteractive(reader io.Reader) bool {

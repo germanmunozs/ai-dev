@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"strings"
 
 	"github.com/germanmunozs/ai-dev/internal/agent"
@@ -15,8 +16,9 @@ const agentSelectUsage = "Usage: ai-dev agent select [--format text|json] <role>
 // RunAgentSelect validates and executes the role selection command. It has no
 // system.Executor, no system.Launcher, and no context.Context parameter — it
 // receives only a preconstructed, read-only agent.Registry, so it has no
-// capability to execute a process.
-func RunAgentSelect(args []string, registry agent.Registry, stdout, stderr io.Writer) int {
+// capability to execute a process. root is read for the Feature 011 project
+// configuration, which selects the role assignment in effect.
+func RunAgentSelect(args []string, registry agent.Registry, root fs.FS, stdout, stderr io.Writer) int {
 	usage := func() { fmt.Fprintln(stderr, agentSelectUsage) }
 	flags := newFlagSet("agent select")
 	format := flags.String("format", "text", "output format: text or json")
@@ -31,7 +33,8 @@ func RunAgentSelect(args []string, registry agent.Registry, stdout, stderr io.Wr
 		return 2
 	}
 
-	selectionReport := selection.NewSelector(registry).Select(suppliedRole)
+	assignment, _, _, _ := loadAssignment(root)
+	selectionReport := selection.NewSelectorFor(registry, assignment).Select(suppliedRole)
 	var err error
 	if *format == "json" {
 		err = report.WriteRoleSelectionJSON(stdout, selectionReport)

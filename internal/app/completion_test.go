@@ -41,8 +41,14 @@ var completionCases = []struct {
 	words []string
 	want  []string
 }{
+	// F011-FR-020: setup, its agents and the ROLE=AGENT pairs.
+	{[]string{"ai-dev", "setup", ""}, []string{"show", "apply"}},
+	{[]string{"ai-dev", "setup", "apply", "--agent", "c"}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", ""}, []string{"specification=claude-code", "specification=codex-cli", "planning=claude-code", "planning=codex-cli", "implementation=claude-code", "implementation=codex-cli", "review=claude-code", "review=codex-cli", "remediation=claude-code", "remediation=codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "impl"}, []string{"implementation=claude-code", "implementation=codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "review=claude-code", "--r"}, []string{"--role", "--replace"}},
 	{[]string{"ai-dev", "wo"}, []string{"workflow"}},
-	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "version", "help", "completion"}},
+	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "version", "help", "completion"}},
 	{[]string{"ai-dev", "workflow", ""}, []string{"state", "transition", "next", "guide", "approve", "abandon"}},
 	{[]string{"ai-dev", "workflow", "state", "--f"}, []string{"--format"}},
 	{[]string{"ai-dev", "workflow", "state", "--format", ""}, []string{"text", "json"}},
@@ -51,7 +57,7 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "agent", "run", "--format", "json", "c"}, []string{"claude-code", "codex-cli"}},
 	{[]string{"ai-dev", "agent", "select", "re"}, []string{"review", "remediation"}},
 	{[]string{"ai-dev", "help", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
-	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "version", "help", "completion"}},
+	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "version", "help", "completion"}},
 	{[]string{"ai-dev", "completion", ""}, []string{"bash", "zsh"}},
 	{[]string{"ai-dev", "git", "commit", ""}, []string{"validate"}},
 	{[]string{"ai-dev", "version", "-"}, []string{"--format", "--help"}},
@@ -62,7 +68,6 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "init", "plan", "--author-name", ""}, nil},
 	{[]string{"ai-dev", "nope", ""}, nil},
 	{[]string{"ai-dev", "agent", "run", "--format=json", ""}, []string{"claude-code", "codex-cli"}},
-	{[]string{"ai-dev", "agent", "run", "--format=j"}, nil},
 	{[]string{"ai-dev", "workflow", "state", "--", ""}, nil},
 	{[]string{"ai-dev", "init", "--project-dir", "x", ""}, nil},
 	{[]string{"ai-dev", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
@@ -74,6 +79,22 @@ var bashSplitCases = []struct {
 	words []string
 	want  []string
 }{
+	// bash 4 splits ROLE=AGENT too: the agent part completes alone, and the
+	// candidates drop the ROLE= that is already on the line.
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "=", "cl"}, []string{"claude-code"}},
+	// An unsplit --option=value (bash 3.2) completes the value; readline
+	// inserts it after the "=" (zsh offers nothing here, see zshOnly).
+	{[]string{"ai-dev", "agent", "run", "--format=j"}, []string{"json"}},
+	{[]string{"ai-dev", "setup", "apply", "--role=implementation=co"}, []string{"codex-cli"}},
+	// bash 3.2 keeps ROLE=AGENT as one word, but readline still replaces
+	// only the text after the last "=", so the candidates drop "ROLE=" too
+	// (review M1).
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation=cl"}, []string{"claude-code"}},
+	// --role=ROLE=AGENT, split twice by bash 4 (review L1).
+	{[]string{"ai-dev", "setup", "apply", "--role", "=", "implementation", "=", "cl"}, []string{"claude-code"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "=", "implementation", "="}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "="}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "=", "claude-code", "--role", "re"}, []string{"review=claude-code", "review=codex-cli", "remediation=claude-code", "remediation=codex-cli"}},
 	{[]string{"ai-dev", "agent", "run", "--format", "=", "json", ""}, []string{"claude-code", "codex-cli"}},
 	{[]string{"ai-dev", "agent", "run", "--format", "="}, []string{"text", "json"}},
 	{[]string{"ai-dev", "agent", "run", "--format", "=", "j"}, []string{"json"}},
@@ -192,7 +213,15 @@ func TestZshCompletion(t *testing.T) {
 	if out, err := exec.Command(zsh, "-n", script).CombinedOutput(); err != nil {
 		t.Fatalf("zsh -n: %v %s", err, out)
 	}
-	for _, test := range completionCases {
+	// zsh does not split words at "=", and compadd inserts whole words.
+	zshOnly := []struct {
+		words []string
+		want  []string
+	}{
+		{[]string{"ai-dev", "setup", "apply", "--role", "implementation=cl"}, []string{"implementation=claude-code"}},
+		{[]string{"ai-dev", "agent", "run", "--format=j"}, nil},
+	}
+	for _, test := range slices.Concat(completionCases, zshOnly) {
 		program := "compdef() { print -r -- \"compdef $*\" }\n" +
 			"compadd() { while [[ $# -gt 0 && $1 != -- ]]; do shift; done; shift; local w; for w in \"$@\"; do print -r -- \"$w\"; done }\n" +
 			"_files() { print -r -- FILES }\n" +

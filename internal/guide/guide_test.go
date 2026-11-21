@@ -95,6 +95,9 @@ func (s *fakeSelector) Select(suppliedRole string) selection.Report {
 	s.calls = append(s.calls, suppliedRole)
 	report := s.report
 	report.SuppliedRole = suppliedRole
+	if report.Source == "" {
+		report.Source = selection.SourceBuiltIn
+	}
 	if requested, ok := role.Recognized(suppliedRole); ok && report.Outcome != selection.RoleUnsupported {
 		report.RequestedRole = requested
 	}
@@ -170,6 +173,9 @@ func TestEvaluateAvailabilityMapping(t *testing.T) {
 		{"role selected", selection.Report{SelectedAgentID: agent.ClaudeCode, Outcome: selection.RoleSelected}, agent.ClaudeCode, Available, true},
 		{"agent unavailable", selection.Report{MappedAgentID: agent.ClaudeCode, Outcome: selection.AgentUnavailable}, agent.ClaudeCode, Unavailable, true},
 		{"selection inconsistent", selection.Report{MappedAgentID: agent.ClaudeCode, Outcome: selection.SelectionInconsistent}, agent.ClaudeCode, Inconsistent, true},
+		// F011 A2: an invalid project configuration names no agent.
+		{"configuration invalid", selection.Report{Outcome: selection.ConfigurationInvalid, Source: selection.SourceProject}, "", ConfigurationInvalid, true},
+		{"project selected", selection.Report{SelectedAgentID: agent.CodexCLI, Outcome: selection.RoleSelected, Source: selection.SourceProject}, agent.CodexCLI, Available, true},
 		{"role unsupported", selection.Report{Outcome: selection.RoleUnsupported}, "", "", false},
 		{"unknown outcome", selection.Report{SelectedAgentID: agent.ClaudeCode, Outcome: "bogus"}, "", "", false},
 	}
@@ -180,6 +186,16 @@ func TestEvaluateAvailabilityMapping(t *testing.T) {
 			got := Evaluate(root, guideFeatureID, selector)
 			if !reflect.DeepEqual(selector.calls, []string{string(role.Planning)}) {
 				t.Fatalf("selector calls = %v, want exactly the 005 role %q", selector.calls, role.Planning)
+			}
+			wantSource := selection.Source("")
+			if tc.wantValid {
+				wantSource = selection.SourceBuiltIn
+				if tc.report.Source != "" {
+					wantSource = tc.report.Source
+				}
+			}
+			if got.Source != wantSource {
+				t.Fatalf("source = %q, want %q", got.Source, wantSource)
 			}
 			if got.Agent != tc.wantAgent || got.Availability != tc.wantAvailability || got.Valid() != tc.wantValid {
 				t.Fatalf("got agent=%q availability=%q valid=%v, want %q %q %v", got.Agent, got.Availability, got.Valid(), tc.wantAgent, tc.wantAvailability, tc.wantValid)
@@ -232,8 +248,13 @@ func TestValidRejectsAlteredReports(t *testing.T) {
 		"statement changed":    func(r *Report) { r.Statement = "approved" },
 		"agent missing":        func(r *Report) { r.Agent = "" },
 		"availability unknown": func(r *Report) { r.Availability = "maybe" },
-		"template dropped":     func(r *Report) { r.Templates = r.Templates[1:] },
-		"slot filled":          func(r *Report) { r.Templates[2].Words[5] = Word{Kind: WordFixed, Text: "planned"} },
+		"source missing":       func(r *Report) { r.Source = "" },
+		"configuration invalid with an agent": func(r *Report) {
+			r.Availability, r.Source = ConfigurationInvalid, selection.SourceProject
+			r.Templates = Templates(r.Outcome, r.Availability, r.Role, r.Agent)
+		},
+		"template dropped": func(r *Report) { r.Templates = r.Templates[1:] },
+		"slot filled":      func(r *Report) { r.Templates[2].Words[5] = Word{Kind: WordFixed, Text: "planned"} },
 		"non-canonical agent token": func(r *Report) {
 			r.Agent = "claude code"
 			r.Templates = Templates(r.Outcome, r.Availability, r.Role, r.Agent)

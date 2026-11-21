@@ -65,18 +65,18 @@ func TestWorkflowGuideBinaryContract(t *testing.T) {
 		wantJSON string
 	}{
 		{"no agents installed", nil,
-			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=unavailable note=\"" + guideStatement + "\"\n" +
+			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=unavailable source=built_in note=\"" + guideStatement + "\"\n" +
 				"  # select the agent for this role (003)\n  ai-dev agent select -- planning\n" +
 				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
 				"  # then record your decision (006)\n  ai-dev workflow approve --approver )approver( -- 'f' )target-state(\n" +
 				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n",
-			`{"schema_version":"ai-dev.workflow-guide/v1","feature_id":"f","outcome":"step_recommended","current_state":"specified","activity":"plan","role":"planning","agent":"claude-code","agent_availability":"unavailable","templates":[` +
+			`{"schema_version":"ai-dev.workflow-guide/v1","feature_id":"f","outcome":"step_recommended","current_state":"specified","activity":"plan","role":"planning","agent":"claude-code","agent_availability":"unavailable","source":"built_in","templates":[` +
 				`{"kind":"select","label":"select the agent for this role (003)","command":"ai-dev agent select -- planning","human_slots":[]},` +
 				`{"kind":"transition","label":"after completing the activity, check the transition (004)","command":"ai-dev workflow transition -- 'f' )target-state(","human_slots":["target-state"]},` +
 				`{"kind":"approve","label":"then record your decision (006)","command":"ai-dev workflow approve --approver )approver( -- 'f' )target-state(","human_slots":["approver","target-state"],"optional_flags":["--reason"]}],` +
 				`"statement":"` + guideStatement + `"}` + "\n"},
 		{"mapped agent installed", []string{"claude"},
-			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=available note=\"" + guideStatement + "\"\n" +
+			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=available source=built_in note=\"" + guideStatement + "\"\n" +
 				"  # select the agent for this role (003)\n  ai-dev agent select -- planning\n" +
 				"  # run the agent (002)\n  ai-dev agent run -- claude-code )instruction(\n" +
 				"  # after completing the activity, check the transition (004)\n  ai-dev workflow transition -- 'f' )target-state(\n" +
@@ -84,7 +84,7 @@ func TestWorkflowGuideBinaryContract(t *testing.T) {
 				"  # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)\n",
 			""},
 		{"only the other agent installed", []string{"codex"},
-			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=unavailable note=\"" + guideStatement + "\"\n",
+			"ai-dev: outcome=step_recommended feature=\"f\" state=specified activity=plan role=planning agent=claude-code availability=unavailable source=built_in note=\"" + guideStatement + "\"\n",
 			""},
 	}
 	for _, tc := range cases {
@@ -177,7 +177,7 @@ func TestNoAutonomousCapabilityExists(t *testing.T) {
 	env := []string{"PATH=" + guideAgentPath(t, marker, "claude", "codex"), "HOME=" + t.TempDir()}
 	const (
 		workflowUsage = "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"
-		topUsage      = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"
+		topUsage      = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]\n"
 		guideUsage    = "Usage: ai-dev workflow guide [--format text|json] <feature-id>\n"
 	)
 	cases := []struct {

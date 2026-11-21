@@ -55,6 +55,13 @@ Every statement in this specification is one of:
 - **Authority record (2026-11-20): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, decided to amend 004 FR-028 in the words "Hallazgo de 004 FR-028 enmendar", after the finding was reported during the Feature 007 follow-up work. The approver identity is a declared, auditable assertion, not an authenticated identity.
 - 004 FR-028's escaped, quoted form is now Go's double-quoted form with every `$`, backquote and `!` additionally backslash-escaped (004 Amendment 5). It applies by reference to the feature identifier its status line renders in 004's form (F007-FR-006). It resolves the status-line residual documented for the guidance report. No other requirement of this feature changes.
 
+### Session 2026-11-21 (Feature 011 cross-feature Amendment A2)
+
+- **Authority record (2026-11-21): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Feature 011 (`specs/011-agent-setup/spec.md`) with its Required Amendments in the words "si, apruebo la 011, haz el commit y ejecuta /speckit-plan". The approver identity is a declared, auditable assertion, not an authenticated identity.
+- **F007-FR-004:** the mapped agent comes from the role assignment in effect: the Feature 011 project configuration when it is valid, the built-in 003 FR-003 assignment when there is none (F011-FR-015). When the configuration is invalid, the availability is `configuration_invalid` and no agent is named (F011-FR-016). The report states the source, `built_in` or `project` (F011-FR-017).
+- **F007-FR-009:** the project configuration, or its confirmed absence, joins the inputs.
+- No other requirement of this feature changes.
+
 ## Ownership Boundaries
 
 | Capability | Owner | Feature 007 obligation |

@@ -47,7 +47,7 @@ func TestCatalogCoversRoutedPaths(t *testing.T) {
 		"doctor", "agents", "agent select", "agent run",
 		"workflow state", "workflow transition", "workflow next", "workflow guide", "workflow approve", "workflow abandon",
 		"init", "init inspect", "init plan", "init apply", "init reconcile",
-		"git commit validate", "version", "help", "completion",
+		"git commit validate", "setup", "setup show", "setup apply", "version", "help", "completion",
 	}
 	if got := catalogCommands(); !slices.Equal(got, commands) {
 		t.Fatalf("catalog commands:\n%v\nwant:\n%v", got, commands)
@@ -59,7 +59,7 @@ func TestCatalogCoversRoutedPaths(t *testing.T) {
 		}
 	}
 	slices.Sort(groups)
-	if want := []string{"agent", "git", "git commit", "init", "workflow"}; !slices.Equal(groups, want) {
+	if want := []string{"agent", "git", "git commit", "init", "setup", "workflow"}; !slices.Equal(groups, want) {
 		t.Fatalf("catalog groups %v, want %v", groups, want)
 	}
 	seen := map[string]bool{}
@@ -76,16 +76,20 @@ func TestCatalogCoversRoutedPaths(t *testing.T) {
 }
 
 // A group's usage line names exactly the subcommands the catalog routes
-// under it (F010-FR-010, Amendment 1).
+// under it (F010-FR-010, Amendment 1). The list is in <…>, or in […] for a
+// group that is also a command, like setup (F011 T026).
 func TestGroupUsageNamesEverySubcommand(t *testing.T) {
-	for group, usage := range map[string]string{"agent": agentGroupUsage, "workflow": workflowGroupUsage} {
+	for group, usage := range map[string]string{"agent": agentGroupUsage, "workflow": workflowGroupUsage, "setup": setupGroupUsage} {
 		var names []string
 		for _, spec := range children([]string{group}) {
 			names = append(names, spec.path[1])
 		}
 		start, end := strings.Index(usage, "<"), strings.Index(usage, ">")
+		if start < 0 {
+			start, end = strings.Index(usage, "["), strings.Index(usage, "]")
+		}
 		if start < 0 || end < start {
-			t.Fatalf("%s group usage %q has no <subcommand> list", group, usage)
+			t.Fatalf("%s group usage %q has no subcommand list", group, usage)
 		}
 		listed := strings.Split(usage[start+1:end], "|")
 		slices.Sort(names)
@@ -154,8 +158,11 @@ func TestCatalogDescriptionsMatchTheGeneralHelp(t *testing.T) {
 }
 
 // Every word the completion scripts embed needs no quoting (F010-FR-008).
+// Option values may also hold "=" (setup apply --role ROLE=AGENT, F011
+// R-07): they are only embedded inside double quotes, where "=" is inert.
 func TestCatalogWordsAreShellSafe(t *testing.T) {
 	safe := regexp.MustCompile(`^[A-Za-z0-9._|-]+$`)
+	safeValue := regexp.MustCompile(`^[A-Za-z0-9._|=-]+$`)
 	check := func(word, where string) {
 		if !safe.MatchString(word) {
 			t.Errorf("%s: unsafe word %q", where, word)
@@ -169,7 +176,9 @@ func TestCatalogWordsAreShellSafe(t *testing.T) {
 		for _, option := range spec.options {
 			check(option.name, where)
 			for _, value := range option.values {
-				check(value, where)
+				if !safeValue.MatchString(value) {
+					t.Errorf("%s: unsafe option value %q", where, value)
+				}
 			}
 		}
 		for _, arg := range spec.args {

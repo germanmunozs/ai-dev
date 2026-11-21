@@ -9,21 +9,25 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/selection"
 )
 
-// Availability is the reported state of the agent a role maps to under 003
-// (F007-FR-004). It is information only.
+// Availability is the reported state of the agent a role maps to under the
+// role assignment in effect (F007-FR-004, F011 Amendment A2). It is
+// information only.
 type Availability string
 
 const (
 	Available    Availability = "available"
 	Unavailable  Availability = "unavailable"
 	Inconsistent Availability = "inconsistent"
+	// ConfigurationInvalid: the project configuration is invalid, so no
+	// agent is named (F011-FR-016).
+	ConfigurationInvalid Availability = "configuration_invalid"
 )
 
 // Statement is the fixed non-authorization statement every report carries
 // (F007-FR-008).
 const Statement = "options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"
 
-// Selector resolves one role under 003's fixed mapping. selection.Selector
+// Selector resolves one role under the role assignment in effect. selection.Selector
 // satisfies it; guide never constructs one, so it holds no discovery path of
 // its own.
 type Selector interface {
@@ -36,8 +40,10 @@ type Report struct {
 	sdd.Report
 	Agent        agent.ID
 	Availability Availability
-	Templates    []Template
-	Statement    string
+	// Source is where the assignment comes from, for step_recommended only.
+	Source    selection.Source
+	Templates []Template
+	Statement string
 }
 
 // Evaluate resolves one read-only guidance request. It consults selector
@@ -45,7 +51,7 @@ type Report struct {
 func Evaluate(root fs.FS, featureID string, selector Selector) Report {
 	report := Report{Report: sdd.Evaluate(root, featureID), Statement: Statement}
 	if report.Outcome == sdd.StepRecommended {
-		report.Agent, report.Availability = availabilityOf(report.Role, selector.Select(string(report.Role)))
+		report.Agent, report.Availability, report.Source = availabilityOf(report.Role, selector.Select(string(report.Role)))
 	}
 	report.Templates = []Template{}
 	if TemplateSafe(featureID) {
@@ -54,22 +60,24 @@ func Evaluate(root fs.FS, featureID string, selector Selector) Report {
 	return report
 }
 
-// availabilityOf maps 003's report to F007-FR-004's availability (R-02). Any
-// other outcome, including role_unsupported, yields no agent, which makes the
-// report invalid.
-func availabilityOf(nextRole role.Role, selected selection.Report) (agent.ID, Availability) {
+// availabilityOf maps 003's report to F007-FR-004's availability (R-02) and
+// its source (F011-FR-017). Any other outcome, including role_unsupported,
+// yields no availability, which makes the report invalid.
+func availabilityOf(nextRole role.Role, selected selection.Report) (agent.ID, Availability, selection.Source) {
 	if selected.RequestedRole != nextRole {
-		return "", ""
+		return "", "", ""
 	}
 	switch selected.Outcome {
 	case selection.RoleSelected:
-		return selected.SelectedAgentID, Available
+		return selected.SelectedAgentID, Available, selected.Source
 	case selection.AgentUnavailable:
-		return selected.MappedAgentID, Unavailable
+		return selected.MappedAgentID, Unavailable, selected.Source
 	case selection.SelectionInconsistent:
-		return selected.MappedAgentID, Inconsistent
+		return selected.MappedAgentID, Inconsistent, selected.Source
+	case selection.ConfigurationInvalid:
+		return "", ConfigurationInvalid, selected.Source
 	default:
-		return "", ""
+		return "", "", ""
 	}
 }
 
@@ -82,15 +90,23 @@ func (r Report) Valid() bool {
 		return false
 	}
 	if r.Outcome == sdd.StepRecommended {
-		if !canonicalToken(string(r.Agent)) {
-			return false
-		}
 		switch r.Availability {
-		case Available, Unavailable, Inconsistent:
+		case Available, Unavailable:
+			if !canonicalToken(string(r.Agent)) || (r.Source != selection.SourceBuiltIn && r.Source != selection.SourceProject) {
+				return false
+			}
+		case Inconsistent:
+			if !canonicalToken(string(r.Agent)) || r.Source != selection.SourceBuiltIn {
+				return false
+			}
+		case ConfigurationInvalid:
+			if r.Agent != "" || r.Source != selection.SourceProject {
+				return false
+			}
 		default:
 			return false
 		}
-	} else if r.Agent != "" || r.Availability != "" {
+	} else if r.Agent != "" || r.Availability != "" || r.Source != "" {
 		return false
 	}
 	want := []Template{}

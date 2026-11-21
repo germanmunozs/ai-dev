@@ -46,7 +46,12 @@ func WriteGuideText(w io.Writer, report guide.Report) error {
 	var out strings.Builder
 	switch report.Outcome {
 	case sdd.StepRecommended:
-		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%s state=%s activity=%s role=%s agent=%s availability=%s note=%q\n", report.Outcome, shellInertQuote(report.FeatureID), report.State, report.Activity, report.Role, report.Agent, report.Availability, report.Statement)
+		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%s state=%s activity=%s role=%s", report.Outcome, shellInertQuote(report.FeatureID), report.State, report.Activity, report.Role)
+		if report.Agent != "" {
+			// configuration_invalid names no agent (F011 A2).
+			fmt.Fprintf(&out, " agent=%s", report.Agent)
+		}
+		fmt.Fprintf(&out, " availability=%s source=%s note=%q\n", report.Availability, report.Source, report.Statement)
 	case sdd.WorkflowTerminal:
 		fmt.Fprintf(&out, "ai-dev: outcome=%s feature=%s state=%s note=%q\n", report.Outcome, shellInertQuote(report.FeatureID), report.State, report.Statement)
 	case sdd.ArtifactsInconsistent:
@@ -97,6 +102,7 @@ func WriteGuideJSON(w io.Writer, report guide.Report) error {
 		MissingArtifacts  []string            `json:"missing_artifacts,omitempty"`
 		Agent             string              `json:"agent,omitempty"`
 		AgentAvailability string              `json:"agent_availability,omitempty"`
+		Source            string              `json:"source,omitempty"`
 		Templates         []guideTemplateWire `json:"templates"`
 		Statement         string              `json:"statement"`
 	}{
@@ -109,6 +115,7 @@ func WriteGuideJSON(w io.Writer, report guide.Report) error {
 		MissingArtifacts:  report.Missing,
 		Agent:             string(report.Agent),
 		AgentAvailability: string(report.Availability),
+		Source:            string(report.Source),
 		Templates:         make([]guideTemplateWire, 0, len(report.Templates)),
 		Statement:         report.Statement,
 	}

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/germanmunozs/ai-dev/internal/guide"
 	"github.com/germanmunozs/ai-dev/internal/workflow"
@@ -173,7 +174,7 @@ func TestRunWorkflowGuideHasNoSideEffects(t *testing.T) {
 
 func TestRunDispatchesWorkflowGuide(t *testing.T) {
 	code, stdout, stderr, executor, launcher := runDispatcher(t, []string{"workflow", "guide", workflowTestFeature}, workflowFixture(nil))
-	const wantFirst = "ai-dev: outcome=step_recommended feature=\"004-workflow-state\" state=draft activity=specify role=specification agent=claude-code availability=unavailable note="
+	const wantFirst = "ai-dev: outcome=step_recommended feature=\"004-workflow-state\" state=draft activity=specify role=specification agent=claude-code availability=unavailable source=built_in note="
 	if code != 0 || stderr != "" || !strings.HasPrefix(stdout, wantFirst) {
 		t.Fatalf("exit=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
@@ -193,8 +194,8 @@ func TestRunUsageTextsUnchangedWithGuide(t *testing.T) {
 		{[]string{"workflow"}, "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"},
 		{[]string{"workflow", "run", "f"}, "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"},
 		{[]string{"workflow", "Guide", "f"}, "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"},
-		{nil, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"},
-		{[]string{"orchestrate", "f"}, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"},
+		{nil, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]\n"},
+		{[]string{"orchestrate", "f"}, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]\n"},
 	}
 	for _, tc := range cases {
 		code, stdout, stderr, executor, launcher := runDispatcher(t, tc.args, workflowFixture(nil))
@@ -203,6 +204,30 @@ func TestRunUsageTextsUnchangedWithGuide(t *testing.T) {
 		}
 		if executor.lookups != 0 || executor.runs != 0 || launcher.launches != 0 {
 			t.Fatalf("args=%v reached an executor or launcher", tc.args)
+		}
+	}
+}
+
+// F011 A2: guidance names the project's agent with source=project, and an
+// invalid configuration names none; the exit code is unchanged.
+func TestWorkflowGuideFollowsTheProjectAssignment(t *testing.T) {
+	specificationCodex := `{"schema_version":"ai-dev.agents/v1","agents":["codex-cli"],"roles":{"specification":"codex-cli","planning":"codex-cli","implementation":"codex-cli","review":"codex-cli","remediation":"codex-cli"}}`
+	both := &setupExecutor{paths: map[string]string{"claude": "/tools/claude", "codex": "/tools/codex"}}
+	for _, test := range []struct {
+		name, config, want string
+	}{
+		{"no configuration", "", " role=specification agent=claude-code availability=available source=built_in "},
+		{"project", specificationCodex, " role=specification agent=codex-cli availability=available source=project "},
+		{"invalid", "{}", " role=specification availability=configuration_invalid source=project "},
+	} {
+		root := workflowFixture(nil)
+		if test.config != "" {
+			root[".ai-dev/agents.json"] = &fstest.MapFile{Data: []byte(test.config)}
+		}
+		var stdout, stderr bytes.Buffer
+		code := RunWorkflowGuide([]string{workflowTestFeature}, root, both, &stdout, &stderr)
+		if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), test.want) {
+			t.Errorf("%s: code=%d stderr=%q stdout=%q", test.name, code, stderr.String(), stdout.String())
 		}
 	}
 }

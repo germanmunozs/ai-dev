@@ -16,13 +16,16 @@ func WriteRoleSelectionText(w io.Writer, r selection.Report) error {
 	}
 	switch r.Outcome {
 	case selection.RoleSelected:
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s role=%s agent=%s\n", r.Outcome, r.RequestedRole, r.SelectedAgentID)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s role=%s agent=%s source=%s\n", r.Outcome, r.RequestedRole, r.SelectedAgentID, r.Source)
 		return err
 	case selection.RoleUnsupported:
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s role=%q\n", r.Outcome, r.SuppliedRole)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s role=%q source=%s\n", r.Outcome, r.SuppliedRole, r.Source)
+		return err
+	case selection.ConfigurationInvalid:
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s role=%s source=%s\n", r.Outcome, r.RequestedRole, r.Source)
 		return err
 	default:
-		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s role=%s agent=%s\n", r.Outcome, r.RequestedRole, r.MappedAgentID)
+		_, err := fmt.Fprintf(w, "ai-dev: outcome=%s role=%s agent=%s source=%s\n", r.Outcome, r.RequestedRole, r.MappedAgentID, r.Source)
 		return err
 	}
 }
@@ -39,12 +42,14 @@ func WriteRoleSelectionJSON(w io.Writer, r selection.Report) error {
 		SelectedAgentID string            `json:"selected_agent_id,omitempty"`
 		MappedAgentID   string            `json:"mapped_agent_id,omitempty"`
 		Outcome         selection.Outcome `json:"outcome"`
+		Source          selection.Source  `json:"source"`
 	}{
 		SuppliedRole:    r.SuppliedRole,
 		RequestedRole:   string(r.RequestedRole),
 		SelectedAgentID: string(r.SelectedAgentID),
 		MappedAgentID:   string(r.MappedAgentID),
 		Outcome:         r.Outcome,
+		Source:          r.Source,
 	}
 	return json.NewEncoder(w).Encode(wire)
 }

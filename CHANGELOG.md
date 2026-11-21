@@ -21,6 +21,7 @@ Primera versión candidata (0.1.0).
 - **007 Workflow Orchestration (modo guiado):** `ai-dev workflow guide` muestra el siguiente paso con plantillas de comandos que se pueden pegar en un shell sin riesgo. El modo autónomo queda diferido.
 - **008 Git Management:** `ai-dev init` inspecciona, planifica, aplica y reconcilia la inicialización supervisada de un repositorio Git, con autorización explícita, auditoría duradera y recuperación tras crash; `ai-dev git commit validate` valida mensajes Conventional Commits.
 - **009 CLI Help and Version:** `ai-dev help`, `ai-dev --help` y `-h` listan los comandos; `ai-dev version` y `--version` informan de la versión, el commit, la versión de Go y la plataforma, en texto o JSON (`ai-dev.version/v1`).
+- **011 Agent Detection and Role Configuration:** `ai-dev setup` (asistente), `ai-dev setup show` y `ai-dev setup apply` detectan los agentes del catálogo, eligen con cuáles trabaja el proyecto y asignan uno a cada rol en `.ai-dev/agents.json`; `agent select` y `workflow guide` usan esa asignación e informan su origen (`source`).
 - Releases con archivos para macOS y Linux (amd64 y arm64), `SHA256SUMS` y una attestation de procedencia SLSA firmada para cada archivo.
 
 [Unreleased]: https://github.com/germanmunozs/ai-dev/commits/dev
