@@ -28,7 +28,7 @@ The completion scripts are rendered from the catalog as static text. A test chec
   - help never runs the command (F010-FR-004);
   - no usage text or exit code changes, except those the spec amends (F010-FR-005, F010-FR-010);
   - the scripts are static (F010-FR-008).
-- **Scale:** 18 command paths, 5 group paths and about 45 options.
+- **Scale:** 19 command paths (009's 18 plus `completion`), 5 group paths and about 45 options.
 
 ## Constitution Check
 
@@ -65,7 +65,7 @@ Post-design re-check: PASS. The flag-set helper (R-03) is the only change to exi
   - before the existing `switch`, `if spec, n := lookup(args); n < len(args) && (args[n] == "--help" || args[n] == "-h")`, render the help and return 0;
   - add the `completion` route;
   - `topLevelUsage` gains `completion`.
-- **`internal/app/completion.go`** (new): `RunCompletion(args, stdout, stderr)`, plus `bashScript()` and `zshScript()`, which render static scripts from the catalog (contracts/completion.md).
+- **`internal/app/completion.go`** (new): `RunCompletion(args, stdout, stderr)`, plus `bashScript()` and `zshScript()`, which render static scripts from the catalog (contracts/completion.md). bash registers with `complete -o filenames` and completes file options with `compgen -f`, never with `-o default`.
 - **`internal/app/flags.go`** (new): `newFlagSet(name string) *flag.FlagSet` returns a `ContinueOnError` set with discarded output, as every command builds today. A test-only observer records each set (R-03). All 16 `flag.NewFlagSet` call sites switch to it.
 
 ## Project Structure

@@ -21,16 +21,16 @@
 | `ai-dev agent select <partial>` | the five roles |
 | `ai-dev completion <partial>` | `bash zsh` |
 | `ai-dev help <partial>` | the next catalog words |
-| a file or directory option's value | file names (shell default) |
-| anything else | nothing |
+| a file or directory option's value | file names (`compgen -f` in bash, `_files` in zsh) |
+| anything else, such as `ai-dev workflow state <partial>` | nothing, and no file-name fallback |
 
 ## Static script (F010-FR-008)
 
 - The script is generated from the catalog only, with no environment value.
-- It runs no program while completing: only shell builtins (`compgen`, `compadd`) and the shell's own file completion.
+- It runs no program while completing: only shell builtins (`compgen`, `compadd`) and the shell's own file completion. File-name completion lists names and never reads file contents.
 - It is byte-identical across runs for the same build.
 - Every embedded word matches `^[A-Za-z0-9._|-]+$`.
-- **bash:** it runs in bash 3.2 or later, and is registered with `complete -o default -F _ai_dev ai-dev`.
+- **bash:** it runs in bash 3.2 or later, and is registered with `complete -o filenames -F _ai_dev ai-dev`, without `-o default`.
 - **zsh:** it runs in zsh 5 or later, as a `#compdef ai-dev` function. When sourced, it registers itself with `compdef _ai_dev ai-dev`.
 
 ## Installation (documented in the README)

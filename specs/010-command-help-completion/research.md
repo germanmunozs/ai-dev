@@ -37,10 +37,10 @@
 ## R-04 Completion scripts
 
 - **Decision:** Render both scripts from the catalog as static text, with no runtime calls.
-  - **bash:** one function registered with `complete -o default -F _ai_dev ai-dev`. It uses only bash 3.2 features: no associative arrays and no `compopt`. Words come from `COMP_WORDS` and `COMP_CWORD`, and candidates are filtered with `compgen -W`. For a file or directory option it returns no candidates, so `-o default` falls back to file names.
+  - **bash:** one function registered with `complete -o filenames -F _ai_dev ai-dev`. It uses only bash 3.2 features: no associative arrays and no `compopt`. Words come from `COMP_WORDS` and `COMP_CWORD`, and candidates are filtered with `compgen -W`. For a file or directory option it returns `compgen -f -- "$cur"`. Everywhere else, no candidate means no completion: `-o default` is not used, because it would offer file names after any word with no candidates, such as a feature identifier (F010-FR-007).
   - **zsh:** a `#compdef ai-dev` function that uses `words` and `CURRENT`, `compadd` for candidates and `_files` for file options. It can be loaded with `source <(ai-dev completion zsh)` (registered with `compdef`), or installed in `fpath`.
   - Candidate lists are embedded literals. Every embedded word is checked to match `^[A-Za-z0-9._|-]+$`, so nothing needs quoting and nothing can expand.
-- **Rationale:** F010-FR-008 (static, byte-identical, no program runs), and the macOS default bash.
+- **Rationale:** F010-FR-008 (static, byte-identical, no program runs), and the macOS default bash. Offering file names through the shell's own builtins (`compgen -f` in bash, `_files` in zsh) lists names; it never reads a file's contents, so it is not "reading project files" in the sense of F010-FR-008.
 - **Alternatives considered:**
   - zsh `bashcompinit` reusing the bash script. Rejected: it gives poorer zsh behavior, and it is an extra runtime dependency on a zsh module.
   - Dynamic completion that calls `ai-dev __complete`. Rejected by the spec's Assumptions.

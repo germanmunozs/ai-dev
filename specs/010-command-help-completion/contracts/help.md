@@ -6,7 +6,7 @@ Let `P` be the longest catalog path that prefixes the arguments, and `n` its len
 
 | Arguments | Result |
 |---|---|
-| `P --help` or `P -h`, with anything after it | `P`'s help; stdout; exit 0 |
+| `P --help` or `P -h`, with anything after it (for example `workflow state --help extra`) | `P`'s help; stdout; exit 0; whatever follows is ignored |
 | `help P`, `--help P` or `-h P` | `P`'s help; stdout; exit 0 |
 | `help`, `--help`, `-h` (alone) | the general help (009, plus `completion`) |
 | `help X` where `X` is not a catalog path, or `help P extra` | `Usage: ai-dev help [command...]` on stderr; exit 2; stdout empty |
@@ -34,6 +34,7 @@ Exit codes: 0 positive result, 1 negative domain result, 2 usage or internal fai
 ```
 
 - `Arguments:` and `Options:` are omitted when empty, except that `-h, --help` is always listed.
+- `-h, --help` is rendered by the help itself. It is not one of the catalog's `options`, which equal the options the command's flag set defines (F010-FR-009).
 - `version` and `help` have no domain result; their exit line reads `0 success, 2 usage failure.`
 
 ## Group help layout

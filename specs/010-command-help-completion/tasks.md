@@ -26,7 +26,10 @@
   `workflowgate.go` gets `workflowGateUsage(decision gate.Decision) string`, used by both the command and the catalog. The group lines `Usage: ai-dev agent <run|select> [options]` and `Usage: ai-dev workflow <state|transition> [options]` become constants with unchanged text (F010-FR-010).
 - [ ] T004 Tests in `internal/app/catalog_test.go`, written before T005:
   - **Coverage:** every routed command path is in the catalog, and nothing else is. The commands are the 18 paths of 009's `helpCommands` plus `completion`, and the group paths are `agent`, `workflow`, `init`, `git` and `git commit`.
-  - **Option equality (F010-FR-009, SC-004):** for each non-group command, set `flagSetObserver`, run the command through `RunWithDependencies` with the single argument `--zz-undefined`, assert exit 2, and compare the recorded set's `VisitAll` names with the catalog's option names. For `workflow approve`, `workflow abandon` and `completion`, construct the flag sets as their commands do.
+  - **Option equality (F010-FR-009, SC-004):** for each non-group command, set `flagSetObserver`, run the command through `RunWithDependencies` with the single argument `--zz-undefined`, assert exit 2, and compare the recorded set's `VisitAll` names with the catalog's option names.
+    - The test `Dependencies` carry a non-nil gate store, which is never used because parsing fails first. Without it, `workflow approve` and `workflow abandon` stop at "human gate store unavailable" before building their flag sets.
+    - `help` and `completion` define no flag set; their catalog options are empty.
+    - The rendered `-h, --help` line is not a catalog option (contracts/help.md).
   - **Usage equality (SC-002):** for each command, the catalog usage equals the first line of the command's stderr on that same `--zz-undefined` failure.
   - **Description:** each command description equals its general-help line.
   - **Safe words:** every embedded word (paths, option names, fixed values) matches `^[A-Za-z0-9._|-]+$`.
@@ -45,6 +48,7 @@
   - **Command help:** contains `ai-dev <path>: <description>`, the usage line, every option name, every fixed value, `Changes:` and `Exit codes:`.
   - **Group help:** lists exactly the child paths. `workflow` lists six, `git` lists `git commit`, and `init` lists its command help and its four subcommands.
   - **Exact goldens:** for `workflow state --help` and `workflow --help`, compare with contracts/help.md.
+  - **Trailing arguments:** `workflow state --help extra` prints the same help, with exit 0.
 - [ ] T007 [US1] Tests in `internal/app/help_test.go` for F010-FR-003 and F010-FR-004:
   - **Unchanged positions:** `agent run claude-code --help` launches the agent with instruction `--help`, through a recording launcher. `workflow approve --approver --help f planned` keeps `--help` as the approver. `workflow state -- --help` and `workflow state f --help` keep their current exit codes and stderr.
   - **No side effects:** help with `Dependencies` whose stdin, launcher, executor, root and gate store panic on any use, and whose Git dependencies are unavailable, still exits 0. This covers `init --help` with a non-terminal stdin and `agent run --help` with a non-empty pipe.
@@ -78,7 +82,8 @@
   - `init plan --strategy ` gives the four strategies;
   - `agent run ` gives `claude-code codex-cli`;
   - `help init ` gives `apply inspect plan reconcile`;
-  - `init plan --output ` gives nothing, so the shell completes files;
+  - `init plan --output ` gives the matching file names from `compgen -f`, in a temporary directory with known files;
+  - `workflow state ` gives nothing: no file-name fallback (F010-FR-007);
   - `completion ` gives `bash zsh`.
 
   Assert that `/bin/bash` reports major version 3 on macOS, so bash 3.2 is really exercised. Skip with a message when a shell is missing.
@@ -89,7 +94,7 @@
   - Skip when zsh is missing.
 - [ ] T014 [US2] Implement `internal/app/completion.go` (R-04):
   - `RunCompletion(args, stdout, stderr)`;
-  - `bashScript()`, a single `_ai_dev` function in bash 3.2 syntax with `complete -o default -F _ai_dev ai-dev`;
+  - `bashScript()`, a single `_ai_dev` function in bash 3.2 syntax with `complete -o filenames -F _ai_dev ai-dev`; file options use `compgen -f -- "$cur"`, and `-o default` is not used;
   - `zshScript()`, a `#compdef ai-dev` function with `compdef _ai_dev ai-dev`.
 
   Both are rendered only from the catalog.
@@ -102,7 +107,9 @@
 - [ ] T016 [P] Subprocess test in `cmd/ai-dev/help_test.go`:
   - the built binary answers `workflow state --help`, `help init plan`, `init --help </dev/null` and `completion bash`, with exit 0;
   - `echo x | ai-dev agent run --help` exits 0, and the pipe is left unread.
-- [ ] T017 [P] README: the command reference mentions `--help` and `help <command>`, and adds `completion` with the install lines of contracts/completion.md. The index and the 009 status row are untouched, and a 010 status row is added.
+- [ ] T017 [P] Documentation:
+  - **README:** the command reference mentions `--help` and `help <command>`, and adds `completion` with the install lines of contracts/completion.md. The index and the 009 status row are untouched, and a 010 status row is added.
+  - **`specs/009-cli-help-version/spec.md`:** record the cross-feature amendments. F009-FR-004 is amended by F010-FR-005 (`help <command path>` is valid), and F009-FR-005 by F010-FR-010 (the top-level usage names `completion`). Add a note under each requirement and a Clarifications session.
 - [ ] T018 Gates:
   - `gofmt -l .`;
   - `go vet ./...` and `GOOS=linux go vet ./...`;
