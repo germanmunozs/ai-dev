@@ -190,9 +190,9 @@ func TestRunUsageTextsUnchangedWithGuide(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"workflow"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
-		{[]string{"workflow", "run", "f"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
-		{[]string{"workflow", "Guide", "f"}, "Usage: ai-dev workflow <state|transition> [options]\n"},
+		{[]string{"workflow"}, "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"},
+		{[]string{"workflow", "run", "f"}, "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"},
+		{[]string{"workflow", "Guide", "f"}, "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"},
 		{nil, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"},
 		{[]string{"orchestrate", "f"}, "Usage: ai-dev <doctor|agents|agent|workflow|init|git|version|help|completion> [options]\n"},
 	}

@@ -112,7 +112,7 @@ func TestRunWorkflowNextCannotRenderTableMiss(t *testing.T) {
 }
 
 func TestRunWorkflowGroupUsageRemainsUnchangedWithNext(t *testing.T) {
-	const want = "Usage: ai-dev workflow <state|transition> [options]\n"
+	const want = "Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]\n"
 	for _, args := range [][]string{{"workflow"}, {"workflow", "bogus"}} {
 		code, stdout, stderr, _, _ := runDispatcher(t, args, workflowFixture(nil))
 		if code != 2 || stdout != "" || stderr != want {

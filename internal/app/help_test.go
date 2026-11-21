@@ -74,7 +74,7 @@ func TestHelpCommand(t *testing.T) {
 var unroutedUsages = []string{
 	topLevelUsage,
 	"Usage: ai-dev agent <run|select> [options]",
-	"Usage: ai-dev workflow <state|transition> [options]",
+	"Usage: ai-dev workflow <state|transition|next|guide|approve|abandon> [options]",
 	gitInitUsage,
 }
 
