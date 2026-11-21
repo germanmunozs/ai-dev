@@ -80,7 +80,7 @@ func TestRunAgentRunBuildsEquivalentArgumentAndStdinRequests(t *testing.T) {
 				t.Fatalf("launches = %d, specs = %d", launcher.launches, len(launcher.specs))
 			}
 			spec := launcher.specs[0]
-			if spec.Name != "claude" || !reflect.DeepEqual(spec.Args, []string{"--print", "literal $HOME\nline two"}) || spec.Dir != workdir {
+			if spec.Name != "claude" || !reflect.DeepEqual(spec.Args, []string{"--print", "--", "literal $HOME\nline two"}) || spec.Dir != workdir {
 				t.Fatalf("spec = %#v", spec)
 			}
 			if stdout.String() != "stdout-one\nstdout-two\n" {
@@ -127,7 +127,7 @@ func TestRunAgentRunJSONRoutesAgentStreamsToStderrAndIsolatesReport(t *testing.T
 	if got.AgentID != "codex-cli" || got.Outcome != "agent_succeeded" {
 		t.Fatalf("report = %#v", got)
 	}
-	if len(launcher.specs) != 1 || !reflect.DeepEqual(launcher.specs[0].Args, []string{"exec", "do it"}) {
+	if len(launcher.specs) != 1 || !reflect.DeepEqual(launcher.specs[0].Args, []string{"exec", "--", "do it"}) {
 		t.Fatalf("specs = %#v", launcher.specs)
 	}
 }
@@ -467,6 +467,32 @@ func TestRunAgentRunSeparatesUsageFailuresFromRecognizedExecutionFailures(t *tes
 			}
 			if launcher.launches != 0 {
 				t.Fatalf("recognized validation failure launched %d processes", launcher.launches)
+			}
+		})
+	}
+}
+
+// An instruction that looks like an option reaches the agent as its
+// prompt, after "--", from either source; it is never an agent option.
+func TestRunAgentRunPassesOptionLikeInstructionAsThePrompt(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		args  []string
+		stdin io.Reader
+		want  []string
+	}{
+		{"argument", []string{"claude-code", "--help"}, bytes.NewReader(nil), []string{"--print", "--", "--help"}},
+		{"stdin", []string{"codex-cli"}, bytes.NewBufferString("--dangerously-bypass-approvals-and-sandbox"),
+			[]string{"exec", "--", "--dangerously-bypass-approvals-and-sandbox"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			launcher := &appRunLauncher{status: system.ExitStatus{Exited: true, ExitCode: 0}}
+			var stdout, stderr bytes.Buffer
+			if code := RunAgentRun(context.Background(), tt.args, availableAgents(), launcher, tt.stdin, false, "/project", &stdout, &stderr); code != 0 {
+				t.Fatalf("code = %d, stderr = %q", code, stderr.String())
+			}
+			if len(launcher.specs) != 1 || !reflect.DeepEqual(launcher.specs[0].Args, tt.want) {
+				t.Fatalf("specs = %#v, want args %#v", launcher.specs, tt.want)
 			}
 		})
 	}
