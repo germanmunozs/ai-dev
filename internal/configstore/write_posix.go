@@ -14,7 +14,7 @@ import (
 	"github.com/germanmunozs/ai-dev/internal/projectconfig"
 )
 
-const tempPrefix = ".config."
+const tempPrefix = ".agents.json."
 
 type posixStore struct {
 	dir string
@@ -58,14 +58,18 @@ func defaultOps() ops {
 	}
 }
 
-// Write follows research R-03: check .ai-dev (creating it if absent),
-// open it and confirm it is the directory just checked, refuse a
-// non-regular agents.json, then write a temporary file, sync, rename and
-// sync the directory.
+// Write follows research R-03: check .ai-dev (creating it if absent), open
+// it as its own root and confirm it is the directory just checked, so every
+// later step stays inside that directory even if the path is swapped; refuse
+// a non-regular agents.json, then write a temporary file, sync, rename and
+// sync the directory. Each refusal says why (review L3, L5).
 func (s *posixStore) Write(data []byte) (bool, []string) {
+	fail := func(format string, args ...any) (bool, []string) {
+		return false, []string{"ai-dev: setup: " + fmt.Sprintf(format, args...)}
+	}
 	root, err := os.OpenRoot(s.dir)
 	if err != nil {
-		return false, nil
+		return fail("cannot open the project directory: %v", err)
 	}
 	defer root.Close()
 
@@ -74,68 +78,74 @@ func (s *posixStore) Write(data []byte) (bool, []string) {
 		// Feature 008 shares .ai-dev and requires mode 0755 on an existing
 		// directory, so the mode is set explicitly, whatever the umask.
 		if err := s.ops.mkdir(root, projectconfig.Dir); err != nil {
-			return false, nil
+			return fail("cannot create %s: %v", projectconfig.Dir, err)
 		}
 		if err := root.Chmod(projectconfig.Dir, 0o755); err != nil {
-			return false, nil
+			return fail("cannot set the mode of %s: %v", projectconfig.Dir, err)
 		}
 		dirInfo, err = s.ops.lstat(root, projectconfig.Dir)
 	}
 	if err != nil || !dirInfo.IsDir() || dirInfo.Mode()&fs.ModeSymlink != 0 {
-		return false, nil
+		return fail("refused: %s is a symbolic link or not a directory", projectconfig.Dir)
 	}
 	s.ops.afterStep("dir-checked")
-	dirFile, err := s.ops.openDir(root, projectconfig.Dir)
+	dir, err := root.OpenRoot(projectconfig.Dir)
 	if err != nil {
-		return false, nil
+		return fail("cannot open %s: %v", projectconfig.Dir, err)
+	}
+	defer dir.Close()
+	dirFile, err := s.ops.openDir(dir, ".")
+	if err != nil {
+		return fail("cannot open %s: %v", projectconfig.Dir, err)
 	}
 	defer dirFile.Close()
 	opened, err := dirFile.Stat()
 	if err != nil || !os.SameFile(opened, dirInfo) {
-		return false, nil
+		return fail("refused: %s changed while it was being checked", projectconfig.Dir)
 	}
 
+	name := path.Base(projectconfig.FileName)
 	perm := fs.FileMode(0o644)
-	existing, err := s.ops.lstat(root, projectconfig.FileName)
+	existing, err := s.ops.lstat(dir, name)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 	case err != nil || !existing.Mode().IsRegular():
-		return false, nil
+		return fail("refused: %s is not a regular file", projectconfig.FileName)
 	default:
 		perm = existing.Mode().Perm()
 	}
 
-	tmpPath, err := temporaryPath()
+	tmpName, err := temporaryName()
 	if err != nil {
-		return false, nil
+		return fail("cannot name a temporary file: %v", err)
 	}
-	tmp, err := s.ops.openTmp(root, tmpPath)
+	tmp, err := s.ops.openTmp(dir, tmpName)
 	if err != nil {
-		return false, nil
+		return fail("cannot create a temporary file in %s: %v", projectconfig.Dir, err)
 	}
 	cleanup := true
 	defer func() {
 		if cleanup {
-			_ = s.ops.remove(root, tmpPath)
+			_ = s.ops.remove(dir, tmpName)
 		}
 	}()
 	if err := s.ops.chmodTmp(tmp, perm); err != nil {
 		_ = s.ops.closeTmp(tmp)
-		return false, nil
+		return fail("cannot set the temporary file mode: %v", err)
 	}
 	if err := s.ops.writeTmp(tmp, data); err != nil {
 		_ = s.ops.closeTmp(tmp)
-		return false, nil
+		return fail("cannot write the temporary file: %v", err)
 	}
 	if err := s.ops.syncTmp(tmp); err != nil {
 		_ = s.ops.closeTmp(tmp)
-		return false, nil
+		return fail("cannot sync the temporary file: %v", err)
 	}
 	if err := s.ops.closeTmp(tmp); err != nil {
-		return false, nil
+		return fail("cannot close the temporary file: %v", err)
 	}
-	if err := s.ops.rename(root, tmpPath, projectconfig.FileName); err != nil {
-		return false, nil
+	if err := s.ops.rename(dir, tmpName, name); err != nil {
+		return fail("cannot replace %s: %v", projectconfig.FileName, err)
 	}
 	cleanup = false
 	var warnings []string
@@ -145,10 +155,12 @@ func (s *posixStore) Write(data []byte) (bool, []string) {
 	return true, warnings
 }
 
-func temporaryPath() (string, error) {
+// temporaryName is distinct from Feature 008's ".config.json.<hex>.tmp", so
+// a leftover after a crash names its owner (review L7).
+func temporaryName() (string, error) {
 	random := make([]byte, 8)
 	if _, err := rand.Read(random); err != nil {
 		return "", err
 	}
-	return path.Join(projectconfig.Dir, tempPrefix+hex.EncodeToString(random)+".tmp"), nil
+	return tempPrefix + hex.EncodeToString(random) + ".tmp", nil
 }

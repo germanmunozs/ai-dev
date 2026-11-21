@@ -222,3 +222,29 @@ func TestWriteLeavesFeature008ConfigAlone(t *testing.T) {
 		t.Fatalf("entries %v", got)
 	}
 }
+
+// Every refusal says why (review L5), and the temporary file is named after
+// agents.json, not Feature 008's config.json (review L7).
+func TestWriteRefusalsSayWhyAndTempName(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".ai-dev", "agents.json"), 0o755)
+	written, warnings := New(dir).Write([]byte("x"))
+	if written || len(warnings) != 1 || !strings.Contains(warnings[0], ".ai-dev/agents.json is not a regular file") {
+		t.Fatalf("written=%v warnings=%v", written, warnings)
+	}
+	dir = t.TempDir()
+	os.Symlink(t.TempDir(), filepath.Join(dir, ".ai-dev"))
+	if _, warnings := New(dir).Write([]byte("x")); len(warnings) != 1 || !strings.Contains(warnings[0], "symbolic link or not a directory") {
+		t.Fatalf("warnings=%v", warnings)
+	}
+	dir = t.TempDir()
+	store := newTestStore(dir)
+	var tmpName string
+	store.ops.openTmp = func(root *os.Root, name string) (*os.File, error) {
+		tmpName = name
+		return defaultOps().openTmp(root, name)
+	}
+	if written, _ := store.Write([]byte("x")); !written || !strings.HasPrefix(tmpName, ".agents.json.") || !strings.HasSuffix(tmpName, ".tmp") {
+		t.Fatalf("written=%v tmp=%q", written, tmpName)
+	}
+}

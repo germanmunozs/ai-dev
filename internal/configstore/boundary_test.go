@@ -20,6 +20,12 @@ const configstoreImport = "github.com/germanmunozs/ai-dev/internal/configstore"
 // configstore, and configstore naming config.json, which belongs to
 // Feature 008 (F011 R-03). .ai-dev itself is shared: gitmanager creates it
 // for config.json, so the directory alone is not a finding.
+//
+// Limits (review L6): the import rule is exact, but the write rule is a
+// per-file heuristic, like gatestore's. It does not follow a file name built
+// at run time ("agents"+".json"), held in another file of the package, or
+// written through a helper (io.Copy, Truncate, Symlink). It catches the
+// direct cases; review covers the rest.
 func checkConfigWriteBoundary(filename string, source any) []error {
 	file, err := parser.ParseFile(token.NewFileSet(), filename, source, 0)
 	if err != nil {

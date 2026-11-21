@@ -53,8 +53,9 @@ func readLines(r io.Reader) <-chan lineRead {
 	return lines
 }
 
-// ask prints a prompt and returns the trimmed answer. End of input and a
-// cancelled context cancel the assistant.
+// ask prints a prompt and returns the trimmed answer. End of input, even
+// right after an answer typed without Enter, and a cancelled context cancel
+// the assistant, so "yes" followed by Ctrl-D writes nothing (review L2).
 func (w *setupWizard) ask(prompt string) (string, error) {
 	fmt.Fprint(w.out, prompt)
 	select {
@@ -62,7 +63,7 @@ func (w *setupWizard) ask(prompt string) (string, error) {
 		fmt.Fprintln(w.out)
 		return "", errWizardCancelled
 	case read, ok := <-w.lines:
-		if !ok || (read.err != nil && (read.line == "" || !errors.Is(read.err, io.EOF))) {
+		if !ok || read.err != nil {
 			return "", errWizardCancelled
 		}
 		return strings.TrimSpace(read.line), nil

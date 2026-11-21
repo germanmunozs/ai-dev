@@ -48,8 +48,14 @@ func Load(root fs.FS) (Config, State, []Reason) {
 		return invalid("unreadable")
 	}
 	defer file.Close()
-	// The file can change between Lstat and Open; the read limit still
-	// bounds what is decoded, and the content is validated either way.
+	// The file can change between Lstat and Open. The opened file must
+	// still be a regular file; the read limit bounds what is decoded, and
+	// the content is validated either way. A FIFO swapped in by a local
+	// process in that window can still block the open itself; a cloned
+	// repository cannot create that race (review L4).
+	if opened, err := file.Stat(); err != nil || !opened.Mode().IsRegular() {
+		return invalid("file_not_regular")
+	}
 	data, err := io.ReadAll(io.LimitReader(file, MaxSize+1))
 	if err != nil {
 		return invalid("unreadable")

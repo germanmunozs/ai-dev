@@ -45,7 +45,7 @@ Reasons are reported in this order. A file-level reason stops further checks; co
 | `missing_role <v>` | one of the five roles is absent |
 | `agent_not_chosen <v>` | a role is assigned to an agent not in `agents`; `<v>` is `role=agent` |
 
-`setup apply` reports the same codes for its options, plus `duplicate_role <v>` when `--role` names a role twice.
+`setup apply` reports the same codes for its options, plus `duplicate_role <v>` when `--role` names a role twice. `duplicate_role` reasons come first, in the order the options were given, followed by the codes above in their table order.
 
 ## Read and write rules
 

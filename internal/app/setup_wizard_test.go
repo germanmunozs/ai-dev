@@ -95,10 +95,11 @@ func TestSetupWizardReplacesAfterYes(t *testing.T) {
 // Declining, end of input and an interrupt cancel with nothing written.
 func TestSetupWizardCancels(t *testing.T) {
 	for name, input := range map[string]io.Reader{
-		"no":           lines("1", "1", "1", "1", "1", "1", "no"),
-		"y":            lines("1", "1", "1", "1", "1", "1", "y"),
-		"empty":        lines("1", "1", "1", "1", "1", "1", ""),
-		"end of input": lines("1", "1"),
+		"no":                    lines("1", "1", "1", "1", "1", "1", "no"),
+		"y":                     lines("1", "1", "1", "1", "1", "1", "y"),
+		"empty":                 lines("1", "1", "1", "1", "1", "1", ""),
+		"end of input":          lines("1", "1"),
+		"yes then end of input": strings.NewReader("1\n1\n1\n1\n1\n1\nyes"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			run := runWizard(t, context.Background(), fstest.MapFS{}, input, true)

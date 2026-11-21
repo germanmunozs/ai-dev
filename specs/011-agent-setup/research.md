@@ -23,6 +23,7 @@
   5. Validate: schema `ai-dev.agents/v1`; at least one agent; no duplicate agent; every agent in the catalog; exactly the five roles; every role assigned to a chosen agent. Matching is exact and case-sensitive.
 
   A root that does not implement `fs.ReadLinkFS` is treated as `Invalid` (`cannot_verify_symlinks`), never as trusted.
+- **Race between Lstat and Open (review L4):** the opened file is checked again and must still be a regular file. A local process that swaps in a FIFO in that window can still block the open itself; a cloned repository cannot create that race, because its content is static.
 - **Reasons:** every violation is reported, in a fixed order (contracts/config-file.md). Untrusted values (an unknown agent or role name) appear in 004's shell-inert quoted form, so no reason can break a line or fake an outcome.
 - **Threats addressed:**
   - a hostile cloned repository naming an executable or arguments: impossible, the schema has no such field and every value is checked against closed sets (F011-FR-006);
@@ -44,6 +45,7 @@
   5. Write `.ai-dev/.config.<random>.tmp` with `O_CREATE|O_EXCL`, `fsync`, close, `rename` over the file, `fsync` the directory. A failure before `rename` removes the temporary file; a failure of the directory `fsync` after `rename` is a warning, as in `gatestore`.
 
   Other platforms: always `persistence_failed`, with the warning that writing is supported on macOS and Linux only.
+- **After the check (review L3):** the write opens `.ai-dev` as its own `os.Root` and compares it with the checked directory; every later step (the `agents.json` check, the temporary file, the rename, the directory sync) goes through that root, so swapping the path afterwards cannot redirect the write. A symbolic link planted at `agents.json` between its check and the rename would be replaced, not written through; that needs a concurrent local writer and is accepted.
 - **No lock.** The spec accepts that concurrent writers end with the last complete file (Edge Cases). The comparison that produces `configuration_unchanged` or `configuration_exists` runs in the command just before writing; a concurrent write in between is the accepted race.
 - **Why not reuse `gatestore`:** its boundary tests pin it as the sole `workflow-state.json` write path, and its API is the Human Gate commit. Generalizing it would widen a security-pinned package. About 100 lines are duplicated instead, with their own fault-injection and boundary tests.
 - **Boundary test:** no package except `internal/configstore` may combine a write-capable call with a reference to the configuration file name, and only `cmd/ai-dev/main.go` may import `configstore` (the same checker shape as `gatestore/boundary_test.go`).

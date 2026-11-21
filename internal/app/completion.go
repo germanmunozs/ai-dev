@@ -236,17 +236,49 @@ _ai_dev() {
 	word="${COMP_WORDS[COMP_CWORD]}"
 	if [ "$word" = "=" ] && [ "$n" -gt 0 ]; then
 		if _ai_dev_option "${w[n-1]}"; then
+			case "${w[n-1]}" in
+			--*=*) pending=1 ;;
+			esac
 			word=""
 		elif [ "$n" -gt 1 ] && _ai_dev_option "${w[n-2]}"; then
 			pending=1
 			word=""
 		fi
 	fi
-	if [ "$pending" -eq 1 ] && ! _ai_dev_option "${w[n-1]}"; then
-		n=$((n - 1))
-		strip="${w[n]}="
-		word="$strip$word"
+	if [ "$pending" -eq 1 ]; then
+		case "${w[n-1]}" in
+		--*=*)
+			# --option=ROLE= and a value after it: the option alone, and
+			# the value completes with its ROLE= prefix.
+			strip="${w[n-1]#*=}="
+			w[n-1]="${w[n-1]%%=*}"
+			word="$strip$word"
+			;;
+		-*) ;;
+		*)
+			n=$((n - 1))
+			strip="${w[n]}="
+			word="$strip$word"
+			;;
+		esac
 	fi
+	# bash 3.2 keeps --option=value and ROLE=AGENT as one word, but readline
+	# still replaces only the text after the last "=" in COMP_WORDBREAKS:
+	# split the option off, and drop what precedes that "=" from candidates.
+	case "$COMP_WORDBREAKS" in
+	*=*)
+		case "$word" in
+		--*=*)
+			w[n]="${word%%=*}"
+			n=$((n + 1))
+			word="${word#*=}"
+			;;
+		esac
+		case "$word" in
+		*=*) if [ -z "$strip" ]; then strip="${word%"${word##*=}"}"; fi ;;
+		esac
+		;;
+	esac
 	w[n]="$word"
 	cw=$n
 	COMPREPLY=()
