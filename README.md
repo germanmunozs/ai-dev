@@ -70,8 +70,22 @@ go build -o ai-dev ./cmd/ai-dev
 Un build local informa de la versión que Go le asigna y de su commit. Para un release se fija la versión al enlazar:
 
 ```sh
-go build -ldflags "-X ai-dev/internal/version.Version=v0.1.0" -o ai-dev ./cmd/ai-dev
+go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.1.0" -o ai-dev ./cmd/ai-dev
 ```
+
+También se puede instalar con `go install github.com/germanmunozs/ai-dev/cmd/ai-dev@latest`, o descargar un binario de [Releases](https://github.com/germanmunozs/ai-dev/releases). Cada release trae un archivo por plataforma (macOS y Linux, amd64 y arm64), `SHA256SUMS` y una attestation de procedencia firmada. Para verificarlo antes de usarlo:
+
+```sh
+shasum -a 256 -c SHA256SUMS --ignore-missing
+gh attestation verify ai-dev_v0.1.0_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
+```
+
+**Publicar un release** (responsable del proyecto):
+1. En `dev`, la sección `[Unreleased]` de [`CHANGELOG.md`](CHANGELOG.md) pasa a `[X.Y.Z] - AAAA-MM-DD`.
+2. `dev` se integra en `main` mediante un pull request con los checks en verde.
+3. Se crea y se publica la etiqueta `vX.Y.Z` sobre ese commit de `main`.
+
+El workflow [`release.yml`](.github/workflows/release.yml) rechaza etiquetas que no sean `vX.Y.Z`, que no estén en `main` o que no tengan sección en el CHANGELOG. Compila con la versión de la etiqueta, genera los archivos y `SHA256SUMS`, firma la procedencia y crea el release.
 
 ---
 

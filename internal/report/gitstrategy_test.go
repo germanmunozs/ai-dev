@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 func TestGitStrategyReportText(t *testing.T) {

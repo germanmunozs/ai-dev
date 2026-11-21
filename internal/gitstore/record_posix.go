@@ -15,7 +15,7 @@ import (
 	"strings"
 	"syscall"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // recordOps are the filesystem steps of record publication and

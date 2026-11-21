@@ -2,6 +2,6 @@
 
 package gatestore
 
-import "ai-dev/internal/gate"
+import "github.com/germanmunozs/ai-dev/internal/gate"
 
 func newPlatformStore(string) gate.Store { return unsupportedStore{} }

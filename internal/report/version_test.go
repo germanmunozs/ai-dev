@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"ai-dev/internal/version"
+	"github.com/germanmunozs/ai-dev/internal/version"
 )
 
 func TestWriteVersion(t *testing.T) {

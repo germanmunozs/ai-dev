@@ -3,7 +3,7 @@ package report
 import (
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 func TestConditionText(t *testing.T) {

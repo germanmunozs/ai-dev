@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // The crash child is this test binary re-executed with these variables.

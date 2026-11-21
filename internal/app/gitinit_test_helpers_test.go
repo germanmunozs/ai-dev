@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/gitstore"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitstore"
 )
 
 // countingRandom counts the bytes drawn from the injected random source.

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/conventionalcommit"
+	"github.com/germanmunozs/ai-dev/internal/conventionalcommit"
 )
 
 // ConventionalCommitValidationSchema is the schema of the validator output

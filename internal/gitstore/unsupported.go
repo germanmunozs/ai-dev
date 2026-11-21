@@ -1,6 +1,6 @@
 package gitstore
 
-import "ai-dev/internal/gitmanager"
+import "github.com/germanmunozs/ai-dev/internal/gitmanager"
 
 // The fail-closed implementations are compiled on every platform so they
 // can be tested on any host; unsupported_other.go selects them.

@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	"ai-dev/internal/gate"
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/selection"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 // TestStatusLinesPasteInert renders every 004-007 human-readable report

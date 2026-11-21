@@ -7,12 +7,12 @@ import (
 	"io"
 	"os"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/execution"
-	"ai-dev/internal/execution/adapters"
-	"ai-dev/internal/instruction"
-	"ai-dev/internal/report"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/execution"
+	"github.com/germanmunozs/ai-dev/internal/execution/adapters"
+	"github.com/germanmunozs/ai-dev/internal/instruction"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 var getWorkingDirectory = os.Getwd

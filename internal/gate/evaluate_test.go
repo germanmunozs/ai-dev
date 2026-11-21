@@ -7,7 +7,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 type fakeStore struct {

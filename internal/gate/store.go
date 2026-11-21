@@ -1,6 +1,6 @@
 package gate
 
-import "ai-dev/internal/workflow"
+import "github.com/germanmunozs/ai-dev/internal/workflow"
 
 // CommitStatus describes the result of the store's all-or-nothing commit.
 type CommitStatus int

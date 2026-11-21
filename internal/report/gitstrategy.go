@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // WriteGitStrategyReportJSON writes exactly one GitStrategyReport object.

@@ -4,9 +4,9 @@ import (
 	"context"
 	"io/fs"
 
-	"ai-dev/internal/checks"
-	"ai-dev/internal/doctor"
-	"ai-dev/internal/system"
+	"github.com/germanmunozs/ai-dev/internal/checks"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/system"
 )
 
 // RunDoctor assembles and runs exactly the nine contract checks in stable order.

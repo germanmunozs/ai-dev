@@ -14,8 +14,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"ai-dev/internal/sdd"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func workflowNextFixture(record *string, files ...string) fstest.MapFS {

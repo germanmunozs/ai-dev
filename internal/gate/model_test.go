@@ -3,7 +3,7 @@ package gate
 import (
 	"testing"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 func TestModelTokens(t *testing.T) {

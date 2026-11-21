@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/report"
 )
 
 // InspectGitReconciliation composes the read-only reconciliation

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/report"
 )
 
 // wizardStrategies are shown in a fixed order with no preselection.

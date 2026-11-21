@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 type jsonReport struct {

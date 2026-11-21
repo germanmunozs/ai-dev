@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"ai-dev/internal/gate"
-	"ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/report"
 )
 
 type setOnceValue struct {

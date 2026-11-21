@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // WriteGitPlanJSON writes exactly one GitPlanOutput object.

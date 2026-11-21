@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // Store is the private, durable Git state beneath one canonical state

@@ -7,8 +7,8 @@ import (
 	"io/fs"
 	"strings"
 
-	"ai-dev/internal/report"
-	"ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
 )
 
 // RunWorkflowNext evaluates and reports one read-only SDD next-step request.

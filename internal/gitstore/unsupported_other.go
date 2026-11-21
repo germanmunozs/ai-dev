@@ -5,7 +5,7 @@ package gitstore
 import (
 	"context"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // Store is unavailable on this platform; Open never returns one, and every

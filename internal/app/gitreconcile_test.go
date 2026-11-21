@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // T105: the composed reconciliation inspection reads the prior

@@ -6,9 +6,9 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/report"
-	"ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/selection"
 )
 
 // RunAgentSelect validates and executes the role selection command. It has no

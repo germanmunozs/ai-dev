@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/agent"
-	"ai-dev/internal/role"
-	"ai-dev/internal/selection"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/selection"
 )
 
 func TestWriteRoleSelectionTextAndJSONForRoleSelected(t *testing.T) {

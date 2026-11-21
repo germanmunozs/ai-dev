@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 func TestLocateGit(t *testing.T) {

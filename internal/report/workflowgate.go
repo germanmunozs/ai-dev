@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/gate"
 )
 
 const gateAppliedNote = "transition applied on the decision asserted by the named approver; approver identity is not verified"

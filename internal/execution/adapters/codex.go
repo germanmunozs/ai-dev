@@ -1,6 +1,6 @@
 package adapters
 
-import "ai-dev/internal/execution"
+import "github.com/germanmunozs/ai-dev/internal/execution"
 
 // Codex invokes Codex CLI's documented non-interactive exec mode while
 // leaving its native sandbox and approval behavior unchanged.

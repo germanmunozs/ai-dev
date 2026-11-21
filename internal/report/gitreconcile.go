@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // WriteGitReconciliationJSON writes exactly one reconciliation report.

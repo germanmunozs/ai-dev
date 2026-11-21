@@ -5,7 +5,7 @@ import (
 	"io/fs"
 	"strings"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 const specKitManifestPath = ".specify/integrations/speckit.manifest.json"

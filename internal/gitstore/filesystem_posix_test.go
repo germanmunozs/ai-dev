@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 func privateTempDir(t *testing.T) string {

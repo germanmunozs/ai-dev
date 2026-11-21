@@ -1,8 +1,8 @@
 package gatestore
 
 import (
-	"ai-dev/internal/gate"
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/gate"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 const unsupportedPlatformWarning = "ai-dev: warning: human gate persistence is supported only on macOS and Linux"

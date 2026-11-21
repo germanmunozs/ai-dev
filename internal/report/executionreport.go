@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/execution"
+	"github.com/germanmunozs/ai-dev/internal/execution"
 )
 
 // WriteExecutionText writes the final ai-dev-authored record to the caller's

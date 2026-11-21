@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 func stateRootPath(t *testing.T) (gitmanager.ObservedPath, string) {

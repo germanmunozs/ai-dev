@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // WriteGitInspectionJSON writes exactly one GitInspectOutput object. The

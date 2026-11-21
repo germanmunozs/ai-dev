@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 var (

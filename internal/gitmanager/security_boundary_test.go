@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/gitprocess"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitprocess"
 )
 
 type goFile struct {
@@ -220,8 +220,8 @@ func TestNoNetworkShellOrPromptGitOperation(t *testing.T) {
 // Human Gate or Feature 007 authority: its packages import none of those,
 // and the strategy and reconciliation reports grant no mutation authority.
 func TestNoWorkflowGateOrFeature007Authority(t *testing.T) {
-	forbidden := []string{"ai-dev/internal/workflow", "ai-dev/internal/gate", "ai-dev/internal/gatestore", "ai-dev/internal/role",
-		"ai-dev/internal/selection", "ai-dev/internal/agent", "ai-dev/internal/execution"}
+	forbidden := []string{"github.com/germanmunozs/ai-dev/internal/workflow", "github.com/germanmunozs/ai-dev/internal/gate", "github.com/germanmunozs/ai-dev/internal/gatestore", "github.com/germanmunozs/ai-dev/internal/role",
+		"github.com/germanmunozs/ai-dev/internal/selection", "github.com/germanmunozs/ai-dev/internal/agent", "github.com/germanmunozs/ai-dev/internal/execution"}
 	for _, file := range parsedTree(t) {
 		feature := strings.HasPrefix(file.path, "internal/git") || strings.HasPrefix(file.path, "internal/conventionalcommit/") ||
 			file.path == "internal/app/gitapply.go" || file.path == "internal/app/gitplan.go" || file.path == "internal/app/gitreconcile.go" ||

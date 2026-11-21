@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 func TestConstitutionCheckPass(t *testing.T) {

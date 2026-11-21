@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // minimumGitVersion is the first release with `git init --ref-format`.

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/conventionalcommit"
-	"ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/conventionalcommit"
+	"github.com/germanmunozs/ai-dev/internal/report"
 )
 
 const gitCommitValidateUsage = "Usage: ai-dev git commit validate (--message TEXT | --file FILE) [--format text|json]"

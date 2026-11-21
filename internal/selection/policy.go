@@ -1,8 +1,8 @@
 package selection
 
 import (
-	"ai-dev/internal/agent"
-	"ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/role"
 )
 
 // mappedAgent returns the fixed production mapping's target agent identity

@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/report"
 )
 
 const gitPlanUsage = "Usage: ai-dev init plan --project-dir PATH --strategy basic|git-flow|github-flow|trunk-based [options] --output FILE [--format text|json]"

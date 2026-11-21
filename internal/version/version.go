@@ -9,7 +9,7 @@ import (
 )
 
 // Version is the release version, set at link time with
-// -ldflags "-X ai-dev/internal/version.Version=vX.Y.Z". When empty, the
+// -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=vX.Y.Z". When empty, the
 // main module version Go stamped at build time is reported instead.
 var Version = ""
 

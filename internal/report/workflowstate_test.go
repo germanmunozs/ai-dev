@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 // decodeOneWorkflowJSON decodes data as exactly one JSON object. A second

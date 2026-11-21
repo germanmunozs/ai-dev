@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // An inspection that does not validate is never rendered, in either form.

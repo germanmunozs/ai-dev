@@ -3,7 +3,7 @@ package sdd
 import (
 	"strings"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 // Valid reports whether r satisfies the approved outcome-specific field and

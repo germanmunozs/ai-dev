@@ -1,9 +1,9 @@
 package guide
 
 import (
-	"ai-dev/internal/agent"
-	"ai-dev/internal/role"
-	"ai-dev/internal/sdd"
+	"github.com/germanmunozs/ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/role"
+	"github.com/germanmunozs/ai-dev/internal/sdd"
 )
 
 // TemplateKind identifies one command template of F007-FR-005.

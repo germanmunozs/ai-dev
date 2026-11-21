@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"ai-dev/internal/doctor"
+	"github.com/germanmunozs/ai-dev/internal/doctor"
 )
 
 func WriteText(w io.Writer, report doctor.Report) error {

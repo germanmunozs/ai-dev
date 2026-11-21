@@ -8,7 +8,7 @@ package gitstore
 import (
 	"fmt"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 var _ gitmanager.GitStore = (*Store)(nil)

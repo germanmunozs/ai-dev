@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/report"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/report"
 )
 
 const gitInitUsage = "Usage: ai-dev init [inspect|plan|apply|reconcile] [options]"

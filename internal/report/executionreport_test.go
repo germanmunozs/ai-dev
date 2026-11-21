@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/execution"
+	"github.com/germanmunozs/ai-dev/internal/execution"
 )
 
 func TestWriteExecutionTextProducesDelimitedCanonicalRecord(t *testing.T) {

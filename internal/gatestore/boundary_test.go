@@ -24,7 +24,7 @@ const (
 var storeImports = map[string]bool{
 	"bytes": true, "crypto/rand": true, "encoding/hex": true, "encoding/json": true, "errors": true,
 	"fmt": true, "io/fs": true, "os": true, "path": true, "strings": true, "time": true,
-	"ai-dev/internal/gate": true, "ai-dev/internal/workflow": true,
+	"github.com/germanmunozs/ai-dev/internal/gate": true, "github.com/germanmunozs/ai-dev/internal/workflow": true,
 }
 
 var forbiddenOSWrites = map[string]bool{
@@ -312,10 +312,10 @@ func checkRepositorySource(filename string, source any) []error {
 			continue
 		}
 		imports[importPath] = true
-		if importPath == "ai-dev/internal/gatestore" && rel != "cmd/ai-dev/main.go" {
+		if importPath == "github.com/germanmunozs/ai-dev/internal/gatestore" && rel != "cmd/ai-dev/main.go" {
 			findings = append(findings, fmt.Errorf("gatestore imported by %s", rel))
 		}
-		if importPath == "ai-dev/internal/gate" {
+		if importPath == "github.com/germanmunozs/ai-dev/internal/gate" {
 			allowed := strings.HasPrefix(rel, "internal/gatestore/") || rel == "internal/report/workflowgate.go" || rel == "internal/app/workflowgate.go" || rel == "internal/app/app.go"
 			if !allowed {
 				findings = append(findings, fmt.Errorf("gate imported by %s", rel))
@@ -324,7 +324,7 @@ func checkRepositorySource(filename string, source any) []error {
 	}
 	legacy := []string{"workflow", "sdd", "role", "selection", "execution", "agent", "checks", "doctor", "instruction", "system"}
 	for _, pkg := range legacy {
-		if strings.HasPrefix(rel, "internal/"+pkg+"/") && (imports["ai-dev/internal/gate"] || imports["ai-dev/internal/gatestore"]) {
+		if strings.HasPrefix(rel, "internal/"+pkg+"/") && (imports["github.com/germanmunozs/ai-dev/internal/gate"] || imports["github.com/germanmunozs/ai-dev/internal/gatestore"]) {
 			findings = append(findings, fmt.Errorf("legacy package %s imports gate persistence", rel))
 		}
 	}
@@ -429,7 +429,7 @@ func TestBoundaryGatestoreSelfCheck(t *testing.T) {
 			t.Errorf("accepted %s", name)
 		}
 	}
-	good := `package gatestore; import ("io/fs"; "os"; "ai-dev/internal/gate"); func f(root *os.Root, file *os.File, mode fs.FileMode) gate.CommitStatus { _ = root.Rename("a", "b"); _ = file.Chmod(mode); return gate.Committed }`
+	good := `package gatestore; import ("io/fs"; "os"; "github.com/germanmunozs/ai-dev/internal/gate"); func f(root *os.Root, file *os.File, mode fs.FileMode) gate.CommitStatus { _ = root.Rename("a", "b"); _ = file.Chmod(mode); return gate.Committed }`
 	if findings := checkGatestoreSource("good.go", good); len(findings) != 0 {
 		t.Fatalf("good source rejected: %v", findings)
 	}
@@ -465,8 +465,8 @@ func TestBoundaryGatestoreSelfCheck(t *testing.T) {
 	}
 
 	badRepository := map[string]string{
-		"wrong gatestore importer": `package app; import _ "ai-dev/internal/gatestore"`,
-		"wrong gate importer":      `package sdd; import _ "ai-dev/internal/gate"`,
+		"wrong gatestore importer": `package app; import _ "github.com/germanmunozs/ai-dev/internal/gatestore"`,
+		"wrong gate importer":      `package sdd; import _ "github.com/germanmunozs/ai-dev/internal/gate"`,
 		"outside writer":           `package workflow; import "os"; const RecordFileName = "workflow-state.json"; func f(){ _ = os.WriteFile(RecordFileName,nil,0600) }`,
 		"outside open writer":      `package workflow; import "os"; const RecordFileName = "workflow-state.json"; func f(){ _, _ = os.OpenFile(RecordFileName,os.O_WRONLY,0600) }`,
 	}
@@ -481,7 +481,7 @@ func TestBoundaryGatestoreSelfCheck(t *testing.T) {
 			t.Errorf("accepted %s", name)
 		}
 	}
-	if findings := checkRepositorySource("cmd/ai-dev/main.go", `package main; import _ "ai-dev/internal/gatestore"`); len(findings) != 0 {
+	if findings := checkRepositorySource("cmd/ai-dev/main.go", `package main; import _ "github.com/germanmunozs/ai-dev/internal/gatestore"`); len(findings) != 0 {
 		t.Fatalf("good repository source rejected: %v", findings)
 	}
 	if findings := checkRepositorySource("internal/workflow/read.go", `package workflow; import "os"; const RecordFileName = "workflow-state.json"; func f(){ _, _ = os.OpenFile(RecordFileName,os.O_RDONLY,0) }`); len(findings) != 0 {

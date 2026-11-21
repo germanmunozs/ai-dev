@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/agent"
+	"github.com/germanmunozs/ai-dev/internal/agent"
 )
 
 func TestWriteAgentListTextPreservesRegistryOrderAndValues(t *testing.T) {

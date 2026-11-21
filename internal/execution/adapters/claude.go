@@ -1,7 +1,7 @@
 // Package adapters contains vendor-specific coding-agent command adapters.
 package adapters
 
-import "ai-dev/internal/execution"
+import "github.com/germanmunozs/ai-dev/internal/execution"
 
 // Claude invokes Claude Code's documented non-interactive print mode while
 // leaving its native permissions and approval behavior unchanged.

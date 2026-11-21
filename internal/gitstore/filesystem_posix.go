@@ -15,7 +15,7 @@ import (
 	"strings"
 	"syscall"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // mountFacts is what the per-OS adapter learns about a mount.

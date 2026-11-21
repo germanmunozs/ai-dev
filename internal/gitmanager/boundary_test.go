@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-const modulePath = "ai-dev"
+const modulePath = "github.com/germanmunozs/ai-dev"
 
 type featureSource struct {
 	filename       string
@@ -246,16 +246,16 @@ func TestFeature008BoundaryMutationMatrix(t *testing.T) {
 		description string
 		files       map[string]string
 	}{
-		{"M1", "gitmanager imports gitprocess", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import _ "ai-dev/internal/gitprocess"`}},
+		{"M1", "gitmanager imports gitprocess", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import _ "github.com/germanmunozs/ai-dev/internal/gitprocess"`}},
 		{"M2", "gitmanager imports os/exec", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import "os/exec"; var _ = exec.Command`}},
 		{"M3", "gitmanager reaches os/exec through internal/system", map[string]string{
-			"internal/gitmanager/bad.go":  `package gitmanager; import _ "ai-dev/internal/system"`,
+			"internal/gitmanager/bad.go":  `package gitmanager; import _ "github.com/germanmunozs/ai-dev/internal/system"`,
 			"internal/system/executor.go": `package system; import "os/exec"; var _ = exec.Command`,
 		}},
-		{"M4", "gitmanager imports report", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import _ "ai-dev/internal/report"`}},
-		{"M5", "gitmanager imports gatestore", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import _ "ai-dev/internal/gatestore"`}},
+		{"M4", "gitmanager imports report", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import _ "github.com/germanmunozs/ai-dev/internal/report"`}},
+		{"M5", "gitmanager imports gatestore", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import _ "github.com/germanmunozs/ai-dev/internal/gatestore"`}},
 		{"M6", "gitmanager subpackage imports os/exec", map[string]string{"internal/gitmanager/sub/bad.go": `package sub; import "os/exec"; var _ = exec.Command`}},
-		{"M7", "conventionalcommit imports gitmanager", map[string]string{"internal/conventionalcommit/bad.go": `package conventionalcommit; import _ "ai-dev/internal/gitmanager"`}},
+		{"M7", "conventionalcommit imports gitmanager", map[string]string{"internal/conventionalcommit/bad.go": `package conventionalcommit; import _ "github.com/germanmunozs/ai-dev/internal/gitmanager"`}},
 		{"M8", "gitmanager calls os.StartProcess", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import "os"; func f(){ _, _ = os.StartProcess("x", nil, nil) }`}},
 		{"M9", "gitmanager calls syscall.Exec", map[string]string{"internal/gitmanager/bad.go": `package gitmanager; import "syscall"; func f(){ _ = syscall.Exec("x", nil, nil) }`}},
 		{"M10", "gitstore imports os/exec", map[string]string{"internal/gitstore/bad.go": `package gitstore; import "os/exec"; var _ = exec.Command`}},
@@ -288,11 +288,11 @@ func writeBoundaryTree(t *testing.T, mutations map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	files := map[string]string{
-		"internal/gitmanager/manager.go":          `package gitmanager; import ("context"; _ "ai-dev/internal/conventionalcommit"); var _ = context.Background`,
+		"internal/gitmanager/manager.go":          `package gitmanager; import ("context"; _ "github.com/germanmunozs/ai-dev/internal/conventionalcommit"); var _ = context.Background`,
 		"internal/gitmanager/testhelpers_test.go": `package gitmanager; import "os/exec"; var _ = exec.Command`,
 		"internal/conventionalcommit/validate.go": `package conventionalcommit; import "strings"; var _ = strings.TrimSpace`,
 		"internal/gitprocess/runner.go":           `package gitprocess; import "os/exec"; var _ = exec.Command`,
-		"internal/gitstore/store.go":              `package gitstore; import _ "ai-dev/internal/gitmanager"`,
+		"internal/gitstore/store.go":              `package gitstore; import _ "github.com/germanmunozs/ai-dev/internal/gitmanager"`,
 		"internal/report/report.go":               `package report`,
 		"internal/gatestore/store.go":             `package gatestore`,
 		"internal/system/safe.go":                 `package system`,

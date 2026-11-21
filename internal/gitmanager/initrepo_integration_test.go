@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/gitprocess"
-	"ai-dev/internal/gitstore"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitprocess"
+	"github.com/germanmunozs/ai-dev/internal/gitstore"
 )
 
 const initAuthorizationID = "123e4567-e89b-42d3-a456-426614174078"

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // hostileFixture is a repository whose configuration points every

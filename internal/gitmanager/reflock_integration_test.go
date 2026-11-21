@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"ai-dev/internal/gitmanager"
-	"ai-dev/internal/gitprocess"
-	"ai-dev/internal/gitstore"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitprocess"
+	"github.com/germanmunozs/ai-dev/internal/gitstore"
 )
 
 // T128/T129: a reference lock left by an interrupted Git update, HEAD.lock,

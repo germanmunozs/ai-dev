@@ -3,7 +3,7 @@ package gate
 import (
 	"time"
 
-	"ai-dev/internal/workflow"
+	"github.com/germanmunozs/ai-dev/internal/workflow"
 )
 
 // Evidence is the durable record of one applied Human Gate decision.

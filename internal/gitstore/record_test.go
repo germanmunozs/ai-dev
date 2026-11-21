@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 // newTestRecords opens a private root with one private record directory

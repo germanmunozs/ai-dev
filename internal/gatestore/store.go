@@ -2,7 +2,7 @@
 // state transition and its Human Gate evidence as one atomic record replace.
 package gatestore
 
-import "ai-dev/internal/gate"
+import "github.com/germanmunozs/ai-dev/internal/gate"
 
 const tempPrefix = ".workflow-state."
 

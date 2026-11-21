@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"ai-dev/internal/gitmanager"
+	"github.com/germanmunozs/ai-dev/internal/gitmanager"
 )
 
 func lockFile(statePath string, project gitmanager.PhysicalProjectIdentity) string {

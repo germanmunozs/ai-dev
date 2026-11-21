@@ -1,6 +1,6 @@
 package agent
 
-import "ai-dev/internal/system"
+import "github.com/germanmunozs/ai-dev/internal/system"
 
 var supportedAgents = []Agent{
 	{ID: ClaudeCode, DisplayLabel: "Claude Code", binary: "claude"},
