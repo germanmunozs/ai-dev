@@ -36,7 +36,7 @@
   - `ai-dev agent run codex-cli --version` and `… help` reached the model as prompts: tokens were used, and the model answered.
   - `ai-dev agent run claude-code --version`, `… help` and `… doctor` reached Claude Code's model path, which answered that the account had no usage credits. None of them printed a version, a help text or the `doctor` report.
   - `claude --print doctor`, without `--`, also took the model path. A static reading of Claude Code's bundled parser had suggested that a subcommand name could still be dispatched after `--`, but that was not reproduced.
-- **Residual (codex-cli).** Codex CLI reads its prompt from standard input when the instruction is exactly `-`.
+- **Residual (codex-cli), accepted.** Codex CLI reads its prompt from standard input when the instruction is exactly `-`. Delivering every instruction through standard input was considered and declined, because it would take the interactive terminal away from the agent and need amendments to FR-005 and FR-016. On 2026-11-20 the owner chose to keep this as a documented limitation, in the words "déjalo documentado y sigue con el plan de la 010". This is a declared, unauthenticated assertion.
 
 ## User Scenarios & Testing *(mandatory)*
 
