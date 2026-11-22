@@ -32,11 +32,14 @@
 - **Decision:** the program runs with Bubble Tea's signal handler disabled. `RunCockpit` registers `SIGINT` and `SIGTERM` itself and forwards them as messages:
   - while the cockpit owns the terminal, either signal quits it, restoring the terminal (in raw mode `Ctrl-C` arrives as a key and quits too);
   - while a command runs, `SIGINT` is ignored by the cockpit, since the terminal delivered it to the command in the foreground, and `SIGTERM` is remembered and honored as soon as the command returns.
-- **Rationale:** without this, `main`'s interrupt context would also cancel the launched command and preempt its own interrupt handling.
+- **Context:** `cmd/ai-dev/main.go` wraps the context in `signal.NotifyContext(..., os.Interrupt)`, so a `SIGINT` meant for the command in the foreground also cancels the context `RunCockpit` receives. `RunCockpit` therefore runs the program, the loaders and the launches on `context.WithoutCancel(ctx)`; its own signal forwarding is the only way an external signal reaches the cockpit.
+- **Exit codes:** `q` or `Ctrl-C` as a key: 0. An external `SIGINT` while the cockpit owns the terminal: 130, as `ai-dev init`. `SIGTERM`: 143. The terminal is restored first in every case.
+- **Rationale:** without this, `main`'s interrupt context would also cancel the launched command and preempt its own interrupt handling, and the cockpit could not resume after the command.
+- **Process group:** a `SIGINT` typed while a command runs reaches the whole foreground process group: the cockpit (which ignores it), the `ai-dev` child and anything it started (which handle it as they do outside the cockpit).
 
 ## R-05 Terminal injection
 
-- **Decision:** `Sanitize` maps every rune that is a C0 or C1 control, DEL, or a bidirectional control (U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069) to a visible escape (`\x1b`, `‮`), and replaces invalid UTF-8 with U+FFFD. Reports are split into lines before sanitizing, so no newline reaches it. Its output is the `Text` type; views take `Text` for every untrusted string, so a forgotten call does not compile.
+- **Decision:** `Sanitize` maps every rune that is a C0 or C1 control, DEL, or a bidirectional control (U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069) to a visible escape (`\x1b`, `\u202e`), and replaces invalid UTF-8 with U+FFFD. A tab is expanded to spaces up to the next multiple of 8 columns, as a terminal would, so the tab-separated columns of the reports stay aligned. Reports are split into lines before sanitizing, so no newline reaches it. Its output is the `Text` type; views take `Text` for every untrusted string, so a forgotten call does not compile.
 - **Coverage:** feature names, every line of every reused report, values of the agents configuration (already quoted by the report, sanitized again), action command previews, and any error message.
 - **Verification:** unit tests per class of sequence (CSI, OSC including OSC 52 and OSC 8 hyperlinks, DCS, bidirectional overrides, C1 controls); a pseudo-terminal test with a hostile feature name asserts the raw terminal output never contains the sequence.
 

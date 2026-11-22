@@ -4,7 +4,7 @@
 
 | Case | Behavior | Exit |
 |---|---|---|
-| stdin and stdout are terminals, no argument | open the cockpit | 0 on quit |
+| stdin and stdout are terminals, no argument | open the cockpit | 0 on `q` or `Ctrl-C`; 130 on an external `SIGINT`; 143 on `SIGTERM` (terminal restored first) |
 | not a terminal | stderr `ai-dev: tui: refused: interactive_terminal_required; use the ai-dev commands directly` | 2 |
 | any argument | stderr `Usage: ai-dev tui` | 2 |
 | the terminal cannot be set up | stderr `ai-dev: tui: <reason>`, terminal restored | 2 |
@@ -40,7 +40,7 @@ Values are the person's text, unmodified, each one argument. `<feature>` is the 
 | Initialize repository | — | `init` | always |
 | Validate a commit message | message (required) | `git commit validate --message=<message>` | always |
 
-The review shows the argument vector with each argument quoted in the 004 shell-inert form, and the line "This runs the command above in this terminal. Nothing happens until you confirm."
+The review shows the argument vector with each argument quoted by `report.ShellQuote` (the POSIX single-quote form the guide report already uses), produced by `Runner.Preview` in `internal/app` and sanitized like any other text, and the line "This runs the command above in this terminal. Nothing happens until you confirm."
 
 After the command: `ai-dev tui: the command exited with code N. Press Enter to return.`
 

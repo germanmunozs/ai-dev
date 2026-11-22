@@ -2,7 +2,7 @@
 
 Nothing here is persisted. Everything lives while `ai-dev tui` runs.
 
-## Snapshot (from `Source.Load`)
+## Snapshot (from `Source.LoadFeatures`, `LoadEnvironment`, `LoadAgents`, `LoadRepository`, one concurrent call each per refresh)
 
 | Field | Content | Notes |
 |---|---|---|
@@ -11,7 +11,7 @@ Nothing here is persisted. Everything lives while `ai-dev tui` runs.
 | `environment` | lines of the `doctor` text report | sanitized |
 | `agents` | lines of the `setup show` text report | sanitized |
 | `repository` | lines of the `init inspect` text report, or the failure | sanitized |
-| per area | `loading` / `ready` / `failed` | a failed area shows its error, sanitized |
+| per area | `loading` / `ready` / `failed` | a failed area shows its error, sanitized, and none of its previous lines |
 
 ## Feature Row
 

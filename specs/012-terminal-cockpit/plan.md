@@ -47,12 +47,13 @@ Post-design re-check: PASS. The only change to existing behavior is the catalog,
   - `sanitize.go`: `Sanitize(string) string` and the `Text` type it alone produces; views accept only `Text` for untrusted strings (R-05);
   - `view.go`: layout, the size notice below 80×24, and the help;
   - `input.go`: a single-line text input;
-  - ports: `Source` (`Load(ctx) Snapshot`, one call per refresh, each area loaded concurrently) and `Runner` (`Command(args []string) tea.ExecCommand`).
+  - ports: `Source` (`LoadFeatures`, `LoadEnvironment`, `LoadAgents`, `LoadRepository`, each called once per refresh in its own `tea.Cmd`, so areas load concurrently) and `Runner` (`Command(args []string) tea.ExecCommand` and `Preview(args []string) string`, the review's quoted command line, so the cockpit needs no `internal/` import for quoting).
 - **`internal/app/cockpit.go`** (new): `RunCockpit(ctx, args, deps, stdin, stdout, stderr)`:
   - refuses unless stdin and stdout are terminals (as `setup`), exit 2;
   - builds the `Source` from existing functions: `RunDoctor` + `report.WriteText`; `loadAssignment` + the setup report; `inspectProject` + `report.WriteGitInspectionText`; feature listing (`specs/*` filtered by `workflow.FeatureExists`) with `workflow.EvaluateState`, `sdd.Evaluate`, `guide.Evaluate` and `report.WriteGuideText`;
-  - builds the `Runner` over `system.Launcher` with `os.Executable()`, inheriting the terminal (R-03);
-  - runs the program without Bubble Tea's own signal handler and forwards `SIGINT`/`SIGTERM` itself (R-04).
+  - builds the `Runner` over `system.Launcher` with `os.Executable()`, inheriting the terminal (R-03); `Preview` uses `report.ShellQuote` (today the unexported `shellQuote` the guide report already uses for its commands, exported unchanged);
+  - runs the program without Bubble Tea's own signal handler and forwards `SIGINT`/`SIGTERM` itself (R-04);
+  - detaches the program, the loaders and the launches from `main`'s interrupt context with `context.WithoutCancel(ctx)`: `main` cancels that context on every `SIGINT`, including one meant for the command in the foreground (R-04).
 - **`internal/app/app.go`, `catalog.go`, `help.go`**: route `tui`; catalog entry; top-level usage gains `tui` (A1, A2).
 - **`.github/workflows/ci.yml`**: a pinned `govulncheck` step in `static-analysis`.
 
@@ -64,6 +65,7 @@ specs/012-terminal-cockpit/
 internal/cockpit/{model,keys,actions,sanitize,view,input}.go, *_test.go, boundary_test.go   NEW
 internal/app/cockpit.go, cockpit_test.go, cockpit_pty_test.go                            NEW
 internal/app/{app,catalog,help}.go                 MODIFIED (route, catalog, usage)
+internal/report/{gitplan,guide}.go                 MODIFIED (shellQuote exported as ShellQuote, unchanged)
 go.mod, go.sum                                     MODIFIED (two pinned modules)
 .github/workflows/ci.yml                           MODIFIED (govulncheck)
 tests pinning top-level usage, general help, catalog, completion   UPDATED (A1, A2)
