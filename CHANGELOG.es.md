@@ -10,6 +10,10 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 
 ## [Unreleased]
 
+### Changed
+
+- `scripts/install-dev.sh` marca las versiones de desarrollo como `v0.1.2-dev+<commit>` en lugar de `v0.1.0-dev+<commit>`.
+
 ## [0.1.1] - 2026-11-22
 
 ### Changed
