@@ -40,7 +40,7 @@ Values are the person's text, unmodified, each one argument. `<feature>` is the 
 | Initialize repository | — | `init` | always |
 | Validate a commit message | message (required) | `git commit validate --message=<message>` | always |
 
-The review shows the argument vector with each argument quoted by `report.ShellQuote` (the POSIX single-quote form the guide report already uses), produced by `Runner.Preview` in `internal/app` and sanitized like any other text, and the line "This runs the command above in this terminal. Nothing happens until you confirm."
+The review shows the command line produced by `Runner.Preview` in `internal/app`: `ai-dev`, then each argument bare when it holds only letters, digits and `-_./=:,+@%`, otherwise in the 004 shell-inert quoted form (`report.ShellInertQuote`), sanitized like any other text; and the line "This runs the command above in this terminal. Nothing happens until you confirm."
 
 After the command: `ai-dev tui: the command exited with code N. Press Enter to return.`
 

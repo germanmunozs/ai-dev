@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+// ShellInertQuote is shellInertQuote for the cockpit's review of a command
+// (Feature 012, contracts/cockpit.md).
+func ShellInertQuote(value string) string { return shellInertQuote(value) }
+
 // shellInertQuote renders a supplied value in the escaped, quoted form of
 // 004 FR-028 (Amendment 5). It is Go's double-quoted form, so no value can
 // split a one-line report or forge an outcome, with every '$', '`' and '!'

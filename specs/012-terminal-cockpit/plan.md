@@ -51,11 +51,11 @@ Post-design re-check: PASS. The only change to existing behavior is the catalog,
 - **`internal/app/cockpit.go`** (new): `RunCockpit(ctx, args, deps, stdin, stdout, stderr)`:
   - refuses unless stdin and stdout are terminals (as `setup`), exit 2;
   - builds the `Source` from existing functions: `RunDoctor` + `report.WriteText`; `loadAssignment` + the setup report; `inspectProject` + `report.WriteGitInspectionText`; feature listing (`specs/*` filtered by `workflow.FeatureExists`) with `workflow.EvaluateState`, `sdd.Evaluate`, `guide.Evaluate` and `report.WriteGuideText`;
-  - builds the `Runner` over `system.Launcher` with `os.Executable()`, inheriting the terminal (R-03); `Preview` uses `report.ShellQuote` (today the unexported `shellQuote` the guide report already uses for its commands, exported unchanged);
+  - builds the `Runner` over `system.Launcher` with `os.Executable()`, inheriting the terminal (R-03); `Preview` leaves plain words bare and quotes every other argument with `report.ShellInertQuote`, an exported wrapper of the 004 FR-028 quoting (`shellInertQuote`), which also escapes control characters so the preview stays one line;
   - runs the program without Bubble Tea's own signal handler and forwards `SIGINT`/`SIGTERM` itself (R-04);
   - detaches the program, the loaders and the launches from `main`'s interrupt context with `context.WithoutCancel(ctx)`: `main` cancels that context on every `SIGINT`, including one meant for the command in the foreground (R-04).
 - **`internal/app/app.go`, `catalog.go`, `help.go`**: route `tui`; catalog entry; top-level usage gains `tui` (A1, A2).
-- **`.github/workflows/ci.yml`**: a pinned `govulncheck` step in `static-analysis`.
+- **`.github/workflows/ci.yml`**: unchanged. `govulncheck` was already in `static-analysis` (pinned to v1.10.0 by commit `8c8f938`), so the vulnerability gate exists without a new step (implementation finding, 2026-11-22).
 
 ## Project Structure
 
@@ -65,9 +65,9 @@ specs/012-terminal-cockpit/
 internal/cockpit/{model,keys,actions,sanitize,view,input}.go, *_test.go, boundary_test.go   NEW
 internal/app/cockpit.go, cockpit_test.go, cockpit_pty_test.go                            NEW
 internal/app/{app,catalog,help}.go                 MODIFIED (route, catalog, usage)
-internal/report/{gitplan,guide}.go                 MODIFIED (shellQuote exported as ShellQuote, unchanged)
-go.mod, go.sum                                     MODIFIED (two pinned modules)
-.github/workflows/ci.yml                           MODIFIED (govulncheck)
+internal/report/quote.go                           MODIFIED (exported ShellInertQuote wrapper)
+internal/app/setup.go                              MODIFIED (setupShowReport extracted, behavior unchanged)
+go.mod, go.sum                                     MODIFIED (two pinned modules; x/ansi, already in their graph, used directly for width-aware truncation)
 tests pinning top-level usage, general help, catalog, completion   UPDATED (A1, A2)
 README.md, CHANGELOG.md, SECURITY.md               UPDATED (cockpit; dependency policy)
 ```

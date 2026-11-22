@@ -42,7 +42,7 @@ Nothing here is persisted. Everything lives while `ai-dev tui` runs.
 |---|---|
 | `area` | Dashboard, Features, Environment, Agents, Repository, Help |
 | `selection`, `scroll`, `filter` | per area |
-| `mode` | `browse`, `filter`, `palette`, `form`, `review`, `running`, `returned`, `help`, `too-small` |
+| `mode` | `browse`, `detail` (a feature's or an area's actions), `filter`, `palette`, `form`, `review`, `running`, `help`; "too small" overlays any of them |
 | `pendingTerm` | a termination signal arrived while `running` |
 
-Transitions: `browse → form → review → running → returned → browse`; `Esc` goes back one step from `form` and `review`; nothing leaves `running` except the exec callback; `too-small` overlays any mode and confirms nothing.
+Transitions: `browse → detail → form → review → running → detail` (or from the palette, back to `browse`); `Esc` goes back one step from `detail`, `form` and `review`; nothing leaves `running` except the exec callback, which shows the exit code in the status line and reloads every area; "too small" overlays any mode and confirms nothing.

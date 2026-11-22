@@ -6,7 +6,7 @@
 - **Why v2:** it is the maintained line. Measured on 2026-11-21 with `go list -m all` in a probe module: v2 pulls 22 modules, 3 of them pseudo-versions (`charmbracelet/ultraviolet`, `charmbracelet/x/exp/golden`, `golang.org/x/exp`); v1.3.10 with lipgloss v1.1.0 pulls 25 modules, 7 of them pseudo-versions.
 - **14-day rule:** pin the newest release that is at least 14 days old on the day the dependency is added, and record its date. On 2026-11-21: bubbletea v2.1.2 (2026-11-18) is too new, v2.1.1 (2026-10-28) qualifies; lipgloss v2.1.1 (2026-11-15) and v2.1.0 (2026-11-09) are too new, v2.0.6 (2026-08-11) qualifies (v2.1.0 qualifies from 2026-11-23). Newer releases are taken later by an explicit dependency update, never implicitly.
 - **Integrity:** `go.sum` pins every module; `go mod verify` runs in the gates; CI keeps `GOTOOLCHAIN=local` and installs tools by exact version.
-- **Vulnerabilities:** `govulncheck` in the `static-analysis` job, pinned by the same rule (v1.9.0, 2026-10-11, today). A reachable vulnerability fails the job.
+- **Vulnerabilities:** `govulncheck` in the `static-analysis` job. A reachable vulnerability fails the job. Implementation finding (2026-11-22): the job already ran `govulncheck@v1.10.0` (commit `8c8f938`), so no step was added and that existing pin was left as it is.
 - **Licenses:** the Charm modules are MIT; the transitive modules must be MIT, BSD or Apache-2.0. Checked from each module's LICENSE file in the module cache when the dependency is added, and recorded in tasks.md.
 - **Benefit:** raw input with key decoding, resize events, alternate screen, synchronized rendering, Unicode width, colour downsampling and terminal restoration on exit and panic, all maintained upstream.
 - **Cost and trade-offs:** the project's first supply chain (22 modules); the build graph grows; upgrades become a recurring task.
@@ -35,6 +35,7 @@
 - **Context:** `cmd/ai-dev/main.go` wraps the context in `signal.NotifyContext(..., os.Interrupt)`, so a `SIGINT` meant for the command in the foreground also cancels the context `RunCockpit` receives. `RunCockpit` therefore runs the program, the loaders and the launches on `context.WithoutCancel(ctx)`; its own signal forwarding is the only way an external signal reaches the cockpit.
 - **Exit codes:** `q` or `Ctrl-C` as a key: 0. An external `SIGINT` while the cockpit owns the terminal: 130, as `ai-dev init`. `SIGTERM`: 143. The terminal is restored first in every case.
 - **Rationale:** without this, `main`'s interrupt context would also cancel the launched command and preempt its own interrupt handling, and the cockpit could not resume after the command.
+- **Decided at reception (review F1):** Bubble Tea runs a command on its event loop, so a message sent while it runs is delivered only after it returns. `internal/app` therefore decides when the signal arrives (`signalGate`): while a command runs, SIGINT is dropped and SIGTERM is remembered and handed to the model when the command ends, without waiting for Enter. The model keeps the same rules as a second line of defense.
 - **Process group:** a `SIGINT` typed while a command runs reaches the whole foreground process group: the cockpit (which ignores it), the `ai-dev` child and anything it started (which handle it as they do outside the cockpit).
 
 ## R-05 Terminal injection

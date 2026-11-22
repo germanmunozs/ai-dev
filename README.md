@@ -26,6 +26,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
    - [007 · Workflow Orchestration (modo guiado)](#007--workflow-orchestration-modo-guiado)
    - [008 · Git Management](#008--git-management)
    - [011 · Agent Detection and Role Configuration](#011--agent-detection-and-role-configuration)
+   - [012 · Terminal Cockpit](#012--terminal-cockpit)
 6. [Modelo de seguridad](#modelo-de-seguridad)
 7. [Persistencia](#persistencia)
 8. [Desarrollo y calidad](#desarrollo-y-calidad)
@@ -50,6 +51,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 009 CLI Help and Version | `ai-dev version`, `ai-dev help` | Implementada |
 | 010 Command Help and Shell Completion | `ai-dev <comando> --help`, `ai-dev help <comando>`, `ai-dev completion` | Implementada |
 | 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implementada |
+| 012 Terminal Cockpit | `ai-dev tui` | Implementada |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -121,6 +123,7 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 | `ai-dev setup` | Asistente interactivo (requiere TTY): elige los agentes del proyecto y asigna uno a cada rol | Solo tras confirmar: `.ai-dev/agents.json` |
 | `ai-dev setup show` | Muestra los agentes detectados y la asignación de roles vigente, y de dónde sale | No |
 | `ai-dev setup apply --agent A… --role ROL=AGENTE… [--replace]` | Escribe la misma configuración sin preguntar | Sí: `.ai-dev/agents.json` |
+| `ai-dev tui` | Cockpit interactivo de terminal (requiere TTY): estado de las features, entorno, agentes y repositorio, y lanzamiento de las acciones | Nada por sí mismo; cada acción ejecuta su propio comando tras confirmarla |
 
 `--help` y `-h` solo se reconocen justo después del comando: `ai-dev agent run claude-code --help` envía `--help` como instrucción, sin mostrar la ayuda.
 
@@ -252,6 +255,7 @@ internal/
   role/ selection/       003 — roles y política rol → agente (fija o del proyecto, 011)
   projectconfig/         011 — lectura y validación estricta de .ai-dev/agents.json
   configstore/           011 — escritura atómica de .ai-dev/agents.json
+  cockpit/               012 — presentación del cockpit (Bubble Tea), sin autoridad ni dominio
   workflow/              004 — estados, reglas de transición, registro
   sdd/                   005 — recomendación del siguiente paso
   gate/ gatestore/       006 — decisiones humanas y su persistencia atómica
@@ -702,6 +706,37 @@ ai-dev setup apply --agent claude-code --agent codex-cli \
 - Elegir agentes no restringe `ai-dev agent run`, que sigue ejecutando cualquier agente del catálogo que se nombre explícitamente.
 - `.ai-dev/config.json` pertenece a la 008 (estrategia Git) y la 011 no lo lee ni lo escribe.
 
+### 012 · Terminal Cockpit
+
+`ai-dev tui` abre un espacio de trabajo de terminal, manejado solo con el teclado, con el estado del proyecto y de cada feature. Desde ahí se pueden lanzar las acciones existentes sin teclear comandos. Necesita una terminal interactiva de al menos 80×24; sin ella se niega y sale con 2.
+
+| Área | Muestra exactamente lo que imprime |
+|---|---|
+| Dashboard | un resumen de las demás áreas |
+| Features | `ai-dev workflow state` y `ai-dev workflow guide` de cada `specs/*` (estado, siguiente paso, agente, disponibilidad y origen) |
+| Environment | `ai-dev doctor` |
+| Agents | `ai-dev setup show` |
+| Repository | `ai-dev init inspect` |
+| Help | todas las teclas |
+
+| Tecla | Efecto |
+|---|---|
+| `Tab` / `Shift-Tab` | área siguiente o anterior |
+| `j`/`k` o flechas | moverse |
+| `Enter` | abrir el elemento o elegir la acción |
+| `/` | filtrar la lista (`Esc` borra el filtro) |
+| `:` o `Ctrl-P` | paleta con todas las áreas y acciones |
+| `?` | ayuda |
+| `r` | volver a evaluar todo |
+| `Esc` | atrás o cerrar |
+| `q`, `Ctrl-C` | salir (`q` desde el nivel superior; `Ctrl-C` desde cualquier sitio salvo mientras corre un comando) |
+
+- **Las acciones son los comandos de siempre:** ejecutar el agente del siguiente paso (`agent run`), aprobar (`workflow approve`), abandonar (`workflow abandon`), configurar agentes (`setup`), inicializar el repositorio (`init`) y validar un mensaje de commit (`git commit validate`). El cockpit pide los valores (nunca rellena aprobador, estado destino, motivo ni instrucción), muestra el comando exacto y solo lo ejecuta tras pulsar `Enter` en el botón Confirm, al que se llega únicamente con `Tab`. Después cede la terminal al comando, muestra su código de salida, espera `Enter` y vuelve a evaluar todo.
+- **Sin autoridad propia:** no escribe archivos ni guarda estado. Cada acción deja exactamente la misma evidencia que el comando tecleado, y la salida del agente llega sin cambios (002).
+- **Texto inerte:** todo lo que viene de archivos, del entorno o de los comandos se muestra saneado. Las secuencias de escape, OSC (portapapeles, hipervínculos), los controles C0/C1 y los controles bidireccionales aparecen escapados de forma visible y nunca llegan a la terminal.
+- **Señales:** `Ctrl-C` dentro de un comando lo interrumpe a él, no al cockpit. La terminal se restaura siempre al salir: 0 con `q` o `Ctrl-C`, 130 con un `SIGINT` externo y 143 con `SIGTERM`.
+- **Dependencias:** usa Bubble Tea v2.1.1 y Lip Gloss v2.0.6, las primeras dependencias de terceros del proyecto; la política está en [Desarrollo y calidad](#desarrollo-y-calidad).
+
 ## Modelo de seguridad
 
 ```mermaid
@@ -791,6 +826,16 @@ Incluye:
 
 La revisión independiente está en [`specs/008-git-management/review.md`](specs/008-git-management/review.md). El workflow de CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) pasa en GitHub Actions en macOS (Git de Homebrew) y Ubuntu (ext4): gofmt, vet, cross-builds, pruebas, `-race -count=3` y fuzzing. El job `static-analysis` ejecuta govulncheck y staticcheck, y todas las actions están fijadas por SHA de commit.
 
+### Dependencias de terceros
+
+Desde la Feature 012 el binario depende de Bubble Tea v2 y Lip Gloss v2 (22 módulos en total, todos con licencia MIT o BSD). Hasta entonces solo usaba la biblioteca estándar.
+
+- **Versiones fijadas:** `go.mod` y `go.sum` fijan cada módulo con su checksum, y `go mod verify` debe pasar.
+- **Regla de los 14 días:** se toma la versión más reciente con al menos 14 días de publicada en la fecha en que se añade o actualiza. Nunca se sube una versión de forma implícita: `go mod tidy` puede intentarlo, así que cada actualización se revisa en el diff de `go.mod`.
+- **Vulnerabilidades:** govulncheck corre en CI y una vulnerabilidad alcanzable hace fallar el job.
+- **Licencias:** solo MIT, BSD o Apache-2.0, comprobadas en el LICENSE de cada módulo al añadirlo. La lista con fechas y licencias está en [`specs/012-terminal-cockpit/tasks.md`](specs/012-terminal-cockpit/tasks.md).
+- **Frontera:** solo `internal/cockpit` importa estas bibliotecas, y un test de frontera le impide importar paquetes de dominio, `os/exec`, `net` o `syscall`, y llamar funciones que escriban.
+
 ---
 
 ## Proceso de ingeniería
@@ -838,7 +883,8 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
   - selección automática, reintentos o encadenamiento de agentes (el modo autónomo de 007 está diferido);
   - orquestación en segundo plano;
   - operaciones Git remotas (push, fetch);
-  - commits más allá del inicial.
+  - commits más allá del inicial;
+  - en el cockpit (012): historial de ejecuciones, sesiones autónomas, estado, diff, push o merge de Git, temas y teclas configurables, y la integración con Neovim.
 
 ---
 
