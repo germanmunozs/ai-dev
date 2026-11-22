@@ -95,7 +95,7 @@ go build -o ai-dev ./cmd/ai-dev
 
 ### Instalar una versión de desarrollo para probar
 
-Mientras no haya releases, [`scripts/install-dev.sh`](scripts/install-dev.sh) compila este checkout y deja el binario en `~/.local/bin/ai-dev`. Marca la versión como `v0.1.0-dev+<commit>`, con `.dirty` si hay cambios sin commit. No edita archivos de arranque del shell, configuración ni credenciales: si `~/.local/bin` no está en el `PATH`, indica qué añadir.
+Para probar cambios que aún no están en un release, [`scripts/install-dev.sh`](scripts/install-dev.sh) compila este checkout y deja el binario en `~/.local/bin/ai-dev`. Marca la versión como `v0.1.0-dev+<commit>`, con `.dirty` si hay cambios sin commit. No edita archivos de arranque del shell, configuración ni credenciales: si `~/.local/bin` no está en el `PATH`, indica qué añadir.
 
 ```sh
 scripts/install-dev.sh                      # compilar e instalar (--prefix DIR para otro destino)
