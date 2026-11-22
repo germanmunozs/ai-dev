@@ -80,13 +80,32 @@ func fakeRelease(t *testing.T, version string) (dir, asset string) {
 	return dir, asset
 }
 
+// installerTools links the system tools scripts/install.sh uses into one
+// directory, so its PATH holds no Go, Git or gh even where the system has
+// them (GitHub's Ubuntu runners ship gh in /usr/bin).
+func installerTools(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, name := range []string{"awk", "chmod", "cp", "curl", "cut", "grep", "gzip", "mkdir", "mktemp", "mv", "rm", "sed", "sha256sum", "shasum", "tar", "uname"} {
+		for _, system := range []string{"/usr/bin", "/bin"} {
+			if _, err := os.Stat(filepath.Join(system, name)); err == nil {
+				if err := os.Symlink(filepath.Join(system, name), filepath.Join(dir, name)); err != nil {
+					t.Fatal(err)
+				}
+				break
+			}
+		}
+	}
+	return dir
+}
+
 // runInstaller runs scripts/install.sh under sh with a minimal environment:
-// no Go and no Git on PATH, only the system tools and the given extra
+// no Go, Git or gh on PATH, only the tools it uses and the given extra
 // directory.
 func runInstaller(t *testing.T, releases, extraPath string, args ...string) (string, int) {
 	t.Helper()
 	repoRoot, _ := filepath.Abs(filepath.Join("..", ".."))
-	path := "/usr/bin:/bin"
+	path := installerTools(t)
 	if extraPath != "" {
 		path = extraPath + ":" + path
 	}
