@@ -1,21 +1,23 @@
 # ai-dev — AI Dev Orchestrator
 
-`ai-dev` es una CLI en Go que acompaña un proceso de desarrollo guiado por especificaciones (Spec-Driven Development, SDD) con agentes de programación (Claude Code y Codex CLI), **sin quitarle nunca la autoridad al humano**. Diagnostica el entorno, ejecuta agentes de forma explícita, selecciona el agente adecuado para cada rol, lleva el estado del ciclo de vida de cada feature, registra decisiones humanas (Human Gates) y gestiona la inicialización supervisada de repositorios Git.
+**English** · [Español](README.es.md)
 
-El principio que atraviesa todo el diseño:
+`ai-dev` is a Go CLI that supports a Spec-Driven Development (SDD) process with coding agents (Claude Code and Codex CLI), **without ever taking authority away from the human**. It diagnoses the environment, runs agents explicitly, selects the right agent for each role, tracks each feature's lifecycle state, records human decisions (Human Gates) and manages the supervised initialization of Git repositories.
 
-> `agent_succeeded` ≠ transición de workflow ≠ aprobación humana
+The principle that runs through the whole design:
 
-Que un agente termine con éxito, que exista un artefacto o que una transición sea válida **nunca** autoriza nada por sí solo. Toda mutación de estado o de repositorio exige una decisión humana explícita y verificable.
+> `agent_succeeded` ≠ workflow transition ≠ human approval
+
+An agent finishing successfully, an artifact existing or a transition being valid **never** authorizes anything by itself. Every change to state or to a repository requires an explicit, verifiable human decision.
 
 ---
 
-## Índice
+## Contents
 
-1. [Estado actual](#estado-actual)
-2. [Instalación y requisitos](#instalación-y-requisitos)
-3. [Referencia de comandos](#referencia-de-comandos)
-4. [Arquitectura](#arquitectura)
+1. [Current status](#current-status)
+2. [Installation and requirements](#installation-and-requirements)
+3. [Command reference](#command-reference)
+4. [Architecture](#architecture)
 5. [Features](#features)
    - [001 · Environment Doctor](#001--environment-doctor)
    - [002 · Coding Agent Execution](#002--coding-agent-execution)
@@ -23,69 +25,69 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
    - [004 · Workflow State](#004--workflow-state)
    - [005 · SDD Workflow](#005--sdd-workflow)
    - [006 · Human Gates](#006--human-gates)
-   - [007 · Workflow Orchestration (modo guiado)](#007--workflow-orchestration-modo-guiado)
+   - [007 · Workflow Orchestration (guided mode)](#007--workflow-orchestration-guided-mode)
    - [008 · Git Management](#008--git-management)
    - [011 · Agent Detection and Role Configuration](#011--agent-detection-and-role-configuration)
    - [012 · Terminal Cockpit](#012--terminal-cockpit)
-6. [Modelo de seguridad](#modelo-de-seguridad)
-7. [Persistencia](#persistencia)
-8. [Desarrollo y calidad](#desarrollo-y-calidad)
-9. [Proceso de ingeniería](#proceso-de-ingeniería)
-10. [Limitaciones conocidas](#limitaciones-conocidas)
-11. [Licencia](#licencia)
+6. [Security model](#security-model)
+7. [Persistence](#persistence)
+8. [Development and quality](#development-and-quality)
+9. [Engineering process](#engineering-process)
+10. [Known limitations](#known-limitations)
+11. [License](#license)
 
 ---
 
-## Estado actual
+## Current status
 
-| Feature | Comando(s) | Estado |
+| Feature | Command(s) | Status |
 |---|---|---|
-| 001 Environment Doctor | `ai-dev doctor` | Implementada |
-| 002 Coding Agent Execution | `ai-dev agents`, `ai-dev agent run` | Implementada |
-| 003 Agent Role Selection | `ai-dev agent select` | Implementada |
-| 004 Workflow State | `ai-dev workflow state`, `ai-dev workflow transition` | Implementada |
-| 005 SDD Workflow | `ai-dev workflow next` | Implementada (solo lectura) |
-| 006 Human Gates | `ai-dev workflow approve`, `ai-dev workflow abandon` | Implementada |
-| 007 Workflow Orchestration | `ai-dev workflow guide` | Modo guiado implementado (solo lectura); modo autónomo diferido hasta superar sus gates de seguridad |
-| 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implementada, revisada de forma independiente y con evidencia en macOS/APFS, Linux/ext4 (VM) y Git 2.45.0 en CI |
-| 009 CLI Help and Version | `ai-dev version`, `ai-dev help` | Implementada |
-| 010 Command Help and Shell Completion | `ai-dev <comando> --help`, `ai-dev help <comando>`, `ai-dev completion` | Implementada |
-| 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implementada |
-| 012 Terminal Cockpit | `ai-dev tui` | Implementada |
+| 001 Environment Doctor | `ai-dev doctor` | Implemented |
+| 002 Coding Agent Execution | `ai-dev agents`, `ai-dev agent run` | Implemented |
+| 003 Agent Role Selection | `ai-dev agent select` | Implemented |
+| 004 Workflow State | `ai-dev workflow state`, `ai-dev workflow transition` | Implemented |
+| 005 SDD Workflow | `ai-dev workflow next` | Implemented (read-only) |
+| 006 Human Gates | `ai-dev workflow approve`, `ai-dev workflow abandon` | Implemented |
+| 007 Workflow Orchestration | `ai-dev workflow guide` | Guided mode implemented (read-only); autonomous mode deferred until it passes its safety gates |
+| 008 Git Management | `ai-dev init …`, `ai-dev git commit validate` | Implemented, independently reviewed, with evidence on macOS/APFS, Linux/ext4 (VM) and Git 2.45.0 in CI |
+| 009 CLI Help and Version | `ai-dev version`, `ai-dev help` | Implemented |
+| 010 Command Help and Shell Completion | `ai-dev <command> --help`, `ai-dev help <command>`, `ai-dev completion` | Implemented |
+| 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implemented |
+| 012 Terminal Cockpit | `ai-dev tui` | Implemented |
 
-Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
+Each feature has its specification, plan, contracts, data model and tasks in [`specs/`](specs/).
 
 ---
 
-## Instalación y requisitos
+## Installation and requirements
 
-- **Go 1.27.4**, solo para compilar desde el código (ver [`go.mod`](go.mod)); instalar desde un release no lo necesita. Las únicas dependencias de terceros son las del cockpit (012), fijadas según la [política de dependencias](#dependencias-de-terceros).
-- **Plataformas:** macOS y Linux. Las operaciones con estado duradero fallan de forma cerrada (`platform_unsupported`) en Windows nativo (incluido PowerShell), iOS y Android.
-- **Windows:** usa ai-dev dentro de **WSL2**, con una distribución Linux y el Git de esa distribución. El proyecto y `HOME` deben estar en el filesystem de Linux (por ejemplo `~/proyectos/…`, que es ext4). Un proyecto en `/mnt/c/…` se monta como `9p` (drvfs) y Git Management lo rechaza (`filesystem_unsupported`), porque no es un filesystem local de producción.
-- **Git ≥ 2.45** para Git Management (usa `init --ref-format` y `config --end-of-options`).
-  - Instalaciones de Git verificadas: Apple (Xcode o Command Line Tools), `/usr` y Debian/Ubuntu (`/usr/lib/git-core`), `/usr/local` y Homebrew. Con cualquier otra disposición, la inspección se rechaza (`attributes_incompatible`), porque ai-dev no puede evaluar con exactitud la configuración que ese Git lleva compilada.
-- Opcionales, según lo que se use: `specify` (Spec Kit), `claude` (Claude Code), `codex` (Codex CLI).
+- **Go 1.27.4**, only to build from source (see [`go.mod`](go.mod)); installing from a release does not need it. The only third-party dependencies are the cockpit's (012), pinned under the [dependency policy](#third-party-dependencies).
+- **Platforms:** macOS and Linux. Operations with durable state fail closed (`platform_unsupported`) on native Windows (including PowerShell), iOS and Android.
+- **Windows:** use ai-dev inside **WSL2**, with a Linux distribution and that distribution's Git. The project and `HOME` must be on the Linux filesystem (for example `~/projects/…`, which is ext4). A project under `/mnt/c/…` is mounted as `9p` (drvfs) and Git Management refuses it (`filesystem_unsupported`), because it is not a local production filesystem.
+- **Git ≥ 2.45** for Git Management (it uses `init --ref-format` and `config --end-of-options`).
+  - Verified Git installations: Apple (Xcode or Command Line Tools), `/usr` and Debian/Ubuntu (`/usr/lib/git-core`), `/usr/local` and Homebrew. With any other layout, inspection is refused (`attributes_incompatible`), because ai-dev cannot exactly evaluate the configuration compiled into that Git.
+- Optional, depending on what you use: `specify` (Spec Kit), `claude` (Claude Code), `codex` (Codex CLI).
 
-### Instalar desde un release (sin Go ni Git)
+### Install from a release (no Go or Git needed)
 
-[`scripts/install.sh`](scripts/install.sh) descarga el binario de un release de GitHub y solo necesita `curl`, `tar` y `sha256sum` o `shasum`, que traen macOS y Linux:
+[`scripts/install.sh`](scripts/install.sh) downloads the binary from a GitHub release and needs only `curl`, `tar` and `sha256sum` or `shasum`, which macOS and Linux provide:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/germanmunozs/ai-dev/main/scripts/install.sh
-less install.sh                          # léelo antes de ejecutarlo
-sh install.sh                            # último release, en ~/.local/bin
-sh install.sh --version v0.1.0           # un release concreto
-sh install.sh --prefix /opt/ai-dev/bin   # otro destino
-sh install.sh --uninstall                # quita el binario, solo si es ai-dev
+less install.sh                          # read it before running it
+sh install.sh                            # latest release, into ~/.local/bin
+sh install.sh --version v0.1.0           # a specific release
+sh install.sh --prefix /opt/ai-dev/bin   # another destination
+sh install.sh --uninstall                # removes the binary, only if it is ai-dev
 ```
 
-- Detecta el sistema (macOS o Linux) y la arquitectura (amd64 o arm64), y descarga el archivo de esa plataforma junto con `SHA256SUMS`.
-- No instala nada si el checksum no coincide. Si la CLI de GitHub (`gh`) está instalada, verifica además la attestation de procedencia firmada; sin `gh`, avisa de que solo verificó el checksum.
-- Comprueba que el binario descargado informa de la versión pedida, y lo instala con un reemplazo atómico.
-- Solo acepta releases `vX.Y.Z`. Mientras no haya ninguno publicado, termina con `no release is published yet`.
-- No edita archivos de arranque del shell, configuración ni credenciales: si el destino no está en el `PATH`, indica qué añadir.
+- It detects the system (macOS or Linux) and the architecture (amd64 or arm64), and downloads that platform's archive along with `SHA256SUMS`.
+- It installs nothing if the checksum does not match. If the GitHub CLI (`gh`) is installed, it also verifies the signed provenance attestation; without `gh`, it warns that only the checksum was verified.
+- It checks that the downloaded binary reports the requested version, and installs it with an atomic replacement.
+- It accepts only `vX.Y.Z` releases; pre-releases are refused.
+- It does not edit shell startup files, configuration or credentials: if the destination is not on your `PATH`, it tells you what to add.
 
-### Compilar desde el código
+### Build from source
 
 ```sh
 go build -o ai-dev ./cmd/ai-dev
@@ -93,103 +95,103 @@ go build -o ai-dev ./cmd/ai-dev
 ./ai-dev doctor
 ```
 
-### Instalar una versión de desarrollo para probar
+### Install a development build for testing
 
-Para probar cambios que aún no están en un release, [`scripts/install-dev.sh`](scripts/install-dev.sh) compila este checkout y deja el binario en `~/.local/bin/ai-dev`. Marca la versión como `v0.1.0-dev+<commit>`, con `.dirty` si hay cambios sin commit. No edita archivos de arranque del shell, configuración ni credenciales: si `~/.local/bin` no está en el `PATH`, indica qué añadir.
+To try changes that are not in a release yet, [`scripts/install-dev.sh`](scripts/install-dev.sh) builds this checkout and puts the binary in `~/.local/bin/ai-dev`. It marks the version as `v0.1.0-dev+<commit>`, with `.dirty` if there are uncommitted changes. It does not edit shell startup files, configuration or credentials: if `~/.local/bin` is not on your `PATH`, it tells you what to add.
 
 ```sh
-scripts/install-dev.sh                      # compilar e instalar (--prefix DIR para otro destino)
-scripts/install-dev.sh --sandbox ~/ai-dev-pruebas
-cd ~/ai-dev-pruebas/project
-PATH="$HOME/ai-dev-pruebas/fake-agents:$PATH" ai-dev tui   # con agentes falsos que solo imprimen sus argumentos
-scripts/install-dev.sh --uninstall          # quita el binario, solo si es ai-dev
-rm -rf ~/ai-dev-pruebas
+scripts/install-dev.sh                      # build and install (--prefix DIR for another destination)
+scripts/install-dev.sh --sandbox ~/ai-dev-sandbox
+cd ~/ai-dev-sandbox/project
+PATH="$HOME/ai-dev-sandbox/fake-agents:$PATH" ai-dev tui   # with fake agents that only print their arguments
+scripts/install-dev.sh --uninstall          # removes the binary, only if it is ai-dev
+rm -rf ~/ai-dev-sandbox
 ```
 
-El sandbox es un repositorio git con una feature (`specs/001-demo`) y unos `claude` y `codex` falsos, para probar `ai-dev setup`, `ai-dev tui` y `ai-dev agent run` sin lanzar agentes reales. Sin el `PATH` de los falsos se usan los agentes reales.
+The sandbox is a git repository with one feature (`specs/001-demo`) and fake `claude` and `codex` commands, for trying `ai-dev setup`, `ai-dev tui` and `ai-dev agent run` without starting real agents. Without the fakes on `PATH`, the real agents are used.
 
-Un build local informa de la versión que Go le asigna y de su commit. Para un release se fija la versión al enlazar:
+A local build reports the version Go assigns to it and its commit. For a release, the version is set at link time:
 
 ```sh
 go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.1.0" -o ai-dev ./cmd/ai-dev
 ```
 
-También se puede instalar con `go install github.com/germanmunozs/ai-dev/cmd/ai-dev@latest`, o descargar un binario de [Releases](https://github.com/germanmunozs/ai-dev/releases). Cada release trae un archivo por plataforma (macOS y Linux, amd64 y arm64), `SHA256SUMS` y una attestation de procedencia firmada. Para verificarlo antes de usarlo:
+You can also install with `go install github.com/germanmunozs/ai-dev/cmd/ai-dev@latest`, or download a binary from [Releases](https://github.com/germanmunozs/ai-dev/releases). Each release has one archive per platform (macOS and Linux, amd64 and arm64), `SHA256SUMS` and a signed provenance attestation. To verify it before use:
 
 ```sh
 shasum -a 256 -c SHA256SUMS --ignore-missing
 gh attestation verify ai-dev_v0.1.0_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
 ```
 
-**Publicar un release** (responsable del proyecto):
-1. En `dev`, la sección `[Unreleased]` de [`CHANGELOG.md`](CHANGELOG.md) pasa a `[X.Y.Z] - AAAA-MM-DD`.
-2. `dev` se integra en `main` mediante un pull request con los checks en verde.
-3. Se crea y se publica la etiqueta `vX.Y.Z` sobre ese commit de `main`.
+**Publishing a release** (project maintainer):
+1. On `dev`, the `[Unreleased]` section of [`CHANGELOG.md`](CHANGELOG.md) (English) and of [`CHANGELOG.es.md`](CHANGELOG.es.md) (Spanish) becomes `[X.Y.Z] - YYYY-MM-DD`.
+2. `dev` is merged into `main` through a pull request with the checks passing.
+3. The tag `vX.Y.Z` is created and pushed on that `main` commit. A repository ruleset lets only its administrators create, move or delete `v*` tags.
 
-El workflow [`release.yml`](.github/workflows/release.yml) rechaza etiquetas que no sean `vX.Y.Z`, que no estén en `main` o que no tengan sección en el CHANGELOG. Compila con la versión de la etiqueta, genera los archivos y `SHA256SUMS`, firma la procedencia y crea el release.
+The [`release.yml`](.github/workflows/release.yml) workflow rejects tags that are not `vX.Y.Z`, are not on `main` or have no section in `CHANGELOG.md`, whose English text becomes the release notes. It builds with the tag's version, produces the archives and `SHA256SUMS`, signs the provenance and creates the release.
 
 ---
 
-## Referencia de comandos
+## Command reference
 
-Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JSON es estable y está pensado para automatización.
+Every command accepts `--format text|json`. Text is for humans; JSON is stable and meant for automation.
 
-| Comando | Qué hace | ¿Muta algo? |
+| Command | What it does | Does it change anything? |
 |---|---|---|
-| `ai-dev doctor` | Diagnostica si el entorno y el repositorio están listos | No |
-| `ai-dev agents` | Lista los agentes soportados y su disponibilidad local | No |
-| `ai-dev agent run <agent-id> [instruction]` | Ejecuta un agente con una instrucción (argumento o stdin) | Lo que haga el agente, bajo su propio sandbox |
-| `ai-dev agent select <role>` | Indica qué agente corresponde a un rol | No |
-| `ai-dev workflow state <feature-id>` | Informa del estado actual de una feature | No |
-| `ai-dev workflow transition <feature-id> <target>` | Evalúa si una transición es válida | No |
-| `ai-dev workflow next <feature-id>` | Recomienda el siguiente paso SDD | No |
-| `ai-dev workflow guide <feature-id>` | Guía la siguiente acción humana: paso SDD, agente del rol, su disponibilidad y plantillas de comandos para completar | No |
-| `ai-dev workflow approve --approver ID [--reason T] <feature-id> <target>` | Registra una aprobación humana y aplica la transición | Sí: `workflow-state.json` |
-| `ai-dev workflow abandon --approver ID --reason T <feature-id> abandoned` | Registra un abandono humano | Sí: `workflow-state.json` |
-| `ai-dev init [--project-dir PATH]` | Asistente interactivo de Git (requiere TTY) | Solo tras confirmar el digest del plan |
-| `ai-dev init inspect` | Inspecciona el proyecto y su repositorio | No |
-| `ai-dev init plan … --output FILE` | Genera un plan determinista y lo escribe fuera del proyecto | Solo el archivo del plan |
-| `ai-dev init apply --plan FILE --confirm-plan sha256:… --authorization-id UUID …` | Emite o consume una autorización y aplica el plan | Sí: repositorio y configuración |
-| `ai-dev init reconcile --plan FILE --authorization-id UUID` | Informe de reconciliación de un intento interrumpido | No |
-| `ai-dev git commit validate (--message T \| --file F)` | Valida un mensaje Conventional Commits | No |
-| `ai-dev version` (o `--version`) | Indica qué build se está ejecutando: versión, commit, Go y plataforma | No |
-| `ai-dev help` (o `--help`, `-h`) | Lista todas las órdenes con su descripción | No |
-| `ai-dev <comando> --help` (o `-h`, o `ai-dev help <comando>`) | Ayuda de un comando o grupo: uso, argumentos, opciones con sus valores, qué cambia y códigos de salida | No |
-| `ai-dev completion bash\|zsh` | Escribe un script de autocompletado estático | No |
-| `ai-dev setup` | Asistente interactivo (requiere TTY): elige los agentes del proyecto y asigna uno a cada rol | Solo tras confirmar: `.ai-dev/agents.json` |
-| `ai-dev setup show` | Muestra los agentes detectados y la asignación de roles vigente, y de dónde sale | No |
-| `ai-dev setup apply --agent A… --role ROL=AGENTE… [--replace]` | Escribe la misma configuración sin preguntar | Sí: `.ai-dev/agents.json` |
-| `ai-dev tui` | Cockpit interactivo de terminal (requiere TTY): estado de las features, entorno, agentes y repositorio, y lanzamiento de las acciones | Nada por sí mismo; cada acción ejecuta su propio comando tras confirmarla |
+| `ai-dev doctor` | Diagnoses whether the environment and the repository are ready | No |
+| `ai-dev agents` | Lists the supported agents and their local availability | No |
+| `ai-dev agent run <agent-id> [instruction]` | Runs an agent with an instruction (argument or stdin) | Whatever the agent does, under its own sandbox |
+| `ai-dev agent select <role>` | Says which agent a role maps to | No |
+| `ai-dev workflow state <feature-id>` | Reports a feature's current state | No |
+| `ai-dev workflow transition <feature-id> <target>` | Evaluates whether a transition is valid | No |
+| `ai-dev workflow next <feature-id>` | Recommends the next SDD step | No |
+| `ai-dev workflow guide <feature-id>` | Guides the next human action: SDD step, the role's agent, its availability and command templates to complete | No |
+| `ai-dev workflow approve --approver ID [--reason T] <feature-id> <target>` | Records a human approval and applies the transition | Yes: `workflow-state.json` |
+| `ai-dev workflow abandon --approver ID --reason T <feature-id> abandoned` | Records a human abandonment | Yes: `workflow-state.json` |
+| `ai-dev init [--project-dir PATH]` | Interactive Git wizard (requires a TTY) | Only after the plan digest is confirmed |
+| `ai-dev init inspect` | Inspects the project and its repository | No |
+| `ai-dev init plan … --output FILE` | Produces a deterministic plan and writes it outside the project | Only the plan file |
+| `ai-dev init apply --plan FILE --confirm-plan sha256:… --authorization-id UUID …` | Issues or consumes an authorization and applies the plan | Yes: repository and configuration |
+| `ai-dev init reconcile --plan FILE --authorization-id UUID` | Reconciliation report for an interrupted attempt | No |
+| `ai-dev git commit validate (--message T \| --file F)` | Validates a Conventional Commits message | No |
+| `ai-dev version` (or `--version`) | Says which build is running: version, commit, Go and platform | No |
+| `ai-dev help` (or `--help`, `-h`) | Lists every command with its description | No |
+| `ai-dev <command> --help` (or `-h`, or `ai-dev help <command>`) | Help for one command or group: usage, arguments, options and their values, what it changes and exit codes | No |
+| `ai-dev completion bash\|zsh` | Writes a static completion script | No |
+| `ai-dev setup` | Interactive wizard (requires a TTY): chooses the project's agents and assigns one to each role | Only after confirmation: `.ai-dev/agents.json` |
+| `ai-dev setup show` | Shows the detected agents and the current role assignment, and where it comes from | No |
+| `ai-dev setup apply --agent A… --role ROLE=AGENT… [--replace]` | Writes the same configuration without prompting | Yes: `.ai-dev/agents.json` |
+| `ai-dev tui` | Interactive terminal cockpit (requires a TTY): feature state, environment, agents and repository, and launching the actions | Nothing by itself; each action runs its own command after it is confirmed |
 
-`--help` y `-h` solo se reconocen justo después del comando: `ai-dev agent run claude-code --help` envía `--help` como instrucción, sin mostrar la ayuda.
+`--help` and `-h` are recognized only right after the command: `ai-dev agent run claude-code --help` sends `--help` as the instruction, without showing the help.
 
-**Autocompletado.** Los scripts son estáticos: al completar no ejecutan ningún programa ni leen el contenido de ningún archivo. Funcionan en bash 3.2 o posterior (el de macOS) y en zsh 5. En zsh también se pueden instalar como `_ai-dev` en un directorio de `fpath`. ai-dev nunca modifica los archivos de inicio del shell:
+**Completion.** The scripts are static: completing runs no program and reads no file's contents. They work in bash 3.2 or later (the macOS one) and zsh 5. In zsh they can also be installed as `_ai-dev` in an `fpath` directory. ai-dev never modifies shell startup files:
 
 ```sh
-# bash (~/.bashrc); eval también funciona en bash 3.2, donde source <(...) no lee nada
+# bash (~/.bashrc); eval also works in bash 3.2, where source <(...) reads nothing
 eval "$(ai-dev completion bash)"
-# zsh (~/.zshrc, después de compinit)
+# zsh (~/.zshrc, after compinit)
 eval "$(ai-dev completion zsh)"
 ```
 
-**Códigos de salida (uniformes):**
+**Exit codes (uniform):**
 
-| Código | Significado |
+| Code | Meaning |
 |---|---|
-| `0` | Resultado positivo: listo, éxito del agente, transición válida, `applied` o `already_applied` |
-| `1` | Resultado negativo del dominio: no listo, refusal, fallo del agente, estado indeterminado |
-| `2` | Uso incorrecto o fallo interno antes de evaluar |
+| `0` | Positive result: ready, agent success, valid transition, `applied` or `already_applied` |
+| `1` | Negative domain result: not ready, refusal, agent failure, indeterminate state |
+| `2` | Incorrect usage or internal failure before evaluation |
 
 ---
 
-## Arquitectura
+## Architecture
 
-### Contexto del sistema
+### System context
 
 ```mermaid
 flowchart LR
-    human(["👤 Operador humano"])
-    auto(["🤖 Automatización / CI"])
+    human(["👤 Human operator"])
+    auto(["🤖 Automation / CI"])
 
     subgraph aidev["ai-dev (CLI)"]
         cli["cmd/ai-dev"]
@@ -199,56 +201,56 @@ flowchart LR
     claude["Claude Code<br/>(claude)"]
     codex["Codex CLI<br/>(codex)"]
     specify["Spec Kit<br/>(specify)"]
-    repo[("Repositorio del proyecto<br/>specs/, .specify/, .git/")]
-    state[("Estado duradero<br/>~/Library/… o ~/.local/state/…")]
+    repo[("Project repository<br/>specs/, .specify/, .git/")]
+    state[("Durable state<br/>~/Library/… or ~/.local/state/…")]
 
-    human -- "comandos, decisiones,<br/>confirmación de digest" --> cli
+    human -- "commands, decisions,<br/>digest confirmation" --> cli
     auto -- "--format json" --> cli
-    cli -- "proceso controlado<br/>(argv exacto, entorno saneado)" --> git
+    cli -- "controlled process<br/>(exact argv, sanitized environment)" --> git
     cli -- "agent run" --> claude
     cli -- "agent run" --> codex
-    cli -- "doctor: versión" --> specify
-    cli -- "lectura, workflow-state.json,<br/>.ai-dev/config.json" --> repo
-    cli -- "autorizaciones, auditoría,<br/>locks" --> state
+    cli -- "doctor: version" --> specify
+    cli -- "reads, workflow-state.json,<br/>.ai-dev/config.json" --> repo
+    cli -- "authorizations, audit,<br/>locks" --> state
 ```
 
-### Capas y dependencias entre paquetes
+### Layers and package dependencies
 
-La arquitectura es hexagonal: los paquetes de dominio no conocen procesos, terminales ni sistemas de archivos concretos. Los adaptadores implementan puertos definidos por el dominio y `internal/app` es la *composition root*.
+The architecture is hexagonal: domain packages know nothing about concrete processes, terminals or filesystems. Adapters implement ports defined by the domain, and `internal/app` is the *composition root*.
 
 ```mermaid
 flowchart TB
     main["cmd/ai-dev<br/>main.go"]
 
-    subgraph app_layer["Composición y CLI"]
-        app["internal/app<br/>routing, flags, asistente, composición"]
-        report["internal/report<br/>render texto / JSON"]
+    subgraph app_layer["Composition and CLI"]
+        app["internal/app<br/>routing, flags, wizard, composition"]
+        report["internal/report<br/>text / JSON rendering"]
     end
 
-    subgraph domain["Dominio (sin I/O de procesos)"]
+    subgraph domain["Domain (no process I/O)"]
         doctor["doctor"]
         checks["checks"]
         agentpkg["agent"]
         role["role"]
         selection["selection"]
-        projectconfig["projectconfig<br/>(lectura y validación de agents.json)"]
+        projectconfig["projectconfig<br/>(reads and validates agents.json)"]
         execution["execution"]
         instruction["instruction"]
         workflow["workflow"]
         sdd["sdd"]
         guide["guide"]
         gate["gate"]
-        gitmanager["gitmanager<br/>(dominio + safety kernel)"]
+        gitmanager["gitmanager<br/>(domain + safety kernel)"]
         cc["conventionalcommit"]
     end
 
-    subgraph adapters["Adaptadores"]
-        system["system<br/>(único os/exec general)"]
+    subgraph adapters["Adapters"]
+        system["system<br/>(only general os/exec)"]
         adapterspkg["execution/adapters<br/>claude, codex"]
-        gatestore["gatestore<br/>(única escritura de Workflow State)"]
-        configstore["configstore<br/>(única escritura de agents.json)"]
-        gitprocess["gitprocess<br/>(único os/exec de Git)"]
-        gitstore["gitstore<br/>(autorización, auditoría, locks)"]
+        gatestore["gatestore<br/>(only Workflow State writer)"]
+        configstore["configstore<br/>(only agents.json writer)"]
+        gitprocess["gitprocess<br/>(only Git os/exec)"]
+        gitstore["gitstore<br/>(authorization, audit, locks)"]
     end
 
     main --> app & configstore
@@ -265,45 +267,45 @@ flowchart TB
     gitmanager --> cc
     adapterspkg --> execution
     gatestore --> gate & workflow
-    gitprocess -. "implementa puertos" .-> gitmanager
-    gitstore -. "implementa puertos" .-> gitmanager
+    gitprocess -. "implements ports" .-> gitmanager
+    gitstore -. "implements ports" .-> gitmanager
 ```
 
-Pruebas estructurales en el propio repositorio hacen cumplir estas fronteras:
-- `gitmanager` solo importa la biblioteca estándar y `conventionalcommit`.
-- `os/exec` está prohibido fuera de `gitprocess` (para Git) y `system`.
-- Git Management no importa `workflow`, `gate`, `gatestore`, `role`, `selection`, `agent` ni `execution`: no puede conceder autoridad de Workflow ni de Human Gate.
-- Ningún archivo de producción fuera de `safety.go` puede construir un `MutationPermit`.
-- Solo `configstore` puede escribir `.ai-dev/agents.json`, solo `cmd/ai-dev/main.go` lo importa y `configstore` no puede nombrar el `config.json` de la 008.
-- `guide` solo importa `sdd`, `selection`, `agent`, `role`, `workflow` y tres paquetes de la biblioteca estándar. No puede construir su propio registro de agentes, evaluar transiciones, lanzar procesos ni leer el entorno.
+Structural tests in the repository enforce these boundaries:
+- `gitmanager` imports only the standard library and `conventionalcommit`.
+- `os/exec` is forbidden outside `gitprocess` (for Git) and `system`.
+- Git Management does not import `workflow`, `gate`, `gatestore`, `role`, `selection`, `agent` or `execution`: it cannot grant Workflow or Human Gate authority.
+- No production file other than `safety.go` can construct a `MutationPermit`.
+- Only `configstore` can write `.ai-dev/agents.json`, only `cmd/ai-dev/main.go` imports it, and `configstore` cannot name 008's `config.json`.
+- `guide` imports only `sdd`, `selection`, `agent`, `role`, `workflow` and three standard-library packages. It cannot build its own agent registry, evaluate transitions, start processes or read the environment.
 
-### Estructura del repositorio
+### Repository layout
 
 ```text
-cmd/ai-dev/              punto de entrada y pruebas end-to-end por subproceso
+cmd/ai-dev/              entry point and end-to-end subprocess tests
 internal/
-  app/                   composición, routing de comandos, asistente interactivo
-  report/                renderizado texto/JSON de todos los informes
-  doctor/ checks/        001 — modelo de readiness y los nueve checks
-  agent/ execution/      002 — catálogo de agentes y modelo de ejecución
-    execution/adapters/        adaptadores claude/codex
-  instruction/           002 — fuente de la instrucción (argumento o stdin)
-  role/ selection/       003 — roles y política rol → agente (fija o del proyecto, 011)
-  projectconfig/         011 — lectura y validación estricta de .ai-dev/agents.json
-  configstore/           011 — escritura atómica de .ai-dev/agents.json
-  cockpit/               012 — presentación del cockpit (Bubble Tea), sin autoridad ni dominio
-  workflow/              004 — estados, reglas de transición, registro
-  sdd/                   005 — recomendación del siguiente paso
-  gate/ gatestore/       006 — decisiones humanas y su persistencia atómica
-  gitmanager/            008 — dominio Git, planificación, safety kernel
-  gitprocess/            008 — adaptador del proceso Git
-  gitstore/              008 — almacén duradero de autorizaciones y auditoría
-  conventionalcommit/    008 — validador Conventional Commits independiente
-  system/                frontera de procesos externos y lanzador de agentes
-scripts/install.sh       instalación desde un release de GitHub (sin Go ni Git)
-scripts/install-dev.sh   instalación de desarrollo para pruebas manuales
-specs/NNN-*/             spec, plan, contratos, data model, tareas por feature
-.specify/                configuración de Spec Kit y constitución del proyecto
+  app/                   composition, command routing, interactive wizard
+  report/                text/JSON rendering of every report
+  doctor/ checks/        001 — readiness model and the nine checks
+  agent/ execution/      002 — agent catalog and execution model
+    execution/adapters/        claude/codex adapters
+  instruction/           002 — instruction source (argument or stdin)
+  role/ selection/       003 — roles and role → agent policy (built-in or project, 011)
+  projectconfig/         011 — strict reading and validation of .ai-dev/agents.json
+  configstore/           011 — atomic writing of .ai-dev/agents.json
+  cockpit/               012 — cockpit presentation (Bubble Tea), no authority or domain
+  workflow/              004 — states, transition rules, record
+  sdd/                   005 — next-step recommendation
+  gate/ gatestore/       006 — human decisions and their atomic persistence
+  gitmanager/            008 — Git domain, planning, safety kernel
+  gitprocess/            008 — Git process adapter
+  gitstore/              008 — durable store for authorizations and audit
+  conventionalcommit/    008 — standalone Conventional Commits validator
+  system/                external process boundary and agent launcher
+scripts/install.sh       installation from a GitHub release (no Go or Git)
+scripts/install-dev.sh   development installation for manual testing
+specs/NNN-*/             spec, plan, contracts, data model, tasks per feature
+.specify/                Spec Kit configuration and the project constitution
 ```
 
 ---
@@ -312,77 +314,77 @@ specs/NNN-*/             spec, plan, contratos, data model, tareas por feature
 
 ### 001 · Environment Doctor
 
-`ai-dev doctor` ejecuta **nueve checks independientes**, siempre en el mismo orden. Que uno falle no impide que se ejecuten los demás; cada fallo explica qué falta y cómo remediarlo.
+`ai-dev doctor` runs **nine independent checks**, always in the same order. One failing does not stop the others from running; each failure explains what is missing and how to fix it.
 
-| # | ID | Área | Comprueba |
+| # | ID | Area | Checks |
 |---|---|---|---|
-| 1 | `git-tool` | Environment | `git` instalado y ejecutable |
-| 2 | `speckit-tool` | Environment | `specify` instalado |
-| 3 | `claude-code-tool` | Environment | `claude` instalado |
-| 4 | `codex-cli-tool` | Environment | `codex` instalado |
-| 5 | `git-repository` | Repository | El directorio actual es un repositorio Git |
-| 6 | `speckit-initialized` | Repository | `.specify/integrations/speckit.manifest.json` válido |
-| 7 | `constitution` | Repository | `.specify/memory/constitution.md` completo (sin placeholders, con Version y Ratified) |
-| 8 | `claude-integration` | Repository | Integración Spec Kit de Claude instalada |
-| 9 | `codex-integration` | Repository | Integración Spec Kit de Codex instalada |
+| 1 | `git-tool` | Environment | `git` installed and executable |
+| 2 | `speckit-tool` | Environment | `specify` installed |
+| 3 | `claude-code-tool` | Environment | `claude` installed |
+| 4 | `codex-cli-tool` | Environment | `codex` installed |
+| 5 | `git-repository` | Repository | The current directory is a Git repository |
+| 6 | `speckit-initialized` | Repository | Valid `.specify/integrations/speckit.manifest.json` |
+| 7 | `constitution` | Repository | Complete `.specify/memory/constitution.md` (no placeholders, with Version and Ratified) |
+| 8 | `claude-integration` | Repository | Spec Kit Claude integration installed |
+| 9 | `codex-integration` | Repository | Spec Kit Codex integration installed |
 
 ```mermaid
 flowchart LR
-    start(["ai-dev doctor"]) --> run["RunAll: 9 checks<br/>aislados entre sí"]
+    start(["ai-dev doctor"]) --> run["RunAll: 9 checks<br/>isolated from each other"]
     run --> c1["Environment<br/>git · specify · claude · codex"]
-    run --> c2["Repository<br/>repo · Spec Kit · constitución · integraciones"]
-    c1 & c2 --> agg{"¿Todos pass?"}
-    agg -- sí --> ok["Overall: pass<br/>exit 0"]
-    agg -- no --> ko["Overall: fail<br/>exit 1 + remediación por check"]
+    run --> c2["Repository<br/>repo · Spec Kit · constitution · integrations"]
+    c1 & c2 --> agg{"All pass?"}
+    agg -- yes --> ok["Overall: pass<br/>exit 0"]
+    agg -- no --> ko["Overall: fail<br/>exit 1 + remediation per check"]
 ```
 
-La detección de autenticación de Claude y Codex queda **fuera de alcance** a propósito: no se infiere.
+Detecting Claude and Codex authentication is **out of scope** on purpose: it is not inferred.
 
 ### 002 · Coding Agent Execution
 
-Es una abstracción neutral respecto al proveedor para descubrir e invocar agentes. Hoy soporta `claude-code` y `codex-cli`, y se pueden añadir otros sin cambiar el modelo de ejecución.
+A provider-neutral abstraction for discovering and invoking agents. It supports `claude-code` and `codex-cli` today, and others can be added without changing the execution model.
 
-| Agente | Ejecutable | Invocación |
+| Agent | Executable | Invocation |
 |---|---|---|
 | `claude-code` | `claude` | `claude --print -- <instruction>` |
 | `codex-cli` | `codex` | `codex exec -- <instruction>` |
 
-La instrucción llega como argumento **o** por stdin no interactivo, nunca por ambos a la vez. `ai-dev` no eleva permisos ni salta el sandbox o las aprobaciones del agente. La instrucción va siempre después de `--`, así que una instrucción que empieza por `-` nunca se lee como una opción del agente (002, enmienda 1).
+The instruction arrives as an argument **or** through non-interactive stdin, never both at once. `ai-dev` does not raise permissions or bypass the agent's sandbox or approvals. The instruction always comes after `--`, so an instruction that starts with `-` is never read as an agent option (002, amendment 1).
 
-El resultado distingue tres outcomes:
-- `agent_succeeded`: el agente terminó con éxito.
-- `agent_failed`: el agente se ejecutó y terminó con un resultado no exitoso.
-- `execution_failed`: `ai-dev` no pudo lanzarlo o supervisarlo.
+The result distinguishes three outcomes:
+- `agent_succeeded`: the agent finished successfully.
+- `agent_failed`: the agent ran and finished with an unsuccessful result.
+- `execution_failed`: `ai-dev` could not start or supervise it.
 
 ```mermaid
 sequenceDiagram
-    actor U as Operador
+    actor U as Operator
     participant A as ai-dev agent run
     participant I as instruction
     participant R as execution.Runner
     participant AD as Adapter (claude/codex)
     participant L as system.Launcher
-    participant P as Proceso del agente
+    participant P as Agent process
 
     U->>A: agent run claude-code "…"
     A->>I: Resolve(arg, stdin)
-    I-->>A: instrucción (o error de uso → exit 2)
+    I-->>A: instruction (or usage error → exit 2)
     A->>R: Run(request)
     R->>AD: Command(instruction)
-    AD-->>R: ejecutable + argv
-    R->>L: Launch (stdio heredado)
+    AD-->>R: executable + argv
+    R->>L: Launch (inherited stdio)
     L->>P: start
     P-->>L: exit status
     L-->>R: status
     R->>AD: Classify(exit code)
     AD-->>R: agent_succeeded | agent_failed
     R-->>A: ExecutionReport
-    A-->>U: informe + exit 0 / 1
+    A-->>U: report + exit 0 / 1
 ```
 
 ### 003 · Agent Role Selection
 
-Dado un rol de desarrollo explícito, determina qué agente usar e informa de ello. La selección es determinista y de solo lectura: **no ejecuta, lanza, autentica ni reconfigura ningún agente**. La tabla siguiente es la asignación fija (`source=built_in`); un proyecto puede sustituirla con su configuración de la [Feature 011](#011--agent-detection-and-role-configuration) (`source=project`).
+Given an explicit development role, it determines which agent to use and reports it. Selection is deterministic and read-only: **it does not run, start, authenticate or reconfigure any agent**. The table below is the built-in assignment (`source=built_in`); a project can replace it with its [Feature 011](#011--agent-detection-and-role-configuration) configuration (`source=project`).
 
 ```mermaid
 flowchart LR
@@ -393,16 +395,16 @@ flowchart LR
     rem["remediation"] --> CX
 ```
 
-Outcomes posibles:
-- `role_selected`: el rol es válido y su agente está disponible.
-- `role_unsupported`: el rol no es uno de los cinco canónicos.
-- `agent_unavailable`: el agente que corresponde al rol no está disponible localmente.
-- `selection_inconsistent`: el resultado no supera la validación contra la política fija.
-- `configuration_invalid`: la configuración del proyecto (`.ai-dev/agents.json`) no es válida; no se nombra ningún agente ni se vuelve a la asignación fija.
+Possible outcomes:
+- `role_selected`: the role is valid and its agent is available.
+- `role_unsupported`: the role is not one of the five canonical roles.
+- `agent_unavailable`: the role's agent is not available locally.
+- `selection_inconsistent`: the result fails validation against the built-in policy.
+- `configuration_invalid`: the project configuration (`.ai-dev/agents.json`) is not valid; no agent is named and there is no fallback to the built-in assignment.
 
 ### 004 · Workflow State
 
-Representa el estado del ciclo de vida de una feature. El registro vive en `specs/<feature-id>/workflow-state.json`; si no existe, el estado es `draft`. Los comandos `state` y `transition` **solo leen**: `transition` evalúa si un cambio es válido, pero no lo aplica.
+Represents a feature's lifecycle state. The record lives in `specs/<feature-id>/workflow-state.json`; if it does not exist, the state is `draft`. The `state` and `transition` commands **only read**: `transition` evaluates whether a change is valid but does not apply it.
 
 ```mermaid
 stateDiagram-v2
@@ -421,20 +423,20 @@ stateDiagram-v2
     abandoned --> [*]
 ```
 
-`approved` y `abandoned` son terminales.
+`approved` and `abandoned` are terminal.
 
-Outcomes posibles:
-- `state_reported`: se informó el estado actual.
-- `feature_unknown`: la feature no existe.
-- `state_invalid`: el registro de estado no es válido.
-- `transition_valid` y `transition_invalid`: la transición pedida está o no permitida por las reglas.
-- `target_unsupported`: el estado destino no es uno de los canónicos.
+Possible outcomes:
+- `state_reported`: the current state was reported.
+- `feature_unknown`: the feature does not exist.
+- `state_invalid`: the state record is not valid.
+- `transition_valid` and `transition_invalid`: the requested transition is or is not allowed by the rules.
+- `target_unsupported`: the target state is not one of the canonical states.
 
 ### 005 · SDD Workflow
 
-`ai-dev workflow next` conecta el estado (004), los roles (003) y los artefactos de Spec Kit para **recomendar** el siguiente paso. Solo recomienda: separa "qué debería pasar después" de "autorizar que pase". No ejecuta agentes ni persiste nada.
+`ai-dev workflow next` connects state (004), roles (003) and the Spec Kit artifacts to **recommend** the next step. It only recommends: it separates "what should happen next" from "authorizing it to happen". It runs no agents and persists nothing.
 
-| Estado actual | Actividad recomendada | Rol | Artefactos requeridos |
+| Current state | Recommended activity | Role | Required artifacts |
 |---|---|---|---|
 | `draft` | specify | specification | — |
 | `specified` | plan | planning | `spec.md` |
@@ -445,61 +447,61 @@ Outcomes posibles:
 
 ```mermaid
 flowchart LR
-    ws["workflow state<br/>(004)"] --> rule{"regla SDD<br/>(fija)"}
-    art["artefactos<br/>spec / plan / tasks"] --> rule
-    rule -- "faltan artefactos" --> inc["artifacts_inconsistent"]
-    rule -- "estado terminal" --> term["workflow_terminal"]
-    rule -- "ok" --> rec["step_recommended<br/>actividad + rol"]
-    rec -. "el humano decide" .-> sel["agent select (003)"]
-    sel -. "el humano decide" .-> run["agent run (002)"]
+    ws["workflow state<br/>(004)"] --> rule{"SDD rule<br/>(built-in)"}
+    art["artifacts<br/>spec / plan / tasks"] --> rule
+    rule -- "missing artifacts" --> inc["artifacts_inconsistent"]
+    rule -- "terminal state" --> term["workflow_terminal"]
+    rule -- "ok" --> rec["step_recommended<br/>activity + role"]
+    rec -. "the human decides" .-> sel["agent select (003)"]
+    sel -. "the human decides" .-> run["agent run (002)"]
 ```
 
-Las flechas discontinuas son pasos que **el humano** decide dar; `ai-dev` no los encadena.
+The dashed arrows are steps that **the human** decides to take; `ai-dev` does not chain them.
 
 ### 006 · Human Gates
 
-Es la única vía de escritura del Workflow State. Una decisión humana explícita (`approve` o `abandon`) se valida contra las reglas de 004 y los artefactos de 005, y se persiste junto con su evidencia en un **único reemplazo atómico** del registro. La evidencia es feature, decisión, aprobador, origen, destino, fecha y motivo.
+The only way to write the Workflow State. An explicit human decision (`approve` or `abandon`) is validated against the 004 rules and the 005 artifacts, and persisted together with its evidence in a **single atomic replacement** of the record. The evidence is feature, decision, approver, source, target, date and reason.
 
-La aprobación nunca se infiere de comandos anteriores, del éxito de un agente, de los artefactos generados ni del estado actual. El abandono exige `--reason` y el destino `abandoned`.
+Approval is never inferred from earlier commands, an agent's success, generated artifacts or the current state. Abandonment requires `--reason` and the target `abandoned`.
 
 ```mermaid
 sequenceDiagram
-    actor H as Humano (--approver)
+    actor H as Human (--approver)
     participant C as workflow approve/abandon
     participant G as gate.Evaluate
     participant W as workflow (004)
     participant S as gatestore
 
     H->>C: approve --approver ana 008 planned
-    C->>G: decisión + evidencia
-    G->>W: estado actual y regla de transición
-    W-->>G: specified → planned permitido
-    G->>G: artefactos requeridos presentes
-    G->>S: Commit(feature, estado esperado, evidencia)
-    S->>S: flock exclusivo del directorio
-    S->>S: relee el estado (CAS sobre el esperado)
+    C->>G: decision + evidence
+    G->>W: current state and transition rule
+    W-->>G: specified → planned allowed
+    G->>G: required artifacts present
+    G->>S: Commit(feature, expected state, evidence)
+    S->>S: exclusive flock on the directory
+    S->>S: re-reads the state (CAS on the expected one)
     S->>S: temp 0600 → fsync → rename → fsync dir
     S-->>G: committed
     G-->>C: transition_applied
-    C-->>H: informe + exit 0
+    C-->>H: report + exit 0
 ```
 
-Outcomes posibles:
-- `transition_applied`: la transición se aplicó y quedó registrada.
-- `artifacts_missing`: faltan los artefactos que exige el estado destino.
-- `state_conflict`: el estado cambió entre la lectura y la escritura.
-- `persistence_failed`: no se pudo escribir el registro.
-- También se reutilizan los refusals de 004.
+Possible outcomes:
+- `transition_applied`: the transition was applied and recorded.
+- `artifacts_missing`: the artifacts the target state requires are missing.
+- `state_conflict`: the state changed between the read and the write.
+- `persistence_failed`: the record could not be written.
+- The 004 refusals are reused as well.
 
-### 007 · Workflow Orchestration (modo guiado)
+### 007 · Workflow Orchestration (guided mode)
 
-`ai-dev workflow guide` responde, para una feature, a la pregunta "¿qué hago ahora?". Reúne en un solo informe de solo lectura:
-- el paso SDD de 005 (resultado, estado, actividad y rol), idéntico al de `workflow next`;
-- el agente que corresponde a ese rol según 003 y su disponibilidad (`available`, `unavailable` o `inconsistent`);
-- las plantillas de las siguientes acciones humanas (`agent select`, `agent run`, `workflow transition`, `workflow approve`), o `workflow state` si la feature es terminal;
-- una declaración fija: las acciones son opciones para el humano, no autorización. Ejecutar un agente o una revisión no es aprobar.
+`ai-dev workflow guide` answers, for one feature, the question "what do I do now?". It brings together in a single read-only report:
+- the 005 SDD step (outcome, state, activity and role), identical to `workflow next`'s;
+- the agent that role maps to under 003 and its availability (`available`, `unavailable` or `inconsistent`);
+- the templates for the next human actions (`agent select`, `agent run`, `workflow transition`, `workflow approve`), or `workflow state` if the feature is terminal;
+- a fixed statement: the actions are options for the human, not authorization. Running an agent or a review is not approving.
 
-No ejecuta ninguna plantilla, no lanza procesos, no escribe nada y no lee stdin. Sus códigos de salida son los de `workflow next`. El JSON lleva `schema_version: "ai-dev.workflow-guide/v1"`.
+It runs no template, starts no process, writes nothing and does not read stdin. Its exit codes are `workflow next`'s. The JSON carries `schema_version: "ai-dev.workflow-guide/v1"`.
 
 ```text
 $ ai-dev workflow guide 009-search
@@ -515,47 +517,47 @@ ai-dev: outcome=step_recommended feature="009-search" state=specified activity=p
   # replace each )slot( before running; --reason )reason( is optional for approval (006 FR-010)
 ```
 
-**Las plantillas son para completar, no para pegar tal cual:**
-- **Huecos humanos:** cada valor que decide el humano (`)instruction(`, `)approver(`, `)target-state(`) aparece sin comillas entre paréntesis invertidos. Ese `)` que no cierra nada es un error de sintaxis en cualquier shell POSIX, así que una plantilla pegada sin completar no invoca `ai-dev` ni ningún agente y no toca archivos. Las pruebas lo verifican en sh, dash, bash y zsh, también con opciones de zsh como `emulate sh`, `shglob` o `kshglob`, con las que un `(hueco)` normal sí se ejecutaría.
-- **Nada derivado:** la guía nunca rellena esos huecos. No deduce el estado destino, el aprobador ni la instrucción a partir del entorno, de Git ni del usuario del sistema.
-- **Identificador de la feature:** va entre comillas simples después de `--`, de modo que nombres con `;`, `$( )`, espacios o un `-` inicial llegan como un único argumento. Si el identificador contiene caracteres de control o de formato (por ejemplo, U+202E o U+200B), el informe sale sin plantillas.
-- **Etiquetas como comentarios:** cada etiqueta va en su propia línea `#`, encima de su orden. Pegar una línea entera, o el informe completo, nunca ejecuta una palabra de la etiqueta. Solo las líneas de orden están pensadas para pegarse.
+**The templates are for completing, not for pasting as-is:**
+- **Human slots:** every value the human decides (`)instruction(`, `)approver(`, `)target-state(`) appears unquoted between inverted parentheses. That `)` which closes nothing is a syntax error in every POSIX shell, so a template pasted without being completed does not invoke `ai-dev` or any agent and touches no file. The tests verify this in sh, dash, bash and zsh, including zsh options such as `emulate sh`, `shglob` or `kshglob`, under which an ordinary `(slot)` would run.
+- **Nothing derived:** the guide never fills those slots. It does not infer the target state, the approver or the instruction from the environment, Git or the system user.
+- **Feature identifier:** it goes in single quotes after `--`, so names with `;`, `$( )`, spaces or a leading `-` arrive as a single argument. If the identifier contains control or format characters (for example U+202E or U+200B), the report comes out without templates.
+- **Labels as comments:** each label goes on its own `#` line, above its command. Pasting a whole line, or the whole report, never runs a word of the label. Only the command lines are meant to be pasted.
 
 ```mermaid
 flowchart LR
     sdd["sdd.Evaluate (005)"] --> g["guide.Evaluate"]
-    sel["selector 003<br/>(solo LookPath)"] --> g
-    g --> rep["informe + plantillas<br/>con huecos )slot("]
-    rep -. "el humano completa y ejecuta" .-> cmds["agent select / agent run /<br/>workflow transition / workflow approve"]
+    sel["003 selector<br/>(LookPath only)"] --> g
+    g --> rep["report + templates<br/>with )slot( holes"]
+    rep -. "the human completes and runs" .-> cmds["agent select / agent run /<br/>workflow transition / workflow approve"]
 ```
 
-El **modo autónomo** (encadenar agentes sin intervención) no existe en el código. Su diseño está en la especificación como sección diferida y no normativa, bloqueado hasta superar sus gates de seguridad.
+**Autonomous mode** (chaining agents without intervention) does not exist in the code. Its design is in the specification as a deferred, non-normative section, blocked until it passes its safety gates.
 
 ### 008 · Git Management
 
-Inicializa y configura repositorios Git de forma **supervisada, determinista y auditada** en macOS (APFS) y Linux (ext4 local). Separa estrictamente cuatro fases: **inspeccionar → planificar → autorizar → aplicar**, más una **reconciliación** de solo lectura.
+Initializes and configures Git repositories in a **supervised, deterministic and audited** way on macOS (APFS) and Linux (local ext4). It strictly separates four phases: **inspect → plan → authorize → apply**, plus a read-only **reconciliation**.
 
 ```mermaid
 flowchart LR
-    I["init inspect<br/>solo lectura"] --> P["init plan<br/>plan canónico + digest"]
-    P --> F[("plan.json<br/>fuera del proyecto")]
-    F --> A1["init apply<br/>--issue-authorization<br/>(emite y aplica)"]
-    F --> A2["init apply<br/>(consume una<br/>autorización emitida)"]
+    I["init inspect<br/>read-only"] --> P["init plan<br/>canonical plan + digest"]
+    P --> F[("plan.json<br/>outside the project")]
+    F --> A1["init apply<br/>--issue-authorization<br/>(issues and applies)"]
+    F --> A2["init apply<br/>(consumes an<br/>issued authorization)"]
     A1 & A2 --> K{{"Safety kernel"}}
     K --> R1["applied / already_applied"]
     K --> R2["refused · failed ·<br/>partially_applied ·<br/>state_indeterminate"]
-    R2 --> REC["init reconcile<br/>informe sin autoridad"]
-    REC -. "plan nuevo +<br/>--reconciles-authorization" .-> A1
+    R2 --> REC["init reconcile<br/>report without authority"]
+    REC -. "new plan +<br/>--reconciles-authorization" .-> A1
 ```
 
-#### Estrategias
+#### Strategies
 
-| Estrategia | Ramas | Notas |
+| Strategy | Branches | Notes |
 |---|---|---|
-| `basic` | `--initial-branch` | Repositorio mínimo |
-| `github-flow` | `--initial-branch` | Rama principal + ramas cortas |
-| `trunk-based` | `--trunk-branch` | Una sola rama troncal |
-| `git-flow` | `--initial-branch`, `--production-branch`, `--development-branch` + prefijos `feature/bugfix/release/hotfix/support/version-tag` | Dialectos `avh` (exactamente 8 claves `gitflow.*`) y `git-flow-next` |
+| `basic` | `--initial-branch` | Minimal repository |
+| `github-flow` | `--initial-branch` | Main branch + short-lived branches |
+| `trunk-based` | `--trunk-branch` | A single trunk branch |
+| `git-flow` | `--initial-branch`, `--production-branch`, `--development-branch` + prefixes `feature/bugfix/release/hotfix/support/version-tag` | Dialects `avh` (exactly 8 `gitflow.*` keys) and `git-flow-next` |
 
 ```mermaid
 gitGraph
@@ -564,58 +566,58 @@ gitGraph
     checkout main
 ```
 
-En Git Flow, la rama de desarrollo se crea con un CAS (`development_ref_cas`) que la apunta al commit inicial; no crea un commit nuevo. Si todavía no hay historial, queda como dependencia pendiente (`development_branch_pending_initial_history`) en lugar de inventarse.
+In Git Flow, the development branch is created with a CAS (`development_ref_cas`) that points it at the initial commit; it does not create a new commit. If there is no history yet, it stays as a pending dependency (`development_branch_pending_initial_history`) instead of being invented.
 
-#### Inspección
+#### Inspection
 
-`init inspect` informa de:
-- la identidad física del proyecto (device + inode);
-- el estado del repositorio, HEAD, refs, índice y worktree;
-- operaciones en curso (sequencer);
-- la configuración local y Git Flow;
-- los riesgos de conversión (`.gitattributes`);
-- la configuración de proyecto `.ai-dev/config.json`;
-- el filesystem;
-- la identidad de la herramienta Git.
+`init inspect` reports:
+- the project's physical identity (device + inode);
+- the state of the repository, HEAD, refs, index and worktree;
+- operations in progress (sequencer);
+- local and Git Flow configuration;
+- conversion risks (`.gitattributes`);
+- the `.ai-dev/config.json` project configuration;
+- the filesystem;
+- the identity of the Git tool.
 
-Todo se ejecuta bajo un entorno Git saneado: sin configuración del sistema, sin prompts, sin red ni helpers de credenciales.
+Everything runs under a sanitized Git environment: no system configuration, no prompts, no network and no credential helpers.
 
 #### Plan
 
-`init plan` produce un plan **canónico y determinista** identificado por su digest `sha256`. Contiene:
-- la lista ordenada de operaciones, con el argv exacto de cada una;
-- las precondiciones y postcondiciones;
-- las tuplas de aprobación de cada archivo del commit inicial;
-- un informe de estrategia.
+`init plan` produces a **canonical, deterministic** plan identified by its `sha256` digest. It contains:
+- the ordered list of operations, with the exact argv of each;
+- the preconditions and postconditions;
+- the approval tuples for each file in the initial commit;
+- a strategy report.
 
-El plan se escribe solo fuera del proyecto y rechaza destinos inseguros. Regenerarlo sobre el mismo estado produce el mismo digest.
+The plan is written only outside the project and unsafe destinations are refused. Regenerating it on the same state produces the same digest.
 
-Operaciones posibles:
-- `repository_init` y `git_config_write`;
-- `create_project_config_directory` y `project_config_write`;
-- `initial_commit`, `initial_ref_cas` y `prepared_index`;
+Possible operations:
+- `repository_init` and `git_config_write`;
+- `create_project_config_directory` and `project_config_write`;
+- `initial_commit`, `initial_ref_cas` and `prepared_index`;
 - `development_ref_cas`;
 - `verification`.
 
-#### Commit inicial opcional
+#### Optional initial commit
 
-Con `--initial-commit` se planifica un commit a partir de una lista explícita de archivos (`--include`), con su mensaje, autor, committer y fechas.
+With `--initial-commit`, a commit is planned from an explicit list of files (`--include`), with its message, author, committer and dates.
 
-- **Antes de escribir nada:** el mensaje se valida como Conventional Commit y los archivos se examinan en busca de secretos.
-- **Construcción del commit:** blobs, árboles y commit se calculan en proceso y se crean como objetos. La ref se actualiza con CAS sobre una ref inexistente.
-- **Índice:** se instala con un protocolo de 13 pasos sobre `index.lock`.
-- **Aprobación:** cada archivo exige su tupla (`--approve-file`, o `--approve-ignored-file` si está ignorado), además de `--confirm-initial-commit`.
+- **Before writing anything:** the message is validated as a Conventional Commit and the files are scanned for secrets.
+- **Building the commit:** blobs, trees and commit are computed in process and created as objects. The ref is updated with a CAS on a nonexistent ref.
+- **Index:** installed with a 13-step protocol over `index.lock`.
+- **Approval:** each file requires its tuple (`--approve-file`, or `--approve-ignored-file` if it is ignored), plus `--confirm-initial-commit`.
 
-#### Autorización y su ciclo de vida
+#### Authorization and its lifecycle
 
-Una autorización liga un plan, por su digest, a un proyecto, por su identidad física, y a sus aprobaciones. Se consume **una sola vez**.
+An authorization binds a plan, by its digest, to a project, by its physical identity, and to its approvals. It is consumed **only once**.
 
 ```mermaid
 stateDiagram-v2
     [*] --> issued: --issue-authorization
-    issued --> claimed: CAS del intento propietario
-    claimed --> issued: refusal sin efectos (claim liberado)
-    claimed --> mutation_started: intención de mutación duradera
+    issued --> claimed: owning attempt's CAS
+    claimed --> issued: refusal without effects (claim released)
+    claimed --> mutation_started: durable mutation intent
     mutation_started --> applied
     mutation_started --> failed
     mutation_started --> partially_applied
@@ -626,13 +628,13 @@ stateDiagram-v2
     state_indeterminate --> [*]
 ```
 
-Repetir `apply` con una autorización ya `applied` del mismo plan devuelve `already_applied`, tras verificar de nuevo las postcondiciones bajo el lock. No vuelve a ejecutar nada.
+Repeating `apply` with an already `applied` authorization for the same plan returns `already_applied`, after verifying the postconditions again under the lock. It runs nothing again.
 
-#### Secuencia de apply (safety kernel)
+#### Apply sequence (safety kernel)
 
 ```mermaid
 sequenceDiagram
-    actor O as Operador
+    actor O as Operator
     participant AP as init apply
     participant GM as gitmanager.Apply
     participant K as Safety kernel
@@ -642,74 +644,74 @@ sequenceDiagram
 
     O->>AP: --plan, --confirm-plan sha256:…, --authorization-id
     AP->>GM: ApplyRequest
-    GM->>ST: registro duradero del intento
-    GM->>GM: inspección fresca + regeneración del plan
-    GM->>GM: digest regenerado == confirmado (si no: plan_stale)
+    GM->>ST: durable record of the attempt
+    GM->>GM: fresh inspection + plan regeneration
+    GM->>GM: regenerated digest == confirmed (otherwise: plan_stale)
     opt --issue-authorization
-        GM->>ST: emisión exclusiva (issued)
+        GM->>ST: exclusive issuance (issued)
     end
-    GM->>K: vincular plan, proyecto, alcance y aprobaciones
-    K->>ST: apply lock por device/inode
+    GM->>K: bind plan, project, scope and approvals
+    K->>ST: apply lock by device/inode
     K->>ST: CAS issued → claimed
-    K->>GM: preflight (mensaje, secretos, objetos)
+    K->>GM: preflight (message, secrets, objects)
     K->>ST: audit mutation_intent + CAS → mutation_started
-    loop cada operación, en orden
+    loop each operation, in order
         K->>D: Execute(op, MutationPermit)
-        D->>D: revalida precondiciones
-        D->>G: argv exacto
-        G-->>D: resultado
+        D->>D: revalidates preconditions
+        D->>G: exact argv
+        G-->>D: result
         D-->>K: completed | failed | indeterminate
-        Note over K: se detiene al primer fallo,<br/>sin rollback ni reintento
+        Note over K: stops at the first failure,<br/>no rollback or retry
     end
-    K->>GM: verificación de postcondiciones
-    K->>ST: liberación auditada de recursos
-    K->>ST: CAS terminal (único cierre: terminal.go)
+    K->>GM: postcondition verification
+    K->>ST: audited release of resources
+    K->>ST: terminal CAS (single close: terminal.go)
     K-->>AP: GitApplyResult
     AP-->>O: status, reason, exit
 ```
 
-Garantías clave:
-- **Sin rollback ni reintento:** ante un fallo, la ejecución se detiene. Las operaciones restantes se informan como no iniciadas y el estado refleja solo la evidencia verificada.
-- **Un solo cierre terminal:** `terminal.go` es el único lugar que cierra un intento. Los fallos del almacén cuyo resultado no se puede verificar producen `state_indeterminate`, nunca un éxito supuesto.
-- **Ganador único:** ante ejecuciones concurrentes, el CAS del claim y el apply lock garantizan que solo un intento muta.
-- **Reconciliación supervisada:** `init reconcile` es de solo lectura y no concede autoridad (`grants_mutation_authority: false`). Para reanudar se necesita un plan nuevo y una autorización nueva que declare `--reconciles-authorization`. Un plan sobre un repositorio que ai-dev ya inicializó adopta la rama registrada en `.ai-dev/config.json`, pero solo si reproduce ese archivo byte a byte (REC-05). Así, la recuperación de una inicialización interrumpida no choca con su propia configuración.
-- **Interrupciones (INT-01):**
-  - Un Ctrl-C (SIGINT) o un SIGTERM **antes** de mutar se rechaza limpiamente con la *reason* `interrupted`, y la autorización sigue usable.
-  - **Durante** la mutación, la interrupción se aplaza: la operación en curso, la verificación, la liberación y el cierre terminal siempre terminan, y no empieza ninguna operación nueva. Git corre en su propio grupo de procesos, así que el Ctrl-C del terminal nunca lo mata a mitad.
-  - SIGKILL no se puede aplazar, pero está cubierto por la recuperación tras un crash.
-- **Locks de Git:** un `index.lock`, `config.lock`, `HEAD.lock`, `packed-refs.lock` o `refs/**.lock` que haya dejado otro proceso rechaza el plan con `lock_conflict`. Si aparece después, rechaza la operación antes de crear ningún objeto. ai-dev nunca borra un lock ajeno.
-- **Efectos no demostrables:** un efecto que no se puede demostrar ausente nunca se informa como `failed`, sino como `state_indeterminate`.
+Key guarantees:
+- **No rollback or retry:** on a failure, execution stops. The remaining operations are reported as not started and the state reflects only verified evidence.
+- **A single terminal close:** `terminal.go` is the only place that closes an attempt. Store failures whose outcome cannot be verified produce `state_indeterminate`, never an assumed success.
+- **A single winner:** with concurrent runs, the claim CAS and the apply lock guarantee that only one attempt mutates.
+- **Supervised reconciliation:** `init reconcile` is read-only and grants no authority (`grants_mutation_authority: false`). Resuming needs a new plan and a new authorization that declares `--reconciles-authorization`. A plan over a repository ai-dev already initialized adopts the branch recorded in `.ai-dev/config.json`, but only if it reproduces that file byte for byte (REC-05). That way, recovering an interrupted initialization does not clash with its own configuration.
+- **Interruptions (INT-01):**
+  - A Ctrl-C (SIGINT) or SIGTERM **before** mutating is refused cleanly with the reason `interrupted`, and the authorization stays usable.
+  - **During** the mutation, the interruption is deferred: the current operation, the verification, the release and the terminal close always finish, and no new operation starts. Git runs in its own process group, so the terminal's Ctrl-C never kills it halfway.
+  - SIGKILL cannot be deferred, but it is covered by crash recovery.
+- **Git locks:** an `index.lock`, `config.lock`, `HEAD.lock`, `packed-refs.lock` or `refs/**.lock` left by another process refuses the plan with `lock_conflict`. If one appears later, it refuses the operation before any object is created. ai-dev never deletes someone else's lock.
+- **Effects that cannot be proven:** an effect that cannot be proven absent is never reported as `failed`, but as `state_indeterminate`.
 
-#### Configuración de proyecto
+#### Project configuration
 
-Una vez aplicado, el plan deja `.ai-dev/config.json` (0644) con la estrategia y las ramas. Se escribe con el ciclo temp 0600 → chmod → fsync → verificación del digest → `link` al destino ausente. **Nunca sobrescribe** un archivo existente. Un plan posterior compara la configuración con el repositorio (`compatible` o `configuration_mismatch`).
+Once applied, the plan leaves `.ai-dev/config.json` (0644) with the strategy and branches. It is written with the cycle temp 0600 → chmod → fsync → digest verification → `link` to the absent destination. It **never overwrites** an existing file. A later plan compares the configuration with the repository (`compatible` or `configuration_mismatch`).
 
-#### Asistente interactivo
+#### Interactive wizard
 
-`ai-dev init` sin subcomando guía paso a paso:
-1. Elegir la estrategia (no hay valor por defecto).
-2. Decidir si se inicializa el repositorio.
-3. Indicar las ramas.
-4. Indicar el destino del plan y confirmar la escritura.
-5. **Teclear el digest del plan.**
-6. Indicar el operador declarado.
+`ai-dev init` without a subcommand guides you step by step:
+1. Choose the strategy (there is no default).
+2. Decide whether to initialize the repository.
+3. Enter the branches.
+4. Enter the plan destination and confirm the write.
+5. **Type the plan digest.**
+6. Enter the declared operator.
 
-Hasta completar todas las confirmaciones no se crea ninguna autoridad. Sin TTY se rechaza con `interactive_terminal_required`, y la cancelación o un EOF terminan sin efectos.
+No authority is created until every confirmation is complete. Without a TTY it is refused with `interactive_terminal_required`, and cancellation or an EOF ends without effects.
 
-#### Validador Conventional Commits
+#### Conventional Commits validator
 
-`ai-dev git commit validate` es independiente de Git: valida tipo, ámbito, `!`, descripción, cuerpo, footers y `BREAKING CHANGE` con un límite de tamaño. Es el mismo validador que usa el commit inicial.
+`ai-dev git commit validate` is independent of Git: it validates type, scope, `!`, description, body, footers and `BREAKING CHANGE`, with a size limit. It is the same validator the initial commit uses.
 
 ```sh
 ai-dev git commit validate --message "feat(git): add initial commit"
 ```
 
-#### Ejemplo no interactivo de principio a fin
+#### Non-interactive example from start to finish
 
 ```sh
-ai-dev init inspect --project-dir ./mi-proyecto
+ai-dev init inspect --project-dir ./my-project
 
-ai-dev init plan --project-dir ./mi-proyecto --strategy trunk-based \
+ai-dev init plan --project-dir ./my-project --strategy trunk-based \
   --initialize-repository --trunk-branch trunk \
   --initial-commit --initial-commit-message-file ../msg.txt --include README.md \
   --author-name Ada --author-email ada@example.org \
@@ -719,7 +721,7 @@ ai-dev init plan --project-dir ./mi-proyecto --strategy trunk-based \
 
 ai-dev init apply --plan ../plan.json --confirm-plan sha256:<digest> \
   --authorization-id <uuid> --issue-authorization --authorized-by operator \
-  --confirm-initial-commit --approve-file '<tupla del plan>'
+  --confirm-initial-commit --approve-file '<tuple from the plan>'
 
 ai-dev init reconcile --plan ../plan.json --authorization-id <uuid>
 ```
@@ -728,99 +730,99 @@ ai-dev init reconcile --plan ../plan.json --authorization-id <uuid>
 
 ### 011 · Agent Detection and Role Configuration
 
-Detecta los agentes del catálogo instalados en la máquina (solo buscando su ejecutable, sin arrancarlos), deja elegir con cuáles trabaja el proyecto y qué agente usa cada rol, y lo guarda en `.ai-dev/agents.json`. Ese archivo está pensado para versionarse con el proyecto, así todo el equipo usa la misma asignación y sus cambios se revisan en pull requests; ai-dev nunca lo añade ni hace commit.
+Detects the catalog's agents installed on the machine (only by looking for their executable, without starting them), lets you choose which ones the project works with and which agent each role uses, and saves that in `.ai-dev/agents.json`. That file is meant to be versioned with the project, so the whole team uses the same assignment and its changes are reviewed in pull requests; ai-dev never adds or commits it.
 
 ```sh
-ai-dev setup show                    # agentes detectados y asignación vigente (built_in o project)
-ai-dev setup                         # asistente: elegir agentes, asignar roles, confirmar con "yes"
+ai-dev setup show                    # detected agents and current assignment (built_in or project)
+ai-dev setup                         # wizard: choose agents, assign roles, confirm with "yes"
 ai-dev setup apply --agent claude-code --agent codex-cli \
   --role specification=claude-code --role planning=claude-code \
   --role implementation=codex-cli --role review=claude-code --role remediation=codex-cli
 ```
 
-- Con una configuración válida, `ai-dev agent select` y `ai-dev workflow guide` usan su asignación e informan `source=project`. Sin configuración siguen igual que antes, con `source=built_in`.
-- Una configuración inválida (JSON malformado, campos desconocidos, un agente fuera del catálogo, un rol sin agente, un enlace simbólico…) da `configuration_invalid` con cada motivo en `ai-dev setup show`, y nunca se vuelve en silencio a la asignación fija.
-- El archivo llega con los repositorios clonados, así que se trata como entrada no confiable: tamaño máximo de 64 KiB, JSON estricto y solo identificadores del catálogo y nombres de rol. No puede nombrar ningún ejecutable, ruta ni argumento.
-- Elegir agentes no restringe `ai-dev agent run`, que sigue ejecutando cualquier agente del catálogo que se nombre explícitamente.
-- `.ai-dev/config.json` pertenece a la 008 (estrategia Git) y la 011 no lo lee ni lo escribe.
+- With a valid configuration, `ai-dev agent select` and `ai-dev workflow guide` use its assignment and report `source=project`. Without a configuration they behave as before, with `source=built_in`.
+- An invalid configuration (malformed JSON, unknown fields, an agent outside the catalog, a role without an agent, a symbolic link…) gives `configuration_invalid` with each reason in `ai-dev setup show`, and there is never a silent fallback to the built-in assignment.
+- The file arrives with cloned repositories, so it is treated as untrusted input: at most 64 KiB, strict JSON and only catalog identifiers and role names. It cannot name any executable, path or argument.
+- Choosing agents does not restrict `ai-dev agent run`, which still runs any catalog agent named explicitly.
+- `.ai-dev/config.json` belongs to 008 (Git strategy), and 011 neither reads nor writes it.
 
 ### 012 · Terminal Cockpit
 
-`ai-dev tui` abre un espacio de trabajo de terminal, manejado solo con el teclado, con el estado del proyecto y de cada feature. Desde ahí se pueden lanzar las acciones existentes sin teclear comandos. Necesita una terminal interactiva de al menos 80×24; sin ella se niega y sale con 2.
+`ai-dev tui` opens a keyboard-only terminal workspace with the state of the project and of each feature. From there you can launch the existing actions without typing commands. It needs an interactive terminal of at least 80×24; without one it refuses and exits with 2.
 
-| Área | Muestra exactamente lo que imprime |
+| Area | Shows exactly what this prints |
 |---|---|
-| Dashboard | un resumen de las demás áreas |
-| Features | `ai-dev workflow state` y `ai-dev workflow guide` de cada `specs/*` (estado, siguiente paso, agente, disponibilidad y origen) |
+| Dashboard | a summary of the other areas |
+| Features | `ai-dev workflow state` and `ai-dev workflow guide` for each `specs/*` (state, next step, agent, availability and source) |
 | Environment | `ai-dev doctor` |
 | Agents | `ai-dev setup show` |
 | Repository | `ai-dev init inspect` |
-| Help | todas las teclas |
+| Help | every key |
 
-| Tecla | Efecto |
+| Key | Effect |
 |---|---|
-| `Tab` / `Shift-Tab` | área siguiente o anterior |
-| `j`/`k` o flechas | moverse |
-| `Enter` | abrir el elemento o elegir la acción |
-| `/` | filtrar la lista (`Esc` borra el filtro) |
-| `:` o `Ctrl-P` | paleta con todas las áreas y acciones |
-| `?` | ayuda |
-| `r` | volver a evaluar todo |
-| `Esc` | atrás o cerrar |
-| `q`, `Ctrl-C` | salir (`q` desde el nivel superior; `Ctrl-C` desde cualquier sitio salvo mientras corre un comando) |
+| `Tab` / `Shift-Tab` | next or previous area |
+| `j`/`k` or arrows | move |
+| `Enter` | open the item or choose the action |
+| `/` | filter the list (`Esc` clears the filter) |
+| `:` or `Ctrl-P` | palette with every area and action |
+| `?` | help |
+| `r` | evaluate everything again |
+| `Esc` | back or close |
+| `q`, `Ctrl-C` | quit (`q` from the top level; `Ctrl-C` from anywhere except while a command is running) |
 
-- **Las acciones son los comandos de siempre:** ejecutar el agente del siguiente paso (`agent run`), aprobar (`workflow approve`), abandonar (`workflow abandon`), configurar agentes (`setup`), inicializar el repositorio (`init`) y validar un mensaje de commit (`git commit validate`). El cockpit pide los valores (nunca rellena aprobador, estado destino, motivo ni instrucción), muestra el comando exacto y solo lo ejecuta tras pulsar `Enter` en el botón Confirm, al que se llega únicamente con `Tab`. Después cede la terminal al comando, muestra su código de salida, espera `Enter` y vuelve a evaluar todo.
-- **Sin autoridad propia:** no escribe archivos ni guarda estado. Cada acción deja exactamente la misma evidencia que el comando tecleado, y la salida del agente llega sin cambios (002).
-- **Texto inerte:** todo lo que viene de archivos, del entorno o de los comandos se muestra saneado. Las secuencias de escape, OSC (portapapeles, hipervínculos), los controles C0/C1 y los controles bidireccionales aparecen escapados de forma visible y nunca llegan a la terminal.
-- **Señales:** `Ctrl-C` dentro de un comando lo interrumpe a él, no al cockpit. La terminal se restaura siempre al salir: 0 con `q` o `Ctrl-C`, 130 con un `SIGINT` externo y 143 con `SIGTERM`.
-- **Dependencias:** usa Bubble Tea v2.1.1 y Lip Gloss v2.0.6, las primeras dependencias de terceros del proyecto; la política está en [Desarrollo y calidad](#desarrollo-y-calidad).
+- **The actions are the usual commands:** run the next step's agent (`agent run`), approve (`workflow approve`), abandon (`workflow abandon`), configure agents (`setup`), initialize the repository (`init`) and validate a commit message (`git commit validate`). The cockpit asks for the values (it never fills in the approver, target state, reason or instruction), shows the exact command and runs it only after `Enter` on the Confirm button, which can be reached only with `Tab`. It then hands the terminal to the command, shows its exit code, waits for `Enter` and evaluates everything again.
+- **No authority of its own:** it writes no files and keeps no state. Each action leaves exactly the same evidence as the typed command, and the agent's output arrives unchanged (002).
+- **Inert text:** everything that comes from files, the environment or the commands is shown sanitized. Escape sequences, OSC (clipboard, hyperlinks), C0/C1 controls and bidirectional controls appear visibly escaped and never reach the terminal.
+- **Signals:** `Ctrl-C` inside a command interrupts the command, not the cockpit. The terminal is always restored on exit: 0 with `q` or `Ctrl-C`, 130 with an external `SIGINT` and 143 with `SIGTERM`.
+- **Dependencies:** it uses Bubble Tea v2.1.1 and Lip Gloss v2.0.6, the project's first third-party dependencies; the policy is in [Development and quality](#development-and-quality).
 
-## Modelo de seguridad
+## Security model
 
 ```mermaid
 flowchart TB
-    subgraph signals["Señales automáticas: NO conceden autoridad"]
+    subgraph signals["Automatic signals: they do NOT grant authority"]
         s1["agent_succeeded"]
-        s2["artefacto existente"]
-        s3["recomendación SDD"]
+        s2["existing artifact"]
+        s3["SDD recommendation"]
         s4["transition_valid"]
-        s5["informe de estrategia / reconcile"]
-        s6["guía de workflow (007)"]
+        s5["strategy / reconcile report"]
+        s6["workflow guide (007)"]
     end
-    subgraph authority["Autoridad humana explícita"]
+    subgraph authority["Explicit human authority"]
         h1["workflow approve/abandon<br/>--approver"]
-        h2["digest del plan confirmado<br/>+ autorización emitida"]
+        h2["confirmed plan digest<br/>+ issued authorization"]
     end
     h1 --> ws[("Workflow State")]
-    h2 --> permit["MutationPermit<br/>(solo safety.go)"] --> repo[("Repositorio Git")]
+    h2 --> permit["MutationPermit<br/>(safety.go only)"] --> repo[("Git repository")]
     signals -. "✗" .-> ws
     signals -. "✗" .-> repo
 ```
 
-- **Autoridad humana:** ninguna señal automática aprueba, transiciona ni muta.
-- **Sin shell ni red:** Git se invoca con argv exacto, sin `sh -c`. Lleva `protocol.allow=never`, `credential.helper=`, `core.sshCommand=false`, `GIT_TERMINAL_PROMPT=0` y `GIT_CONFIG_NOSYSTEM=1`.
-- **Sin secretos en la salida:** las credenciales de la configuración del usuario nunca aparecen en la salida ni en los registros duraderos. Los archivos del commit inicial se examinan en busca de secretos antes de crear el primer objeto.
-- **Informes que se pueden pegar sin riesgo:** los valores suministrados en los informes de texto de 004–007 (identificador, aprobador, motivo, destino) van entre comillas dobles, con `$`, las comillas invertidas y `!` escapados (004 FR-028, enmienda 5). Pegar una línea de informe en un shell no ejecuta ni expande nada de lo que contenga.
-- **Rutas literales:** se rechazan rutas no literales y enlaces simbólicos. Cada componente se abre con `O_NOFOLLOW` y se vuelve a comprobar su identidad tras la lectura.
-- **Fallo cerrado:** plataformas o filesystems no soportados (tmpfs, remotos, de solo lectura) devuelven un refusal tipado y nunca un éxito parcial supuesto.
+- **Human authority:** no automatic signal approves, transitions or mutates.
+- **No shell or network:** Git is invoked with exact argv, without `sh -c`. It carries `protocol.allow=never`, `credential.helper=`, `core.sshCommand=false`, `GIT_TERMINAL_PROMPT=0` and `GIT_CONFIG_NOSYSTEM=1`.
+- **No secrets in the output:** credentials from the user's configuration never appear in the output or the durable records. The initial commit's files are scanned for secrets before the first object is created.
+- **Reports that are safe to paste:** the supplied values in the 004–007 text reports (identifier, approver, reason, target) go in double quotes, with `$`, backquotes and `!` escaped (004 FR-028, amendment 5). Pasting a report line into a shell runs or expands nothing it contains.
+- **Literal paths:** non-literal paths and symbolic links are refused. Each component is opened with `O_NOFOLLOW` and its identity is checked again after the read.
+- **Fail closed:** unsupported platforms or filesystems (tmpfs, remote, read-only) return a typed refusal and never an assumed partial success.
 
 ---
 
-## Persistencia
+## Persistence
 
-| Dato | Ubicación | Escrito por |
+| Data | Location | Written by |
 |---|---|---|
-| Workflow State + evidencia de Gate | `specs/<feature-id>/workflow-state.json` | `gatestore` (atómico, con flock) |
-| Configuración de proyecto | `<proyecto>/.ai-dev/config.json` | `gitmanager` (sin sobrescritura) |
-| Agentes y roles del proyecto (011) | `<proyecto>/.ai-dev/agents.json` | `configstore` (reemplazo atómico) |
-| Autorizaciones, auditoría y locks de Git | macOS: `~/Library/Application Support/ai-dev/state/git`<br/>Linux: `$XDG_STATE_HOME/ai-dev/git` o `~/.local/state/ai-dev/git` | `gitstore` |
+| Workflow State + Gate evidence | `specs/<feature-id>/workflow-state.json` | `gatestore` (atomic, with flock) |
+| Project configuration | `<project>/.ai-dev/config.json` | `gitmanager` (no overwrite) |
+| Project agents and roles (011) | `<project>/.ai-dev/agents.json` | `configstore` (atomic replacement) |
+| Git authorizations, audit and locks | macOS: `~/Library/Application Support/ai-dev/state/git`<br/>Linux: `$XDG_STATE_HOME/ai-dev/git` or `~/.local/state/ai-dev/git` | `gitstore` |
 
 ```text
 <state-root>/
-├── attempts/<apply-id>/events/   auditoría ordenada de cada intento
-├── environment/                  HOME y XDG inexistentes del entorno Git saneado
-├── locks/by-device-inode/<key>/  apply lock por identidad física del proyecto
-├── prepared/<random>/            almacenamiento privado del índice preparado
+├── attempts/<apply-id>/events/   ordered audit trail of each attempt
+├── environment/                  nonexistent HOME and XDG for the sanitized Git environment
+├── locks/by-device-inode/<key>/  apply lock by the project's physical identity
+├── prepared/<random>/            private storage for the prepared index
 └── projects/<project-digest>/
     ├── authorizations/<uuid>.json
     └── attempts/
@@ -828,57 +830,57 @@ flowchart TB
 
 ---
 
-## Desarrollo y calidad
+## Development and quality
 
 ```sh
-gofmt -l .                               # debe no listar nada
+gofmt -l .                               # must list nothing
 go vet ./...
 go test ./...
 go test -race -timeout 60m ./internal/gitstore ./internal/gitmanager ./internal/app ./cmd/ai-dev
 ```
 
-La suite combina:
-- **Pruebas unitarias** de cada dominio.
-- **Fuzzing:** codificación canónica, decodificación del plan, atributos y Conventional Commits.
-- **Integración con Git real**, en directorios temporales aislados.
-- **Una matriz de fallos** (T110) que inyecta errores antes y después de cada paso duradero del almacén.
-- **Pruebas de carrera** (T111) para CAS, locks y cierre terminal.
-- **Pruebas estructurales:** fronteras entre paquetes, imposibilidad de saltarse el `MutationPermit` y trazabilidad de FR-001–192 y AC-001–032 hacia archivos y pruebas existentes.
-- **Pruebas end-to-end** de la CLI pública por subproceso.
+The suite combines:
+- **Unit tests** for each domain.
+- **Fuzzing:** canonical encoding, plan decoding, attributes and Conventional Commits.
+- **Integration with real Git**, in isolated temporary directories.
+- **A failure matrix** (T110) that injects errors before and after each durable store step.
+- **Race tests** (T111) for CAS, locks and the terminal close.
+- **Structural tests:** package boundaries, the impossibility of bypassing the `MutationPermit`, and traceability of FR-001–192 and AC-001–032 to existing files and tests.
+- **End-to-end tests** of the public CLI by subprocess.
 
-Las pruebas que aplican cambios reales con Git exigen un **filesystem de producción** en el directorio temporal: APFS en macOS, ext4 local en Linux. En tmpfs se saltan, porque el producto lo rechaza correctamente.
+The tests that apply real changes with Git require a **production filesystem** in the temporary directory: APFS on macOS, local ext4 on Linux. On tmpfs they are skipped, because the product correctly refuses it.
 
-Evidencia verificada (2026-11-18), con el mismo código en ambas plataformas:
+Verified evidence (2026-11-18), with the same code on both platforms:
 
-| Plataforma | Git | Suite | `-race -count=3` |
+| Platform | Git | Suite | `-race -count=3` |
 |---|---|---|---|
-| macOS 27 / APFS (arm64) | 2.54.0 | 2322 PASS, 0 FAIL | sin carreras |
-| Linux 7.1 / ext4 (loop en VM, Fedora 44, usuario no root) | 2.56.1 | 2322 PASS, 0 FAIL | sin carreras |
+| macOS 27 / APFS (arm64) | 2.54.0 | 2322 PASS, 0 FAIL | no races |
+| Linux 7.1 / ext4 (loop in a VM, Fedora 44, non-root user) | 2.56.1 | 2322 PASS, 0 FAIL | no races |
 
-Incluye:
-- **Recuperación tras un crash:** 92 SIGKILL reales, uno antes y otro después de cada paso duradero.
-- **Interrupciones:** 168 interrupciones reales (SIGINT, SIGTERM y SIGHUP) y la salida forzada con una segunda interrupción.
-- **Fallos de I/O:** inyección de EIO, ENOSPC y EDQUOT en cada paso.
-- **Hooks:** ninguno se ejecuta con Git real, con un control negativo que demuestra que los hooks estaban activos.
-- **Git Flow:** `git-flow-next` validado con la herramienta real 2.1.0.
+It includes:
+- **Crash recovery:** 92 real SIGKILLs, one before and one after each durable step.
+- **Interruptions:** 168 real interruptions (SIGINT, SIGTERM and SIGHUP) and the forced exit on a second interruption.
+- **I/O failures:** EIO, ENOSPC and EDQUOT injected at each step.
+- **Hooks:** none runs with real Git, with a negative control that proves the hooks were active.
+- **Git Flow:** `git-flow-next` validated with the real 2.1.0 tool.
 
-La revisión independiente está en [`specs/008-git-management/review.md`](specs/008-git-management/review.md). El workflow de CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) pasa en GitHub Actions en macOS (Git de Homebrew) y Ubuntu (ext4): gofmt, vet, cross-builds, pruebas, `-race -count=3` y fuzzing. El job `static-analysis` ejecuta govulncheck y staticcheck, y todas las actions están fijadas por SHA de commit.
+The independent review is in [`specs/008-git-management/review.md`](specs/008-git-management/review.md). The CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) passes on GitHub Actions on macOS (Homebrew Git) and Ubuntu (ext4): gofmt, vet, cross-builds, tests, `-race -count=3` and fuzzing. The `static-analysis` job runs govulncheck and staticcheck, and every action is pinned by commit SHA.
 
-### Dependencias de terceros
+### Third-party dependencies
 
-Desde la Feature 012 el binario depende de Bubble Tea v2 y Lip Gloss v2 (22 módulos en total, todos con licencia MIT o BSD). Hasta entonces solo usaba la biblioteca estándar.
+Since Feature 012 the binary depends on Bubble Tea v2 and Lip Gloss v2 (22 modules in total, all under the MIT or BSD license). Until then it used only the standard library.
 
-- **Versiones fijadas:** `go.mod` y `go.sum` fijan cada módulo con su checksum, y `go mod verify` debe pasar.
-- **Regla de los 14 días:** se toma la versión más reciente con al menos 14 días de publicada en la fecha en que se añade o actualiza. Nunca se sube una versión de forma implícita: `go mod tidy` puede intentarlo, así que cada actualización se revisa en el diff de `go.mod`.
-- **Vulnerabilidades:** govulncheck corre en CI y una vulnerabilidad alcanzable hace fallar el job.
-- **Licencias:** solo MIT, BSD o Apache-2.0, comprobadas en el LICENSE de cada módulo al añadirlo. La lista con fechas y licencias está en [`specs/012-terminal-cockpit/tasks.md`](specs/012-terminal-cockpit/tasks.md).
-- **Frontera:** solo `internal/cockpit` importa estas bibliotecas, y un test de frontera le impide importar paquetes de dominio, `os/exec`, `net` o `syscall`, y llamar funciones que escriban.
+- **Pinned versions:** `go.mod` and `go.sum` pin each module with its checksum, and `go mod verify` must pass.
+- **14-day rule:** the newest version published at least 14 days before the date it is added or updated is used. A version is never bumped implicitly: `go mod tidy` may try to, so every update is reviewed in the `go.mod` diff.
+- **Vulnerabilities:** govulncheck runs in CI and a reachable vulnerability fails the job.
+- **Licenses:** only MIT, BSD or Apache-2.0, checked in each module's LICENSE when it is added. The list with dates and licenses is in [`specs/012-terminal-cockpit/tasks.md`](specs/012-terminal-cockpit/tasks.md).
+- **Boundary:** only `internal/cockpit` imports these libraries, and a boundary test stops it from importing domain packages, `os/exec`, `net` or `syscall`, and from calling functions that write.
 
 ---
 
-## Proceso de ingeniería
+## Engineering process
 
-El proyecto sigue **Spec Kit** y una [constitución](.specify/memory/constitution.md) con nueve principios:
+The project follows **Spec Kit** and a [constitution](.specify/memory/constitution.md) with nine principles:
 
 1. Specification First
 2. Architecture Before Framework
@@ -897,37 +899,37 @@ flowchart LR
     p --> t["/speckit-tasks<br/>tasks.md"]
     t --> an["/speckit-analyze"]
     an --> im["/speckit-implement"]
-    im --> rv["revisión independiente<br/>(Constitución VIII)"]
+    im --> rv["independent review<br/>(Constitution VIII)"]
     rv --> hg{{"Human Gate"}}
 ```
 
-Un agente nunca registra una aprobación humana en nombre de una persona. Las desviaciones de diseño se anotan como "propuestas, pendientes de aprobación humana" en `tasks.md` y en `contracts/` hasta que el responsable las aprueba. En la Feature 008, el responsable delegó esas decisiones el 2026-11-18, así que quedaron registradas como "aceptadas bajo delegación" después de la revisión independiente, nunca como una aprobación individual suya.
+An agent never records a human approval on a person's behalf. Design deviations are noted as "proposed, pending human approval" in `tasks.md` and in `contracts/` until the maintainer approves them. In Feature 008, the maintainer delegated those decisions on 2026-11-18, so they were recorded as "accepted under delegation" after the independent review, never as an individual approval of theirs.
 
 ---
 
-## Limitaciones conocidas
+## Known limitations
 
-- **Plataformas:** solo macOS (APFS) y Linux (ext4 local) son filesystems de producción para Git Management. Windows nativo no está soportado; en Windows se usa WSL2, con el proyecto en el filesystem de Linux. El uso en WSL2 no tiene evidencia propia: se apoya en la de Linux/ext4.
-- **Plantillas de guía (007):** solo se garantizan para shells POSIX (sh, dash, bash y zsh, con las opciones probadas). fish y PowerShell no están cubiertos.
-- **Evidencia de Linux:** se obtuvo en ext4 montado por loop dentro de una VM, no en un host Linux nativo.
-- **Versión mínima de Git (2.45), resuelto:** el job de CI `git-minimum` compila Git 2.45.0 en el runner, desde el tarball oficial con su SHA-256 fijado, y ejecuta con él las suites que usan Git de verdad (VER-01, T132). Ya pasó en verde por primera vez (job 136054532762), así que la versión mínima queda verificada con Git real.
-- **Ventana residual de recuperación (REC-06):** si el proceso muere después de crear el commit y antes de instalar el índice, la recuperación usa los comandos de Git (`git read-tree HEAD` o borrar `.git/index.lock`).
-- **Claims huérfanos (REC-07):** una autorización cuyo claim quedó huérfano por un crash antes de la intención no se reasigna; hay que emitir una nueva.
-- **SIGKILL:** no se puede aplazar; se recupera por la vía de crash.
-- **Instrucción `-` en Codex CLI (002, enmienda 1):** si la instrucción es exactamente `-`, Codex CLI lee el prompt de stdin en vez de recibir `-`.
-- **Pérdida de energía (DUR-01):** no se simuló a nivel de bloque (T134, cerrada como declinada por el responsable). El orden de fsync y de sincronización de directorios está cubierto por inyección de fallos en cada paso y por SIGKILL en cada paso duradero.
-- **Fuera de alcance por diseño:**
-  - autenticación de agentes;
-  - selección automática, reintentos o encadenamiento de agentes (el modo autónomo de 007 está diferido);
-  - orquestación en segundo plano;
-  - operaciones Git remotas (push, fetch);
-  - commits más allá del inicial;
-  - en el cockpit (012): historial de ejecuciones, sesiones autónomas, estado, diff, push o merge de Git, temas y teclas configurables, y la integración con Neovim.
+- **Platforms:** only macOS (APFS) and Linux (local ext4) are production filesystems for Git Management. Native Windows is not supported; on Windows, use WSL2 with the project on the Linux filesystem. Use under WSL2 has no evidence of its own: it relies on the Linux/ext4 evidence.
+- **Guide templates (007):** guaranteed only for POSIX shells (sh, dash, bash and zsh, with the tested options). fish and PowerShell are not covered.
+- **Linux evidence:** obtained on loop-mounted ext4 inside a VM, not on a native Linux host.
+- **Minimum Git version (2.45), resolved:** the `git-minimum` CI job builds Git 2.45.0 on the runner, from the official tarball with its SHA-256 pinned, and runs the real-Git suites with it (VER-01, T132). It passed for the first time (job 136054532762), so the minimum version is verified with real Git.
+- **Residual recovery window (REC-06):** if the process dies after creating the commit and before installing the index, recovery uses Git's own commands (`git read-tree HEAD` or deleting `.git/index.lock`).
+- **Orphaned claims (REC-07):** an authorization whose claim was orphaned by a crash before the intent is not reassigned; a new one must be issued.
+- **SIGKILL:** cannot be deferred; it is recovered through the crash path.
+- **`-` instruction in Codex CLI (002, amendment 1):** if the instruction is exactly `-`, Codex CLI reads the prompt from stdin instead of receiving `-`.
+- **Power loss (DUR-01):** not simulated at the block level (T134, closed as declined by the maintainer). The order of fsync and directory syncs is covered by failure injection at each step and by SIGKILL at each durable step.
+- **Out of scope by design:**
+  - agent authentication;
+  - automatic selection, retries or chaining of agents (007's autonomous mode is deferred);
+  - background orchestration;
+  - remote Git operations (push, fetch);
+  - commits beyond the initial one;
+  - in the cockpit (012): execution history, autonomous sessions, Git status, diff, push or merge, configurable themes and keys, and Neovim integration.
 
 ---
 
-## Licencia
+## License
 
-ai-dev se distribuye bajo la [Apache License 2.0](LICENSE).
+ai-dev is distributed under the [Apache License 2.0](LICENSE).
 
-Para contribuir, consulta [CONTRIBUTING.md](CONTRIBUTING.md). Las vulnerabilidades se reportan de forma privada, como indica [SECURITY.md](SECURITY.md).
+To contribute, see [CONTRIBUTING.md](CONTRIBUTING.md). Vulnerabilities are reported privately, as [SECURITY.md](SECURITY.md) describes.
