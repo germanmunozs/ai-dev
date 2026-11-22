@@ -49,6 +49,13 @@ jobs:
           ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
           grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $version"; exit 1; }
 
+      # The paste-safety tests require zsh and dash, as in ci.yml.
+      - name: Shells for workflow guide paste tests
+        run: |
+          command -v zsh || { sudo apt-get update && sudo apt-get install -y zsh; }
+          zsh --version
+          command -v dash
+
       - name: Vet and test
         run: |
           go vet ./...
