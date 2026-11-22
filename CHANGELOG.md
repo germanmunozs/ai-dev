@@ -24,6 +24,7 @@ Primera versión candidata (0.1.0).
 - **011 Agent Detection and Role Configuration:** `ai-dev setup` (asistente), `ai-dev setup show` y `ai-dev setup apply` detectan los agentes del catálogo, eligen con cuáles trabaja el proyecto y asignan uno a cada rol en `.ai-dev/agents.json`; `agent select` y `workflow guide` usan esa asignación e informan su origen (`source`).
 - **012 Terminal Cockpit:** `ai-dev tui` abre un cockpit de terminal manejado con el teclado. Muestra el estado de cada feature con el texto de `workflow state` y `workflow guide`, el de `doctor`, `setup show` e `init inspect`, y lanza las acciones existentes (`agent run`, `workflow approve`, `workflow abandon`, `setup`, `init`, `git commit validate`) cediendo la terminal al comando, siempre tras revisar el comando exacto y confirmarlo. Todo el texto no confiable se muestra saneado y la terminal se restaura en cualquier salida.
 - Primeras dependencias de terceros: Bubble Tea v2.1.1 y Lip Gloss v2.0.6, fijadas con la regla de los 14 días y revisadas por govulncheck.
+- `scripts/install.sh` instala ai-dev desde un release de GitHub sin Go ni Git: verifica `SHA256SUMS` y, si `gh` está instalado, la attestation de procedencia, y solo acepta releases `vX.Y.Z`.
 - `scripts/install-dev.sh` compila e instala una versión de desarrollo (`v0.1.0-dev+<commit>`) para pruebas manuales, y crea un proyecto sandbox con agentes falsos.
 - Releases con archivos para macOS y Linux (amd64 y arm64), `SHA256SUMS` y una attestation de procedencia SLSA firmada para cada archivo.
 

@@ -59,12 +59,33 @@ Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas
 
 ## Instalación y requisitos
 
-- **Go 1.27.4** (ver [`go.mod`](go.mod)). Las únicas dependencias de terceros son las del cockpit (012), fijadas según la [política de dependencias](#dependencias-de-terceros).
+- **Go 1.27.4**, solo para compilar desde el código (ver [`go.mod`](go.mod)); instalar desde un release no lo necesita. Las únicas dependencias de terceros son las del cockpit (012), fijadas según la [política de dependencias](#dependencias-de-terceros).
 - **Plataformas:** macOS y Linux. Las operaciones con estado duradero fallan de forma cerrada (`platform_unsupported`) en Windows nativo (incluido PowerShell), iOS y Android.
 - **Windows:** usa ai-dev dentro de **WSL2**, con una distribución Linux y el Git de esa distribución. El proyecto y `HOME` deben estar en el filesystem de Linux (por ejemplo `~/proyectos/…`, que es ext4). Un proyecto en `/mnt/c/…` se monta como `9p` (drvfs) y Git Management lo rechaza (`filesystem_unsupported`), porque no es un filesystem local de producción.
 - **Git ≥ 2.45** para Git Management (usa `init --ref-format` y `config --end-of-options`).
   - Instalaciones de Git verificadas: Apple (Xcode o Command Line Tools), `/usr` y Debian/Ubuntu (`/usr/lib/git-core`), `/usr/local` y Homebrew. Con cualquier otra disposición, la inspección se rechaza (`attributes_incompatible`), porque ai-dev no puede evaluar con exactitud la configuración que ese Git lleva compilada.
 - Opcionales, según lo que se use: `specify` (Spec Kit), `claude` (Claude Code), `codex` (Codex CLI).
+
+### Instalar desde un release (sin Go ni Git)
+
+[`scripts/install.sh`](scripts/install.sh) descarga el binario de un release de GitHub y solo necesita `curl`, `tar` y `sha256sum` o `shasum`, que traen macOS y Linux:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/germanmunozs/ai-dev/main/scripts/install.sh
+less install.sh                          # léelo antes de ejecutarlo
+sh install.sh                            # último release, en ~/.local/bin
+sh install.sh --version v0.1.0           # un release concreto
+sh install.sh --prefix /opt/ai-dev/bin   # otro destino
+sh install.sh --uninstall                # quita el binario, solo si es ai-dev
+```
+
+- Detecta el sistema (macOS o Linux) y la arquitectura (amd64 o arm64), y descarga el archivo de esa plataforma junto con `SHA256SUMS`.
+- No instala nada si el checksum no coincide. Si la CLI de GitHub (`gh`) está instalada, verifica además la attestation de procedencia firmada; sin `gh`, avisa de que solo verificó el checksum.
+- Comprueba que el binario descargado informa de la versión pedida, y lo instala con un reemplazo atómico.
+- Solo acepta releases `vX.Y.Z`. Mientras no haya ninguno publicado, termina con `no release is published yet`.
+- No edita archivos de arranque del shell, configuración ni credenciales: si el destino no está en el `PATH`, indica qué añadir.
+
+### Compilar desde el código
 
 ```sh
 go build -o ai-dev ./cmd/ai-dev
@@ -279,6 +300,7 @@ internal/
   gitstore/              008 — almacén duradero de autorizaciones y auditoría
   conventionalcommit/    008 — validador Conventional Commits independiente
   system/                frontera de procesos externos y lanzador de agentes
+scripts/install.sh       instalación desde un release de GitHub (sin Go ni Git)
 scripts/install-dev.sh   instalación de desarrollo para pruebas manuales
 specs/NNN-*/             spec, plan, contratos, data model, tareas por feature
 .specify/                configuración de Spec Kit y constitución del proyecto
