@@ -1,12 +1,18 @@
 # Changelog
 
+[English](CHANGELOG.md) · **Español**
+
 Todos los cambios relevantes de ai-dev se registran en este archivo.
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa [Semantic Versioning](https://semver.org/lang/es/). Mientras la versión mayor sea 0, cualquier versión menor puede cambiar la interfaz de la CLI o los formatos JSON.
 
-Al publicar una versión, la sección `[Unreleased]` pasa a `[X.Y.Z] - AAAA-MM-DD`. El workflow de release usa esa sección como notas del release y falla si no existe.
+Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene en paralelo. Al publicar una versión, la sección `[Unreleased]` de ambos pasa a `[X.Y.Z] - AAAA-MM-DD`. El workflow de release usa la sección de `CHANGELOG.md` como notas del release y falla si no existe.
 
 ## [Unreleased]
+
+### Changed
+
+- La documentación pública (README, CHANGELOG, CONTRIBUTING y SECURITY) está en inglés y en español. El inglés queda en los archivos de siempre y el español pasa a `*.es.md`.
 
 ### Fixed
 

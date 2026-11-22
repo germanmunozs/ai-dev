@@ -1,6 +1,8 @@
 # Cómo contribuir
 
-Gracias por tu interés en ai-dev. Este documento resume cómo se trabaja en el proyecto. Para vulnerabilidades, sigue [SECURITY.md](SECURITY.md) y no abras un issue público.
+[English](CONTRIBUTING.md) · **Español**
+
+Gracias por tu interés en ai-dev. Este documento resume cómo se trabaja en el proyecto. Para vulnerabilidades, sigue [SECURITY.es.md](SECURITY.es.md) y no abras un issue público.
 
 ## Proceso
 
@@ -13,6 +15,8 @@ El proyecto sigue **Spec Kit** y su [constitución](.specify/memory/constitution
 5. una revisión independiente antes del pull request.
 
 Las especificaciones viven en `specs/<NNN>-<nombre>/`. Un cambio pequeño que no altera el comportamiento, como documentación o CI, no necesita una feature nueva.
+
+La documentación pública está en inglés (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`) y en español (`*.es.md`). Un cambio en uno de los dos idiomas se hace también en el otro, en el mismo pull request.
 
 Un agente de IA nunca registra ni afirma una aprobación humana en nombre de una persona (Constitución IX). Las decisiones del responsable se anotan con su nombre y sus palabras, como afirmación declarada y no autenticada.
 
@@ -48,7 +52,7 @@ Las versiones de govulncheck y staticcheck son las que fija el CI. No se añaden
 El CI ejecuta además cross-builds, fuzzing y las suites con Git real contra Git 2.45.0 (ver [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 Criterios de revisión:
-- solo la biblioteca estándar de Go; una dependencia nueva necesita justificación;
+- una dependencia nueva necesita justificación y sigue la [política de dependencias](README.es.md#dependencias-de-terceros); hoy solo el cockpit (`internal/cockpit`) usa bibliotecas de terceros;
 - cada requisito funcional tiene su prueba;
 - no se cambian APIs públicas ni textos de uso existentes salvo que la especificación lo pida;
 - fallo cerrado: ante la duda, un refusal tipado y nunca un éxito supuesto;

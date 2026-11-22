@@ -1,5 +1,7 @@
 # ai-dev — AI Dev Orchestrator
 
+[English](README.md) · **Español**
+
 `ai-dev` es una CLI en Go que acompaña un proceso de desarrollo guiado por especificaciones (Spec-Driven Development, SDD) con agentes de programación (Claude Code y Codex CLI), **sin quitarle nunca la autoridad al humano**. Diagnostica el entorno, ejecuta agentes de forma explícita, selecciona el agente adecuado para cada rol, lleva el estado del ciclo de vida de cada feature, registra decisiones humanas (Human Gates) y gestiona la inicialización supervisada de repositorios Git.
 
 El principio que atraviesa todo el diseño:
@@ -82,7 +84,7 @@ sh install.sh --uninstall                # quita el binario, solo si es ai-dev
 - Detecta el sistema (macOS o Linux) y la arquitectura (amd64 o arm64), y descarga el archivo de esa plataforma junto con `SHA256SUMS`.
 - No instala nada si el checksum no coincide. Si la CLI de GitHub (`gh`) está instalada, verifica además la attestation de procedencia firmada; sin `gh`, avisa de que solo verificó el checksum.
 - Comprueba que el binario descargado informa de la versión pedida, y lo instala con un reemplazo atómico.
-- Solo acepta releases `vX.Y.Z`. Mientras no haya ninguno publicado, termina con `no release is published yet`.
+- Solo acepta releases `vX.Y.Z`; los pre-releases se rechazan.
 - No edita archivos de arranque del shell, configuración ni credenciales: si el destino no está en el `PATH`, indica qué añadir.
 
 ### Compilar desde el código
@@ -122,11 +124,11 @@ gh attestation verify ai-dev_v0.1.0_darwin_arm64.tar.gz --repo germanmunozs/ai-d
 ```
 
 **Publicar un release** (responsable del proyecto):
-1. En `dev`, la sección `[Unreleased]` de [`CHANGELOG.md`](CHANGELOG.md) pasa a `[X.Y.Z] - AAAA-MM-DD`.
+1. En `dev`, la sección `[Unreleased]` de [`CHANGELOG.md`](CHANGELOG.md) (inglés) y de [`CHANGELOG.es.md`](CHANGELOG.es.md) (español) pasa a `[X.Y.Z] - AAAA-MM-DD`.
 2. `dev` se integra en `main` mediante un pull request con los checks en verde.
-3. Se crea y se publica la etiqueta `vX.Y.Z` sobre ese commit de `main`.
+3. Se crea y se publica la etiqueta `vX.Y.Z` sobre ese commit de `main`. Un ruleset del repositorio solo permite crear, mover o borrar etiquetas `v*` a sus administradores.
 
-El workflow [`release.yml`](.github/workflows/release.yml) rechaza etiquetas que no sean `vX.Y.Z`, que no estén en `main` o que no tengan sección en el CHANGELOG. Compila con la versión de la etiqueta, genera los archivos y `SHA256SUMS`, firma la procedencia y crea el release.
+El workflow [`release.yml`](.github/workflows/release.yml) rechaza etiquetas que no sean `vX.Y.Z`, que no estén en `main` o que no tengan sección en `CHANGELOG.md`, cuyo texto en inglés son las notas del release. Compila con la versión de la etiqueta, genera los archivos y `SHA256SUMS`, firma la procedencia y crea el release.
 
 ---
 
@@ -930,4 +932,4 @@ Un agente nunca registra una aprobación humana en nombre de una persona. Las de
 
 ai-dev se distribuye bajo la [Apache License 2.0](LICENSE).
 
-Para contribuir, consulta [CONTRIBUTING.md](CONTRIBUTING.md). Las vulnerabilidades se reportan de forma privada, como indica [SECURITY.md](SECURITY.md).
+Para contribuir, consulta [CONTRIBUTING.es.md](CONTRIBUTING.es.md). Las vulnerabilidades se reportan de forma privada, como indica [SECURITY.es.md](SECURITY.es.md).
