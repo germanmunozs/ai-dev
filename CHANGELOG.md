@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-22
+
 ### Changed
 
 - The public documentation (README, CHANGELOG, CONTRIBUTING and SECURITY) is in English and Spanish. English stays in the usual files and Spanish moves to `*.es.md`.
@@ -42,5 +44,6 @@ First release.
 - `scripts/install-dev.sh` builds and installs a development version (`v0.1.0-dev+<commit>`) for manual testing, and creates a sandbox project with fake agents.
 - Releases with archives for macOS and Linux (amd64 and arm64), `SHA256SUMS` and a signed SLSA provenance attestation for each archive.
 
-[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...dev
+[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...dev
+[0.1.1]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/germanmunozs/ai-dev/releases/tag/v0.1.0
