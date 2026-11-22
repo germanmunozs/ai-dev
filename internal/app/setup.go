@@ -112,18 +112,22 @@ func RunSetupShow(args []string, executor system.Executor, root fs.FS, stdout, s
 		fmt.Fprintln(stderr, setupShowUsage)
 		return 2
 	}
+	return writeSetupReport(setupShowReport(executor, root), *format, stdout, stderr)
+}
+
+// setupShowReport is the report of "setup show", also the cockpit's Agents
+// view (Feature 012).
+func setupShowReport(executor system.Executor, root fs.FS) report.SetupReport {
 	assignment, config, state, reasons := loadAssignment(root)
-	var r report.SetupReport
 	switch state {
 	case projectconfig.Valid:
-		r = configuredReport("show", report.Configured, executor, config)
+		return configuredReport("show", report.Configured, executor, config)
 	case projectconfig.Invalid:
-		r = report.SetupReport{Command: "show", Outcome: report.ConfigurationInvalid, Agents: setupAgents(executor, nil), Reasons: setupReasons(reasons)}
+		return report.SetupReport{Command: "show", Outcome: report.ConfigurationInvalid, Agents: setupAgents(executor, nil), Reasons: setupReasons(reasons)}
 	default:
-		r = report.SetupReport{Command: "show", Outcome: report.NotConfigured, Source: string(selection.SourceBuiltIn),
+		return report.SetupReport{Command: "show", Outcome: report.NotConfigured, Source: string(selection.SourceBuiltIn),
 			Agents: setupAgents(executor, nil), Roles: setupRoles(assignment)}
 	}
-	return writeSetupReport(r, *format, stdout, stderr)
 }
 
 // RunSetupApply implements "ai-dev setup apply": the configuration from

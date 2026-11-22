@@ -28,6 +28,12 @@ Interesan especialmente los fallos de las garantías descritas en el [modelo de 
 - credenciales o secretos que aparezcan en la salida o en los registros duraderos;
 - rutas que sigan enlaces simbólicos, o escrituras fuera del proyecto o del almacén de estado;
 - informes de texto que, pegados en un shell, ejecuten o expandan algo;
-- un éxito parcial reportado como éxito, en lugar de un refusal tipado.
+- un éxito parcial reportado como éxito, en lugar de un refusal tipado;
+- en el cockpit (`ai-dev tui`), una secuencia de escape, OSC o control bidireccional que llegue a la terminal sin escapar, o una acción que se ejecute sin la revisión y la confirmación explícita;
+- una vulnerabilidad en una dependencia de terceros (Bubble Tea, Lip Gloss y sus módulos) que sea alcanzable desde ai-dev.
 
 Quedan fuera de alcance las [limitaciones conocidas](README.md#limitaciones-conocidas) y los riesgos residuales aceptados que documentan las especificaciones (por ejemplo REC-06, REC-07 y DUR-01 en [`specs/008-git-management`](specs/008-git-management/)).
+
+## Dependencias de terceros
+
+Las dependencias se fijan por versión y checksum en `go.mod` y `go.sum`. Se elige la versión más reciente con al menos 14 días de publicada, y govulncheck se ejecuta en cada CI. La política completa está en el [README](README.md#dependencias-de-terceros).

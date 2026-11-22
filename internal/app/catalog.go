@@ -226,6 +226,8 @@ var catalog = []commandSpec{
 			formatOption(),
 		},
 		changes: changesConfiguration, exitCodes: exitCodesDomain},
+	{path: []string{"tui"}, description: "Open the interactive terminal cockpit (needs a terminal)", usage: cockpitUsage,
+		changes: "nothing by itself; actions run their own commands", exitCodes: "0 on q or Ctrl-C, 130 on an interrupt signal, 143 on termination, 2 usage failure or no terminal."},
 	{path: []string{"version"}, description: "Print which build of ai-dev is running", usage: versionUsage,
 		options: []optionSpec{formatOption()}, changes: changesNothing, exitCodes: exitCodesPlain},
 	{path: []string{"help"}, description: "Print this help, or one command's help", usage: helpUsage,

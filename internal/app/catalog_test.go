@@ -47,7 +47,7 @@ func TestCatalogCoversRoutedPaths(t *testing.T) {
 		"doctor", "agents", "agent select", "agent run",
 		"workflow state", "workflow transition", "workflow next", "workflow guide", "workflow approve", "workflow abandon",
 		"init", "init inspect", "init plan", "init apply", "init reconcile",
-		"git commit validate", "setup", "setup show", "setup apply", "version", "help", "completion",
+		"git commit validate", "setup", "setup show", "setup apply", "tui", "version", "help", "completion",
 	}
 	if got := catalogCommands(); !slices.Equal(got, commands) {
 		t.Fatalf("catalog commands:\n%v\nwant:\n%v", got, commands)

@@ -30,6 +30,10 @@
 
 - Feature 011 (`specs/011-agent-setup/spec.md`), approved by the owner on 2026-11-21 ("si, apruebo la 011, haz el commit y ejecuta /speckit-plan"), amends F010-FR-010. This is a declared, unauthenticated assertion. Once Feature 011 is implemented, the top-level usage line is `Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|version|help|completion> [options]`, and the catalog holds `setup`, `setup show` and `setup apply` (F011-FR-020).
 
+### Session 2026-11-21 (amended by Feature 012, A1)
+
+- Feature 012 (`specs/012-terminal-cockpit/spec.md`), approved by the owner on 2026-11-21 ("si, apruebo la 012, haz el commit y ejecuta /speckit-plan"), amends F010-FR-010. This is a declared, unauthenticated assertion. Once Feature 012 is implemented, the top-level usage line is `Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|version|help|completion> [options]`, and the catalog holds `tui` (F012-FR-020).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Learn one command's options (Priority: P1)
