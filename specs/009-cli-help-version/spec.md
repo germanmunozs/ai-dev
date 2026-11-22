@@ -29,6 +29,12 @@
   - **F009-FR-003:** the general help lists `setup`, `setup show` and `setup apply`.
   - **F009-FR-005:** the top-level usage line names `setup` too (F011-FR-020).
 
+### Session 2026-11-21 (amended by Feature 012, A2)
+
+- Feature 012 (`specs/012-terminal-cockpit/spec.md`), approved by the owner on 2026-11-21 ("si, apruebo la 012, haz el commit y ejecuta /speckit-plan"), amends this feature. This is a declared, unauthenticated assertion.
+  - **F009-FR-003:** the general help lists `tui`.
+  - **F009-FR-005:** the top-level usage line names `tui` too (F012-FR-020).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Know which build is running (Priority: P1)
