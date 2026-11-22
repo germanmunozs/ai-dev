@@ -167,9 +167,14 @@ func (c *cockpitTerminal) assertRestored() {
 	if after := terminalAttributes(c.t, c.master); after != c.before {
 		c.t.Errorf("terminal attributes not restored:\nbefore %+v\nafter  %+v", c.before, after)
 	}
-	output := c.snapshot()
+	// The last bytes can still be in the pseudo-terminal when the process
+	// has exited, so the reader is given time to drain them.
+	deadline := time.Now().Add(5 * time.Second)
 	for _, want := range []string{"\x1b[?1049l", "\x1b[?25h"} {
-		if !strings.Contains(output, want) {
+		for !strings.Contains(c.snapshot(), want) && time.Now().Before(deadline) {
+			time.Sleep(20 * time.Millisecond)
+		}
+		if !strings.Contains(c.snapshot(), want) {
 			c.t.Errorf("output lacks %q", want)
 		}
 	}
