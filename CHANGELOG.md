@@ -8,6 +8,11 @@ Al publicar una versión, la sección `[Unreleased]` pasa a `[X.Y.Z] - AAAA-MM-D
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/install.sh` fallaba en macOS con un locale UTF-8 (`arch…: unbound variable`): el `sh` de macOS leía el carácter `…` como parte del nombre de la variable.
+- Los binarios de un release informaban `modified` en `ai-dev version` porque los archivos ya generados en `dist/` contaban como cambios sin commit; `dist/` queda ignorado.
+
 ## [0.1.0] - 2026-11-22
 
 Primera versión.

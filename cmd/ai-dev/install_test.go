@@ -110,7 +110,9 @@ func runInstaller(t *testing.T, releases, extraPath string, args ...string) (str
 		path = extraPath + ":" + path
 	}
 	cmd := exec.Command("/bin/sh", append([]string{filepath.Join(repoRoot, "scripts", "install.sh")}, args...)...)
-	cmd.Env = []string{"HOME=" + t.TempDir(), "PATH=" + path, "AI_DEV_RELEASES_URL=file://" + releases}
+	// A UTF-8 locale, as on a person's machine: macOS sh parses names
+	// differently under it.
+	cmd.Env = []string{"HOME=" + t.TempDir(), "PATH=" + path, "LC_ALL=C.UTF-8", "AI_DEV_RELEASES_URL=file://" + releases}
 	output, err := cmd.CombinedOutput()
 	if exit, ok := err.(*exec.ExitError); ok {
 		return string(output), exit.ExitCode()

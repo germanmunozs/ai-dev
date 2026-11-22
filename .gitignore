@@ -12,3 +12,6 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+# Release archives built by release.yml
+/dist/
