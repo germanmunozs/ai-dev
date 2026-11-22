@@ -75,7 +75,9 @@ install_release() {
 
 	work="$(mktemp -d)"
 	trap 'rm -rf "$work"' EXIT INT TERM
-	echo "Downloading ai-dev $version for $os/$arch…"
+	# Braces and ASCII only: under a UTF-8 locale, macOS sh reads a
+	# multibyte character after $arch as part of the name.
+	echo "Downloading ai-dev ${version} for ${os}/${arch}..."
 	curl -fsSL -o "$work/$asset" "$releases/download/$version/$asset" ||
 		die "cannot download $asset from release $version"
 	curl -fsSL -o "$work/SHA256SUMS" "$releases/download/$version/SHA256SUMS" ||
