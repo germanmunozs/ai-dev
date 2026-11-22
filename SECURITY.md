@@ -1,39 +1,41 @@
-# Política de seguridad
+# Security policy
 
-## Versiones soportadas
+**English** · [Español](SECURITY.es.md)
 
-ai-dev todavía no tiene releases. Solo se corrigen vulnerabilidades en la rama `dev`, que es la línea de desarrollo activa, y en `main` una vez que exista el primer release.
+## Supported versions
 
-## Cómo reportar una vulnerabilidad
+Vulnerabilities are fixed only in the latest published release (currently the 0.1.x series) and in the `dev` branch, the active development line. While the major version is 0, a fix ships in a new release and is not backported to earlier versions.
 
-**No abras un issue público ni un pull request para reportar una vulnerabilidad.**
+## Reporting a vulnerability
 
-Repórtala de forma privada con el formulario **Report a vulnerability** de la pestaña [Security](https://github.com/germanmunozs/ai-dev/security) del repositorio (GitHub private vulnerability reporting).
+**Do not open a public issue or pull request to report a vulnerability.**
 
-Incluye, si puedes:
-- la versión afectada (`ai-dev version --format json`), el sistema operativo y el filesystem;
-- los pasos mínimos para reproducirla;
-- el impacto que observaste o que esperas.
+Report it privately with the **Report a vulnerability** form on the repository's [Security](https://github.com/germanmunozs/ai-dev/security) tab (GitHub private vulnerability reporting).
 
-No incluyas credenciales, tokens ni datos personales reales en el reporte.
+If you can, include:
+- the affected version (`ai-dev version --format json`), the operating system and the filesystem;
+- the minimal steps to reproduce it;
+- the impact you observed or expect.
 
-El responsable confirmará la recepción y coordinará contigo la corrección y la fecha de divulgación. Es un proyecto mantenido por una persona, así que no hay plazos de respuesta garantizados.
+Do not include real credentials, tokens or personal data in the report.
 
-## Alcance
+The maintainer will acknowledge the report and coordinate the fix and the disclosure date with you. The project is maintained by one person, so there are no guaranteed response times.
 
-Interesan especialmente los fallos de las garantías descritas en el [modelo de seguridad](README.md#modelo-de-seguridad):
-- una señal automática que conceda autoridad, apruebe o mute sin una aprobación humana explícita;
-- una mutación de Git sin el plan confirmado y su autorización emitida (`MutationPermit`);
-- la ejecución de hooks, de un shell o de acceso a la red desde las invocaciones de Git;
-- credenciales o secretos que aparezcan en la salida o en los registros duraderos;
-- rutas que sigan enlaces simbólicos, o escrituras fuera del proyecto o del almacén de estado;
-- informes de texto que, pegados en un shell, ejecuten o expandan algo;
-- un éxito parcial reportado como éxito, en lugar de un refusal tipado;
-- en el cockpit (`ai-dev tui`), una secuencia de escape, OSC o control bidireccional que llegue a la terminal sin escapar, o una acción que se ejecute sin la revisión y la confirmación explícita;
-- una vulnerabilidad en una dependencia de terceros (Bubble Tea, Lip Gloss y sus módulos) que sea alcanzable desde ai-dev.
+## Scope
 
-Quedan fuera de alcance las [limitaciones conocidas](README.md#limitaciones-conocidas) y los riesgos residuales aceptados que documentan las especificaciones (por ejemplo REC-06, REC-07 y DUR-01 en [`specs/008-git-management`](specs/008-git-management/)).
+Of particular interest are failures of the guarantees described in the [security model](README.md#security-model):
+- an automatic signal that grants authority, approves or mutates without an explicit human approval;
+- a Git mutation without the confirmed plan and its issued authorization (`MutationPermit`);
+- running hooks, a shell or network access from the Git invocations;
+- credentials or secrets that appear in the output or in the durable records;
+- paths that follow symbolic links, or writes outside the project or the state store;
+- text reports that, pasted into a shell, run or expand anything;
+- a partial success reported as success, instead of a typed refusal;
+- in the cockpit (`ai-dev tui`), an escape sequence, OSC or bidirectional control that reaches the terminal unescaped, or an action that runs without the review and explicit confirmation;
+- a vulnerability in a third-party dependency (Bubble Tea, Lip Gloss and their modules) that is reachable from ai-dev.
 
-## Dependencias de terceros
+Out of scope are the [known limitations](README.md#known-limitations) and the accepted residual risks documented in the specifications (for example REC-06, REC-07 and DUR-01 in [`specs/008-git-management`](specs/008-git-management/)).
 
-Las dependencias se fijan por versión y checksum en `go.mod` y `go.sum`. Se elige la versión más reciente con al menos 14 días de publicada, y govulncheck se ejecuta en cada CI. La política completa está en el [README](README.md#dependencias-de-terceros).
+## Third-party dependencies
+
+Dependencies are pinned by version and checksum in `go.mod` and `go.sum`. The newest version published at least 14 days earlier is chosen, and govulncheck runs on every CI run. The full policy is in the [README](README.md#third-party-dependencies).

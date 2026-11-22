@@ -1,41 +1,45 @@
-# Cómo contribuir
+# Contributing
 
-Gracias por tu interés en ai-dev. Este documento resume cómo se trabaja en el proyecto. Para vulnerabilidades, sigue [SECURITY.md](SECURITY.md) y no abras un issue público.
+**English** · [Español](CONTRIBUTING.es.md)
 
-## Proceso
+Thank you for your interest in ai-dev. This document summarizes how the project works. For vulnerabilities, follow [SECURITY.md](SECURITY.md) and do not open a public issue.
 
-El proyecto sigue **Spec Kit** y su [constitución](.specify/memory/constitution.md). Cada cambio de comportamiento parte de una especificación:
+## Process
 
-1. `spec.md`, aprobada por el responsable;
-2. `plan.md` y, si hace falta, `contracts/` y `data-model.md`;
-3. `tasks.md`, con las pruebas antes de la implementación;
-4. la implementación, con cada tarea marcada `[X]` al terminar;
-5. una revisión independiente antes del pull request.
+The project follows **Spec Kit** and its [constitution](.specify/memory/constitution.md). Every behavior change starts from a specification:
 
-Las especificaciones viven en `specs/<NNN>-<nombre>/`. Un cambio pequeño que no altera el comportamiento, como documentación o CI, no necesita una feature nueva.
+1. `spec.md`, approved by the maintainer;
+2. `plan.md` and, when needed, `contracts/` and `data-model.md`;
+3. `tasks.md`, with the tests before the implementation;
+4. the implementation, with each task marked `[X]` when done;
+5. an independent review before the pull request.
 
-Un agente de IA nunca registra ni afirma una aprobación humana en nombre de una persona (Constitución IX). Las decisiones del responsable se anotan con su nombre y sus palabras, como afirmación declarada y no autenticada.
+Specifications live in `specs/<NNN>-<name>/`. A small change that does not alter behavior, such as documentation or CI, does not need a new feature.
 
-## Ramas y pull requests
+The public documentation is in English (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`) and Spanish (`*.es.md`). A change in one language is made in the other too, in the same pull request.
 
-Se usa Git Flow:
-- `dev` es la rama de integración y `main` la de releases;
-- las ramas de trabajo salen de `dev` con el prefijo `feature/` o `bugfix/`;
-- los pull requests apuntan a `dev` y se integran con merge commit;
-- `dev` y `main` están protegidas: exigen un pull request, los checks `gates (macos-latest)`, `gates (ubuntu-latest)`, `git-minimum` y `static-analysis` en verde, y las conversaciones resueltas. No se permite force push.
+An AI agent never records or claims a human approval on a person's behalf (Constitution IX). The maintainer's decisions are recorded with their name and their words, as a declared, unauthenticated assertion.
 
-Los mensajes de commit siguen [Conventional Commits](https://www.conventionalcommits.org/), por ejemplo `feat(cli): add version and help commands`.
+## Branches and pull requests
 
-## Requisitos
+The project uses Git Flow:
+- `dev` is the integration branch and `main` the release branch;
+- working branches start from `dev` with the prefix `feature/` or `bugfix/`;
+- pull requests target `dev` and are integrated with a merge commit;
+- `dev` and `main` are protected: they require a pull request, the checks `gates (macos-latest)`, `gates (ubuntu-latest)`, `git-minimum` and `static-analysis` to pass, and resolved conversations. Force pushes are not allowed.
 
-- Go, en la versión que declara `go.mod`;
-- Git 2.45 o posterior;
-- macOS o Linux. Las pruebas que aplican cambios reales con Git necesitan un directorio temporal en APFS (macOS) o ext4 local (Linux); en tmpfs se saltan.
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/), for example `feat(cli): add version and help commands`.
 
-## Antes de abrir un pull request
+## Requirements
+
+- Go, at the version `go.mod` declares;
+- Git 2.45 or later;
+- macOS or Linux. The tests that apply real changes with Git need a temporary directory on APFS (macOS) or local ext4 (Linux); on tmpfs they are skipped.
+
+## Before opening a pull request
 
 ```sh
-gofmt -l .                               # no debe listar nada
+gofmt -l .                               # must list nothing
 go vet ./...
 go test ./...
 go test -race -timeout 60m ./internal/gitstore ./internal/gitmanager ./internal/app ./cmd/ai-dev
@@ -43,17 +47,17 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
 go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
 ```
 
-Las versiones de govulncheck y staticcheck son las que fija el CI. No se añaden a `go.mod`.
+The govulncheck and staticcheck versions are the ones CI pins. They are not added to `go.mod`.
 
-El CI ejecuta además cross-builds, fuzzing y las suites con Git real contra Git 2.45.0 (ver [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+CI also runs cross-builds, fuzzing and the real-Git suites against Git 2.45.0 (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
-Criterios de revisión:
-- solo la biblioteca estándar de Go; una dependencia nueva necesita justificación;
-- cada requisito funcional tiene su prueba;
-- no se cambian APIs públicas ni textos de uso existentes salvo que la especificación lo pida;
-- fallo cerrado: ante la duda, un refusal tipado y nunca un éxito supuesto;
-- nada de secretos, credenciales ni datos personales en el código, las pruebas o los registros.
+Review criteria:
+- a new dependency needs a justification and follows the [dependency policy](README.md#third-party-dependencies); today only the cockpit (`internal/cockpit`) uses third-party libraries;
+- every functional requirement has its test;
+- existing public APIs and usage texts are not changed unless the specification asks for it;
+- fail closed: when in doubt, a typed refusal and never an assumed success;
+- no secrets, credentials or personal data in the code, the tests or the logs.
 
-## Licencia
+## License
 
-Al contribuir aceptas que tu contribución se distribuya bajo la [Apache License 2.0](LICENSE), según su sección 5.
+By contributing you agree that your contribution is distributed under the [Apache License 2.0](LICENSE), per its section 5.
