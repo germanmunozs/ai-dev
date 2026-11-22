@@ -297,7 +297,7 @@ func TestCockpitInterruptReachesTheCommandInPTY(t *testing.T) {
 	// that are new after the return.
 	c.waitAfter(mark, "The command exited with code")
 	c.send("\x1b") // back to the list
-	c.send("\t") // Environment: stay until its report is drawn
+	c.send("\t")   // Environment: stay until its report is drawn
 	c.waitAfter(mark, "Overall:")
 	if strings.Contains(c.snapshot()[mark:], "failed") {
 		t.Fatalf("an area failed after the interrupt:\n%q", c.snapshot()[mark:])
