@@ -59,7 +59,7 @@ Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas
 
 ## Instalación y requisitos
 
-- **Go 1.27.4** (ver [`go.mod`](go.mod)). El módulo no tiene dependencias externas: solo la biblioteca estándar.
+- **Go 1.27.4** (ver [`go.mod`](go.mod)). Las únicas dependencias de terceros son las del cockpit (012), fijadas según la [política de dependencias](#dependencias-de-terceros).
 - **Plataformas:** macOS y Linux. Las operaciones con estado duradero fallan de forma cerrada (`platform_unsupported`) en Windows nativo (incluido PowerShell), iOS y Android.
 - **Windows:** usa ai-dev dentro de **WSL2**, con una distribución Linux y el Git de esa distribución. El proyecto y `HOME` deben estar en el filesystem de Linux (por ejemplo `~/proyectos/…`, que es ext4). Un proyecto en `/mnt/c/…` se monta como `9p` (drvfs) y Git Management lo rechaza (`filesystem_unsupported`), porque no es un filesystem local de producción.
 - **Git ≥ 2.45** para Git Management (usa `init --ref-format` y `config --end-of-options`).
@@ -71,6 +71,21 @@ go build -o ai-dev ./cmd/ai-dev
 ./ai-dev --version
 ./ai-dev doctor
 ```
+
+### Instalar una versión de desarrollo para probar
+
+Mientras no haya releases, [`scripts/install-dev.sh`](scripts/install-dev.sh) compila este checkout y deja el binario en `~/.local/bin/ai-dev`. Marca la versión como `v0.1.0-dev+<commit>`, con `.dirty` si hay cambios sin commit. No edita archivos de arranque del shell, configuración ni credenciales: si `~/.local/bin` no está en el `PATH`, indica qué añadir.
+
+```sh
+scripts/install-dev.sh                      # compilar e instalar (--prefix DIR para otro destino)
+scripts/install-dev.sh --sandbox ~/ai-dev-pruebas
+cd ~/ai-dev-pruebas/project
+PATH="$HOME/ai-dev-pruebas/fake-agents:$PATH" ai-dev tui   # con agentes falsos que solo imprimen sus argumentos
+scripts/install-dev.sh --uninstall          # quita el binario, solo si es ai-dev
+rm -rf ~/ai-dev-pruebas
+```
+
+El sandbox es un repositorio git con una feature (`specs/001-demo`) y unos `claude` y `codex` falsos, para probar `ai-dev setup`, `ai-dev tui` y `ai-dev agent run` sin lanzar agentes reales. Sin el `PATH` de los falsos se usan los agentes reales.
 
 Un build local informa de la versión que Go le asigna y de su commit. Para un release se fija la versión al enlazar:
 
@@ -264,6 +279,7 @@ internal/
   gitstore/              008 — almacén duradero de autorizaciones y auditoría
   conventionalcommit/    008 — validador Conventional Commits independiente
   system/                frontera de procesos externos y lanzador de agentes
+scripts/install-dev.sh   instalación de desarrollo para pruebas manuales
 specs/NNN-*/             spec, plan, contratos, data model, tareas por feature
 .specify/                configuración de Spec Kit y constitución del proyecto
 ```
