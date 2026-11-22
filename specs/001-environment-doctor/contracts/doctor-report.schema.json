@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev.local/schemas/doctor-report.schema.json",
+  "title": "AI Dev Orchestrator - Environment Doctor Report",
+  "description": "Machine-readable output of `ai-dev doctor --format json`.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["overall", "checks"],
+  "properties": {
+    "overall": {
+      "type": "string",
+      "enum": ["ready", "not_ready"],
+      "description": "Ready iff every entry in `checks` has status \"pass\"."
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 9,
+      "items": { "$ref": "#/$defs/checkResult" }
+    }
+  },
+  "$defs": {
+    "checkResult": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "area", "status", "explanation", "remediation"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable, permanent identifier. See specs/001-environment-doctor/data-model.md.",
+          "enum": [
+            "git-tool",
+            "speckit-tool",
+            "claude-code-tool",
+            "codex-cli-tool",
+            "git-repository",
+            "speckit-initialized",
+            "constitution",
+            "claude-integration",
+            "codex-integration"
+          ]
+        },
+        "name": { "type": "string" },
+        "area": {
+          "type": "string",
+          "enum": ["Environment", "Repository"],
+          "description": "Stable grouping label; exact value and casing are part of the machine-readable contract."
+        },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "explanation": {
+          "type": "string",
+          "description": "Non-empty iff status is \"fail\"; empty when \"pass\"."
+        },
+        "remediation": {
+          "type": "string",
+          "description": "Non-empty iff status is \"fail\"; empty when \"pass\"."
+        }
+      }
+    }
+  }
+}

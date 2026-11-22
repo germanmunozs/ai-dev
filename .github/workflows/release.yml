@@ -1,0 +1,94 @@
+# Publishes a GitHub release when a version tag (vMAJOR.MINOR.PATCH) is
+# pushed. The tag must point to a commit on main, which reached main through
+# a pull request with the required CI checks. The release carries one archive
+# per supported platform (macOS and Linux; native Windows is unsupported), a
+# SHA256SUMS file and a signed SLSA build-provenance attestation for every
+# archive. The release notes are the version's section of CHANGELOG.md.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the release and upload its assets
+      id-token: write # sign the provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Tag is a semantic version on main
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "tag $GITHUB_REF_NAME is not on main"; exit 1; }
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+
+      - name: Vet and test
+        run: |
+          go vet ./...
+          go test -count=1 ./...
+
+      # Reproducible archives: no cgo, trimmed paths, entries sorted and dated
+      # at the commit time, numeric owner 0, and gzip without a timestamp.
+      - name: Build archives
+        run: |
+          version="$GITHUB_REF_NAME"
+          epoch="$(git log -1 --format=%ct)"
+          mkdir -p dist
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+            os="${target%/*}" arch="${target#*/}"
+            stage="$RUNNER_TEMP/stage/$os-$arch"
+            mkdir -p "$stage"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath \
+              -ldflags "-s -w -X github.com/germanmunozs/ai-dev/internal/version.Version=$version" \
+              -o "$stage/ai-dev" ./cmd/ai-dev
+            cp LICENSE README.md CHANGELOG.md "$stage/"
+            tar --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner \
+              -C "$stage" -cf - ai-dev LICENSE README.md CHANGELOG.md \
+              | gzip -n -9 > "dist/ai-dev_${version}_${os}_${arch}.tar.gz"
+          done
+          (cd dist && sha256sum ai-dev_*.tar.gz > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Check the Linux binary reports the tag
+        run: |
+          tar -xzf "dist/ai-dev_${GITHUB_REF_NAME}_linux_amd64.tar.gz" -C "$RUNNER_TEMP" ai-dev
+          "$RUNNER_TEMP/ai-dev" --version
+          "$RUNNER_TEMP/ai-dev" version --format json | grep -q "\"version\":\"$GITHUB_REF_NAME\""
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/ai-dev_*.tar.gz
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/ai-dev_*.tar.gz dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "ai-dev $GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md"
