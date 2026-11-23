@@ -782,7 +782,7 @@ ai-dev setup apply --agent claude-code --agent codex-cli \
 - **No authority of its own:** it writes no files and keeps no state. Each action leaves exactly the same evidence as the typed command, and the agent's output arrives unchanged (002).
 - **Inert text:** everything that comes from files, the environment or the commands is shown sanitized. Escape sequences, OSC (clipboard, hyperlinks), C0/C1 controls and bidirectional controls appear visibly escaped and never reach the terminal.
 - **Signals:** `Ctrl-C` inside a command interrupts the command, not the cockpit. The terminal is always restored on exit: 0 with `q` or `Ctrl-C`, 130 with an external `SIGINT` and 143 with `SIGTERM`.
-- **Dependencies:** it uses Bubble Tea v2.1.1 and Lip Gloss v2.0.6, the project's first third-party dependencies; the policy is in [Development and quality](#development-and-quality).
+- **Dependencies:** it uses Bubble Tea v2.1.1 and Lip Gloss v2.1.0, the project's first third-party dependencies; the policy is in [Development and quality](#development-and-quality).
 
 ## Security model
 

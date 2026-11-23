@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 - `scripts/install-dev.sh` marks development builds as `v0.2.1-dev+<commit>` instead of `v0.1.2-dev+<commit>`.
+- Lip Gloss updated from v2.0.6 to v2.1.0 (published 2026-11-09, under the 14-day rule).
 
 ## [0.2.0] - 2026-11-23
 
