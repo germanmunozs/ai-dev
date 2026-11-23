@@ -1,5 +1,7 @@
-# The Go module has no external dependencies, so Dependabot watches only the
-# GitHub Actions the CI workflow uses.
+# Dependabot proposes updates for the GitHub Actions the workflows use and for
+# the Go modules in go.mod (the cockpit's dependencies). Go module version
+# updates wait 14 days after publication, as the dependency policy requires
+# (README, Third-party dependencies); security updates are not delayed.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,3 +10,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
