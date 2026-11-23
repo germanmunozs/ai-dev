@@ -81,7 +81,7 @@ do_install() {
     suffix=".dirty"
     echo "warning: $source_dir has uncommitted changes; they are included in the build" >&2
   fi
-  version="v0.2.1-dev+${commit}${suffix}"
+  version="v0.2.2-dev+${commit}${suffix}"
 
   build_dir="$(mktemp -d)"
   trap 'rm -rf "$build_dir"' EXIT

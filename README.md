@@ -76,7 +76,7 @@ Each feature has its specification, plan, contracts, data model and tasks in [`s
 curl -fsSLO https://raw.githubusercontent.com/germanmunozs/ai-dev/main/scripts/install.sh
 less install.sh                          # read it before running it
 sh install.sh                            # latest release, into ~/.local/bin
-sh install.sh --version v0.2.0           # a specific release
+sh install.sh --version v0.2.1           # a specific release
 sh install.sh --prefix /opt/ai-dev/bin   # another destination
 sh install.sh --uninstall                # removes the binary, only if it is ai-dev
 ```
@@ -97,7 +97,7 @@ go build -o ai-dev ./cmd/ai-dev
 
 ### Install a development build for testing
 
-To try changes that are not in a release yet, [`scripts/install-dev.sh`](scripts/install-dev.sh) builds this checkout and puts the binary in `~/.local/bin/ai-dev`. It marks the version as `v0.2.1-dev+<commit>`, with `.dirty` if there are uncommitted changes. It does not edit shell startup files, configuration or credentials: if `~/.local/bin` is not on your `PATH`, it tells you what to add.
+To try changes that are not in a release yet, [`scripts/install-dev.sh`](scripts/install-dev.sh) builds this checkout and puts the binary in `~/.local/bin/ai-dev`. It marks the version as `v0.2.2-dev+<commit>`, with `.dirty` if there are uncommitted changes. It does not edit shell startup files, configuration or credentials: if `~/.local/bin` is not on your `PATH`, it tells you what to add.
 
 ```sh
 scripts/install-dev.sh                      # build and install (--prefix DIR for another destination)
@@ -113,14 +113,14 @@ The sandbox is a git repository with one feature (`specs/001-demo`) and fake `cl
 A local build reports the version Go assigns to it and its commit. For a release, the version is set at link time:
 
 ```sh
-go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.2.0" -o ai-dev ./cmd/ai-dev
+go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.2.1" -o ai-dev ./cmd/ai-dev
 ```
 
 You can also install with `go install github.com/germanmunozs/ai-dev/cmd/ai-dev@latest`, or download a binary from [Releases](https://github.com/germanmunozs/ai-dev/releases). Each release has one archive per platform (macOS and Linux, amd64 and arm64), `SHA256SUMS` and a signed provenance attestation. To verify it before use:
 
 ```sh
 shasum -a 256 -c SHA256SUMS --ignore-missing
-gh attestation verify ai-dev_v0.2.0_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
+gh attestation verify ai-dev_v0.2.1_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
 ```
 
 **Publishing a release** (project maintainer):

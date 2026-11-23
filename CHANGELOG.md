@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- `scripts/install-dev.sh` marks development builds as `v0.2.2-dev+<commit>` instead of `v0.2.1-dev+<commit>`.
+
 ## [0.2.1] - 2026-11-23
 
 ### Changed
