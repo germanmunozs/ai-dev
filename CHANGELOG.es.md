@@ -13,6 +13,7 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 ### Changed
 
 - `scripts/install-dev.sh` marca las versiones de desarrollo como `v0.2.1-dev+<commit>` en lugar de `v0.1.2-dev+<commit>`.
+- Lip Gloss actualizado de v2.0.6 a v2.1.0 (publicado el 2026-11-09, bajo la regla de 14 días).
 
 ## [0.2.0] - 2026-11-23
 
