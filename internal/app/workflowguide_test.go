@@ -163,8 +163,8 @@ func TestRunWorkflowGuideHasNoSideEffects(t *testing.T) {
 		if executor.runs != 0 || launcher.launches != 0 || stdin.called {
 			t.Fatalf("%v: runs=%d launches=%d stdin read=%v", args, executor.runs, launcher.launches, stdin.called)
 		}
-		if executor.lookups > 2 {
-			t.Fatalf("%v: %d executable lookups, want at most the two supported agents", args, executor.lookups)
+		if executor.lookups > len(catalogExecutables) {
+			t.Fatalf("%v: %d executable lookups, want at most one per catalog agent", args, executor.lookups)
 		}
 	}
 	if after := guideTreeDigest(t, repo); !reflect.DeepEqual(before, after) {

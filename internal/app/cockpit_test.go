@@ -475,3 +475,25 @@ func TestCockpitRunnerHonorsTerminationWithoutEnter(t *testing.T) {
 		t.Fatal("an interrupt skipped the Enter wait")
 	}
 }
+
+// The cockpit's Agents area shows every catalog agent (F013-FR-012).
+func TestCockpitAgentsAreaListsTheCatalog(t *testing.T) {
+	executor := &fakeExecutor{paths: map[string]string{"vibe": "/fake/vibe"}}
+	source := cockpitSource{executor: executor, root: fstest.MapFS{}, git: unavailableGitManagementDependencies()}
+	lines, err := source.LoadAgents(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(texts(lines), "\n")
+	last := -1
+	for _, id := range catalogIDs {
+		at := strings.Index(text, "agent "+id+" ")
+		if at <= last {
+			t.Fatalf("agent %s missing or out of order in:\n%s", id, text)
+		}
+		last = at
+	}
+	if !strings.Contains(text, "agent mistral-vibe availability=available") {
+		t.Fatalf("availability not shown:\n%s", text)
+	}
+}

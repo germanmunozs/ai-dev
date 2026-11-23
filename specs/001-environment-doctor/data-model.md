@@ -51,7 +51,7 @@ type Check interface {
 ```
 
 Exactly nine concrete implementations exist for this feature (see "Concrete checks"
-below), constructed and assembled into a slice by the orchestration layer
+below; eight since Feature 013, A2), constructed and assembled into a slice by the orchestration layer
 (`internal/app`), which is the only place that knows there are nine, what they are named,
 or in what order they run. `internal/doctor` accepts `[]Check` and never hard-codes a
 count.
@@ -95,6 +95,14 @@ not change once released.
 | 7 | `constitution` | Project Constitution | `ConstitutionCheck` against `.specify/memory/constitution.md` | `io/fs.FS` |
 | 8 | `claude-integration` | Claude Spec Kit Integration | `ManifestIntegrationCheck("claude")` | `io/fs.FS` |
 | 9 | `codex-integration` | Codex Spec Kit Integration | `ManifestIntegrationCheck("codex")` | `io/fs.FS` |
+
+*Amended by Feature 013, A2 (approved 2026-11-22):* rows 3 and 4 are replaced by one row, and the checks are renumbered from 4 to 8.
+
+| # | Stable ID | Name | Mechanism used | Depends on |
+|---|---|---|---|---|
+| 3 | `coding-agent-tool` | `Coding agent`, or `Coding agent: <ids>` when it passes | `CodingAgentCheck` (`agent.NewRegistry(executor).List()`) | `system.Executor.LookPath` |
+
+`claude-code-tool` and `codex-cli-tool` are retired.
 
 `ManifestIntegrationCheck` calls the shared `ValidateManifestFiles` function and adds one
 extra condition (the integration's name must appear in the installation record — see

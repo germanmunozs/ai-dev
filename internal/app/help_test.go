@@ -289,3 +289,15 @@ func TestHelpUsageFailures(t *testing.T) {
 		}
 	}
 }
+
+// Help lists exactly the catalog's agent identifiers, in catalog order
+// (F013-FR-012).
+func TestHelpListsTheAgentCatalog(t *testing.T) {
+	values := "[values: " + strings.Join(catalogIDs, "|") + "]"
+	for _, path := range [][]string{{"agent", "run", "--help"}, {"help", "setup", "apply"}} {
+		code, stdout, stderr, _, _ := runTopLevel(t, path...)
+		if code != 0 || stderr != "" || !strings.Contains(stdout, values) {
+			t.Fatalf("%v: exit %d, stderr %q, missing %q in:\n%s", path, code, stderr, values, stdout)
+		}
+	}
+}

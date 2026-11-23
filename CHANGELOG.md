@@ -10,6 +10,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-23
+
+### Added
+
+- **013 Agent Catalog Expansion:** six more coding agents can be detected, configured for a role and run with `ai-dev agent run`: Factory Droid (`factory-droid`), Gemini CLI (`gemini-cli`), Kiro CLI (`kiro-cli`), Mistral Vibe (`mistral-vibe`), OpenCode (`opencode`) and Qwen Code (`qwen-code`). Each one met published admission criteria with evidence. ai-dev invokes each in its own non-interactive mode, with the instruction never readable as an option and with no option that relaxes its approvals, permissions or sandbox. The admission record, with every candidate evaluated, is in `specs/013-agent-catalog/research.md`.
+
+### Changed
+
+- `ai-dev doctor` has eight checks: `claude-code-tool` and `codex-cli-tool` are replaced by `coding-agent-tool`, which passes when any supported agent is installed and names them (`Coding agent: claude-code, gemini-cli`). Programs that read the doctor JSON report by check identifier must use the new identifier.
+- `ai-dev agents`, `setup show`, the setup assistant, help, shell completion and the cockpit list the eight agents.
+- `scripts/install-dev.sh` marks development builds as `v0.1.2-dev+<commit>` instead of `v0.1.0-dev+<commit>`.
+
 ## [0.1.1] - 2026-11-22
 
 ### Changed
@@ -44,6 +56,7 @@ First release.
 - `scripts/install-dev.sh` builds and installs a development version (`v0.1.0-dev+<commit>`) for manual testing, and creates a sandbox project with fake agents.
 - Releases with archives for macOS and Linux (amd64 and arm64), `SHA256SUMS` and a signed SLSA provenance attestation for each archive.
 
-[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...dev
+[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.2.0...dev
+[0.2.0]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/germanmunozs/ai-dev/releases/tag/v0.1.0

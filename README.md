@@ -2,7 +2,7 @@
 
 **English** · [Español](README.es.md)
 
-`ai-dev` is a Go CLI that supports a Spec-Driven Development (SDD) process with coding agents (Claude Code and Codex CLI), **without ever taking authority away from the human**. It diagnoses the environment, runs agents explicitly, selects the right agent for each role, tracks each feature's lifecycle state, records human decisions (Human Gates) and manages the supervised initialization of Git repositories.
+`ai-dev` is a Go CLI that supports a Spec-Driven Development (SDD) process with coding agents (Claude Code, Codex CLI, Gemini CLI, OpenCode and others), **without ever taking authority away from the human**. It diagnoses the environment, runs agents explicitly, selects the right agent for each role, tracks each feature's lifecycle state, records human decisions (Human Gates) and manages the supervised initialization of Git repositories.
 
 The principle that runs through the whole design:
 
@@ -66,7 +66,7 @@ Each feature has its specification, plan, contracts, data model and tasks in [`s
 - **Windows:** use ai-dev inside **WSL2**, with a Linux distribution and that distribution's Git. The project and `HOME` must be on the Linux filesystem (for example `~/projects/…`, which is ext4). A project under `/mnt/c/…` is mounted as `9p` (drvfs) and Git Management refuses it (`filesystem_unsupported`), because it is not a local production filesystem.
 - **Git ≥ 2.45** for Git Management (it uses `init --ref-format` and `config --end-of-options`).
   - Verified Git installations: Apple (Xcode or Command Line Tools), `/usr` and Debian/Ubuntu (`/usr/lib/git-core`), `/usr/local` and Homebrew. With any other layout, inspection is refused (`attributes_incompatible`), because ai-dev cannot exactly evaluate the configuration compiled into that Git.
-- Optional, depending on what you use: `specify` (Spec Kit), `claude` (Claude Code), `codex` (Codex CLI).
+- Optional, depending on what you use: `specify` (Spec Kit) and at least one supported coding agent (see [002](#002--coding-agent-execution)).
 
 ### Install from a release (no Go or Git needed)
 
@@ -76,7 +76,7 @@ Each feature has its specification, plan, contracts, data model and tasks in [`s
 curl -fsSLO https://raw.githubusercontent.com/germanmunozs/ai-dev/main/scripts/install.sh
 less install.sh                          # read it before running it
 sh install.sh                            # latest release, into ~/.local/bin
-sh install.sh --version v0.1.0           # a specific release
+sh install.sh --version v0.1.1           # a specific release
 sh install.sh --prefix /opt/ai-dev/bin   # another destination
 sh install.sh --uninstall                # removes the binary, only if it is ai-dev
 ```
@@ -97,7 +97,7 @@ go build -o ai-dev ./cmd/ai-dev
 
 ### Install a development build for testing
 
-To try changes that are not in a release yet, [`scripts/install-dev.sh`](scripts/install-dev.sh) builds this checkout and puts the binary in `~/.local/bin/ai-dev`. It marks the version as `v0.1.0-dev+<commit>`, with `.dirty` if there are uncommitted changes. It does not edit shell startup files, configuration or credentials: if `~/.local/bin` is not on your `PATH`, it tells you what to add.
+To try changes that are not in a release yet, [`scripts/install-dev.sh`](scripts/install-dev.sh) builds this checkout and puts the binary in `~/.local/bin/ai-dev`. It marks the version as `v0.1.2-dev+<commit>`, with `.dirty` if there are uncommitted changes. It does not edit shell startup files, configuration or credentials: if `~/.local/bin` is not on your `PATH`, it tells you what to add.
 
 ```sh
 scripts/install-dev.sh                      # build and install (--prefix DIR for another destination)
@@ -113,14 +113,14 @@ The sandbox is a git repository with one feature (`specs/001-demo`) and fake `cl
 A local build reports the version Go assigns to it and its commit. For a release, the version is set at link time:
 
 ```sh
-go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.1.0" -o ai-dev ./cmd/ai-dev
+go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.1.1" -o ai-dev ./cmd/ai-dev
 ```
 
 You can also install with `go install github.com/germanmunozs/ai-dev/cmd/ai-dev@latest`, or download a binary from [Releases](https://github.com/germanmunozs/ai-dev/releases). Each release has one archive per platform (macOS and Linux, amd64 and arm64), `SHA256SUMS` and a signed provenance attestation. To verify it before use:
 
 ```sh
 shasum -a 256 -c SHA256SUMS --ignore-missing
-gh attestation verify ai-dev_v0.1.0_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
+gh attestation verify ai-dev_v0.1.1_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
 ```
 
 **Publishing a release** (project maintainer):
@@ -198,8 +198,7 @@ flowchart LR
     end
 
     git[("Git")]
-    claude["Claude Code<br/>(claude)"]
-    codex["Codex CLI<br/>(codex)"]
+    agents["Coding agents of the catalog<br/>(claude, codex, gemini, …)"]
     specify["Spec Kit<br/>(specify)"]
     repo[("Project repository<br/>specs/, .specify/, .git/")]
     state[("Durable state<br/>~/Library/… or ~/.local/state/…")]
@@ -207,8 +206,7 @@ flowchart LR
     human -- "commands, decisions,<br/>digest confirmation" --> cli
     auto -- "--format json" --> cli
     cli -- "controlled process<br/>(exact argv, sanitized environment)" --> git
-    cli -- "agent run" --> claude
-    cli -- "agent run" --> codex
+    cli -- "agent run" --> agents
     cli -- "doctor: version" --> specify
     cli -- "reads, workflow-state.json,<br/>.ai-dev/config.json" --> repo
     cli -- "authorizations, audit,<br/>locks" --> state
@@ -246,7 +244,7 @@ flowchart TB
 
     subgraph adapters["Adapters"]
         system["system<br/>(only general os/exec)"]
-        adapterspkg["execution/adapters<br/>claude, codex"]
+        adapterspkg["execution/adapters<br/>catalog invocations"]
         gatestore["gatestore<br/>(only Workflow State writer)"]
         configstore["configstore<br/>(only agents.json writer)"]
         gitprocess["gitprocess<br/>(only Git os/exec)"]
@@ -286,9 +284,9 @@ cmd/ai-dev/              entry point and end-to-end subprocess tests
 internal/
   app/                   composition, command routing, interactive wizard
   report/                text/JSON rendering of every report
-  doctor/ checks/        001 — readiness model and the nine checks
+  doctor/ checks/        001 — readiness model and the eight checks
   agent/ execution/      002 — agent catalog and execution model
-    execution/adapters/        claude/codex adapters
+    execution/adapters/        verified invocation of each catalog agent
   instruction/           002 — instruction source (argument or stdin)
   role/ selection/       003 — roles and role → agent policy (built-in or project, 011)
   projectconfig/         011 — strict reading and validation of .ai-dev/agents.json
@@ -314,24 +312,23 @@ specs/NNN-*/             spec, plan, contracts, data model, tasks per feature
 
 ### 001 · Environment Doctor
 
-`ai-dev doctor` runs **nine independent checks**, always in the same order. One failing does not stop the others from running; each failure explains what is missing and how to fix it.
+`ai-dev doctor` runs **eight independent checks**, always in the same order. One failing does not stop the others from running; each failure explains what is missing and how to fix it.
 
 | # | ID | Area | Checks |
 |---|---|---|---|
 | 1 | `git-tool` | Environment | `git` installed and executable |
 | 2 | `speckit-tool` | Environment | `specify` installed |
-| 3 | `claude-code-tool` | Environment | `claude` installed |
-| 4 | `codex-cli-tool` | Environment | `codex` installed |
-| 5 | `git-repository` | Repository | The current directory is a Git repository |
-| 6 | `speckit-initialized` | Repository | Valid `.specify/integrations/speckit.manifest.json` |
-| 7 | `constitution` | Repository | Complete `.specify/memory/constitution.md` (no placeholders, with Version and Ratified) |
-| 8 | `claude-integration` | Repository | Spec Kit Claude integration installed |
-| 9 | `codex-integration` | Repository | Spec Kit Codex integration installed |
+| 3 | `coding-agent-tool` | Environment | At least one supported coding agent installed; when it passes, its name lists them (`Coding agent: claude-code, gemini-cli`) |
+| 4 | `git-repository` | Repository | The current directory is a Git repository |
+| 5 | `speckit-initialized` | Repository | Valid `.specify/integrations/speckit.manifest.json` |
+| 6 | `constitution` | Repository | Complete `.specify/memory/constitution.md` (no placeholders, with Version and Ratified) |
+| 7 | `claude-integration` | Repository | Spec Kit Claude integration installed |
+| 8 | `codex-integration` | Repository | Spec Kit Codex integration installed |
 
 ```mermaid
 flowchart LR
-    start(["ai-dev doctor"]) --> run["RunAll: 9 checks<br/>isolated from each other"]
-    run --> c1["Environment<br/>git · specify · claude · codex"]
+    start(["ai-dev doctor"]) --> run["RunAll: 8 checks<br/>isolated from each other"]
+    run --> c1["Environment<br/>git · specify · coding agent"]
     run --> c2["Repository<br/>repo · Spec Kit · constitution · integrations"]
     c1 & c2 --> agg{"All pass?"}
     agg -- yes --> ok["Overall: pass<br/>exit 0"]
@@ -342,14 +339,24 @@ Detecting Claude and Codex authentication is **out of scope** on purpose: it is 
 
 ### 002 · Coding Agent Execution
 
-A provider-neutral abstraction for discovering and invoking agents. It supports `claude-code` and `codex-cli` today, and others can be added without changing the execution model.
+A provider-neutral abstraction for discovering and invoking agents. Since Feature 013 the catalog has eight agents, always listed in this order:
 
 | Agent | Executable | Invocation |
 |---|---|---|
 | `claude-code` | `claude` | `claude --print -- <instruction>` |
 | `codex-cli` | `codex` | `codex exec -- <instruction>` |
+| `factory-droid` | `droid` | `droid exec -- <instruction>` |
+| `gemini-cli` | `gemini` | `gemini --prompt=<instruction>` |
+| `kiro-cli` | `kiro-cli` | `kiro-cli chat --no-interactive -- <instruction>` |
+| `mistral-vibe` | `vibe` | `vibe --prompt=<instruction>` |
+| `opencode` | `opencode` | `opencode run -- <instruction>` |
+| `qwen-code` | `qwen` | `qwen --prompt=<instruction>` |
 
-The instruction arrives as an argument **or** through non-interactive stdin, never both at once. `ai-dev` does not raise permissions or bypass the agent's sandbox or approvals. The instruction always comes after `--`, so an instruction that starts with `-` is never read as an agent option (002, amendment 1).
+The instruction is passed after `--`, or attached to the prompt option in one argument (`--prompt=<instruction>`) where the agent's parser was verified to read everything after `=` as the value. No invocation carries an option that relaxes approvals, permissions, trust or sandboxing.
+
+**Adding an agent.** An agent joins the catalog only if it meets the admission criteria of [Feature 013](specs/013-agent-catalog/spec.md) (F013-FR-003), with evidence; the [admission record](specs/013-agent-catalog/research.md) lists every candidate evaluated and why it was admitted or not. GitHub Copilot CLI, Amp, Goose, Forge, Grok Build, IBM Bob and DeepSeek Harness are excluded because their executable names collide with other widely used programs (for example, AWS Copilot CLI also installs `copilot`), so ai-dev could not tell them apart by name; Grok Build and IBM Bob also need options that relax their approvals.
+
+The instruction arrives as an argument **or** through non-interactive stdin, never both at once. `ai-dev` does not raise permissions or bypass the agent's sandbox or approvals. An instruction that starts with `-` is never read as an agent option (002, amendment 1; 013, amendment A1).
 
 The result distinguishes three outcomes:
 - `agent_succeeded`: the agent finished successfully.
@@ -362,7 +369,7 @@ sequenceDiagram
     participant A as ai-dev agent run
     participant I as instruction
     participant R as execution.Runner
-    participant AD as Adapter (claude/codex)
+    participant AD as Invocation (catalog)
     participant L as system.Launcher
     participant P as Agent process
 
@@ -873,6 +880,7 @@ Since Feature 012 the binary depends on Bubble Tea v2 and Lip Gloss v2 (22 modul
 - **Pinned versions:** `go.mod` and `go.sum` pin each module with its checksum, and `go mod verify` must pass.
 - **14-day rule:** the newest version published at least 14 days before the date it is added or updated is used. A version is never bumped implicitly: `go mod tidy` may try to, so every update is reviewed in the `go.mod` diff.
 - **Vulnerabilities:** govulncheck runs in CI and a reachable vulnerability fails the job.
+- **Updates:** Dependabot proposes Go module updates weekly, 14 days after their publication (security updates without that wait). Each proposal is a pull request reviewed like any other: the `go.mod` diff, the license and the checks.
 - **Licenses:** only MIT, BSD or Apache-2.0, checked in each module's LICENSE when it is added. The list with dates and licenses is in [`specs/012-terminal-cockpit/tasks.md`](specs/012-terminal-cockpit/tasks.md).
 - **Boundary:** only `internal/cockpit` imports these libraries, and a boundary test stops it from importing domain packages, `os/exec`, `net` or `syscall`, and from calling functions that write.
 

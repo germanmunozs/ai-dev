@@ -9,6 +9,13 @@ import (
 	"testing"
 )
 
+// catalogIDs is the catalog order of contracts/catalog.md (Feature 013).
+var catalogIDs = []string{"claude-code", "codex-cli", "factory-droid", "gemini-cli", "kiro-cli", "mistral-vibe", "opencode", "qwen-code"}
+
+// catalogExecutables are the names one availability scan looks up, in
+// catalog order.
+var catalogExecutables = []string{"claude", "codex", "droid", "gemini", "kiro-cli", "vibe", "opencode", "qwen"}
+
 type listingExecutor struct {
 	paths   map[string]string
 	lookups []string
@@ -44,10 +51,13 @@ func TestRunAgentsListTextIsCompleteOrderedAndDeterministic(t *testing.T) {
 	if firstErr.Len() != 0 || secondErr.Len() != 0 {
 		t.Fatalf("unexpected stderr: %q / %q", firstErr.String(), secondErr.String())
 	}
-	claudeAt := strings.Index(firstOut.String(), "claude-code")
-	codexAt := strings.Index(firstOut.String(), "codex-cli")
-	if claudeAt < 0 || codexAt < 0 || claudeAt >= codexAt {
-		t.Fatalf("agents not complete and ordered: %q", firstOut.String())
+	last := -1
+	for _, id := range catalogIDs {
+		at := strings.Index(firstOut.String(), id+"\t")
+		if at <= last {
+			t.Fatalf("agent %s missing or out of catalog order: %q", id, firstOut.String())
+		}
+		last = at
 	}
 	if !strings.Contains(firstOut.String(), "available") || !strings.Contains(firstOut.String(), "unavailable") {
 		t.Fatalf("availability missing: %q", firstOut.String())
@@ -57,14 +67,20 @@ func TestRunAgentsListTextIsCompleteOrderedAndDeterministic(t *testing.T) {
 	}
 }
 
+// The JSON listing names every catalog agent in catalog order, and only the
+// executables found are available (F013 US1, 002 FR-002, FR-003).
 func TestRunAgentsListJSONIsIsolatedAndStable(t *testing.T) {
-	executor := &listingExecutor{paths: map[string]string{"claude": "/tools/claude", "codex": "/tools/codex"}}
+	executor := &listingExecutor{paths: map[string]string{"gemini": "/tools/gemini", "vibe": "/tools/vibe"}}
 	var stdout, stderr bytes.Buffer
 	if code := RunAgentsList([]string{"--format", "json"}, executor, &stdout, &stderr); code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	var again bytes.Buffer
+	if code := RunAgentsList([]string{"--format", "json"}, executor, &again, &stderr); code != 0 || again.String() != stdout.String() {
+		t.Fatalf("a second listing differs (code %d):\n%s\n%s", code, stdout.String(), again.String())
 	}
 	var report struct {
 		Agents []struct {
@@ -75,13 +91,20 @@ func TestRunAgentsListJSONIsIsolatedAndStable(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
 		t.Fatalf("stdout is not one JSON report: %q: %v", stdout.String(), err)
 	}
-	if len(report.Agents) != 2 || report.Agents[0].ID != "claude-code" || report.Agents[1].ID != "codex-cli" {
-		t.Fatalf("report = %#v", report)
+	if len(report.Agents) != len(catalogIDs) {
+		t.Fatalf("report = %#v, want %d agents", report, len(catalogIDs))
 	}
-	for _, item := range report.Agents {
-		if item.Availability != "available" {
-			t.Errorf("availability for %s = %q", item.ID, item.Availability)
+	for i, item := range report.Agents {
+		want := "unavailable"
+		if item.ID == "gemini-cli" || item.ID == "mistral-vibe" {
+			want = "available"
 		}
+		if item.ID != catalogIDs[i] || item.Availability != want {
+			t.Errorf("agent %d = %s %s, want %s %s", i, item.ID, item.Availability, catalogIDs[i], want)
+		}
+	}
+	if executor.runs != 0 {
+		t.Fatalf("Run calls = %d, want 0", executor.runs)
 	}
 }
 
@@ -91,8 +114,8 @@ func TestRunAgentsListSucceedsWhenAllAgentsAreUnavailable(t *testing.T) {
 	if code := RunAgentsList(nil, executor, &stdout, &stderr); code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 	}
-	if got := strings.Count(stdout.String(), "unavailable"); got != 2 {
-		t.Fatalf("unavailable count = %d in %q, want 2", got, stdout.String())
+	if got := strings.Count(stdout.String(), "unavailable"); got != len(catalogIDs) {
+		t.Fatalf("unavailable count = %d in %q, want %d", got, stdout.String(), len(catalogIDs))
 	}
 	if executor.runs != 0 {
 		t.Fatalf("Run calls = %d, want 0", executor.runs)

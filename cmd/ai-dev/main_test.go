@@ -78,7 +78,7 @@ func TestCommandContractSubprocess(t *testing.T) {
 					Overall string `json:"overall"`
 					Checks  []any  `json:"checks"`
 				}
-				if err := json.Unmarshal([]byte(stdout), &decoded); err != nil || decoded.Overall != "ready" || len(decoded.Checks) != 9 {
+				if err := json.Unmarshal([]byte(stdout), &decoded); err != nil || decoded.Overall != "ready" || len(decoded.Checks) != 8 {
 					t.Fatalf("JSON contract: %#v, %v", decoded, err)
 				}
 			}
@@ -89,7 +89,7 @@ func TestCommandContractSubprocess(t *testing.T) {
 						Availability string `json:"availability"`
 					} `json:"agents"`
 				}
-				if err := json.Unmarshal([]byte(stdout), &decoded); err != nil || len(decoded.Agents) != 2 || decoded.Agents[0].ID != "claude-code" || decoded.Agents[1].ID != "codex-cli" {
+				if err := json.Unmarshal([]byte(stdout), &decoded); err != nil || !sameAgentIDs(decoded.Agents) {
 					t.Fatalf("agent JSON contract: %#v, %v", decoded, err)
 				}
 			}
@@ -255,4 +255,21 @@ func makeFakePATH(t *testing.T, marker string) string {
 	}
 	_ = marker
 	return dir
+}
+
+// sameAgentIDs reports whether a JSON listing names exactly the catalog of
+// contracts/catalog.md (catalogRuns), in order.
+func sameAgentIDs(agents []struct {
+	ID           string `json:"id"`
+	Availability string `json:"availability"`
+}) bool {
+	if len(agents) != len(catalogRuns) {
+		return false
+	}
+	for i, a := range agents {
+		if a.ID != catalogRuns[i].id {
+			return false
+		}
+	}
+	return true
 }

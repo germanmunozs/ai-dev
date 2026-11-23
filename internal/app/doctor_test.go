@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -113,17 +114,17 @@ func readyExecutor() *fakeExecutor {
 }
 
 func TestRunDoctorReadyIsDeterministicAndOrdered(t *testing.T) {
-	wantIDs := []string{"git-tool", "speckit-tool", "claude-code-tool", "codex-cli-tool", "git-repository", "speckit-initialized", "constitution", "claude-integration", "codex-integration"}
-	wantNames := []string{"Git", "Spec Kit", "Claude Code", "Codex CLI", "Current Git Repository", "Spec Kit Initialization", "Project Constitution", "Claude Spec Kit Integration", "Codex Spec Kit Integration"}
+	wantIDs := []string{"git-tool", "speckit-tool", "coding-agent-tool", "git-repository", "speckit-initialized", "constitution", "claude-integration", "codex-integration"}
+	wantNames := []string{"Git", "Spec Kit", "Coding agent: claude-code, codex-cli", "Current Git Repository", "Spec Kit Initialization", "Project Constitution", "Claude Spec Kit Integration", "Codex Spec Kit Integration"}
 	var previous doctor.Report
 	for run := 0; run < 2; run++ {
 		exec := &fakeExecutor{stdout: "true\n", paths: map[string]string{"git": "/bin/git", "specify": "/bin/specify", "claude": "/bin/claude", "codex": "/bin/codex"}}
 		report := RunDoctor(context.Background(), exec, readyFS())
-		if report.Overall != doctor.Pass || len(report.Checks) != 9 {
+		if report.Overall != doctor.Pass || len(report.Checks) != 8 {
 			t.Fatalf("unexpected report: %#v", report)
 		}
-		ids := make([]string, 0, 9)
-		names := make([]string, 0, 9)
+		ids := make([]string, 0, 8)
+		names := make([]string, 0, 8)
 		for _, result := range report.Checks {
 			ids = append(ids, result.ID)
 			names = append(names, result.Name)
@@ -158,8 +159,7 @@ func TestRunDoctorEachSingleFailureIsIsolatedAndExitOne(t *testing.T) {
 	}{
 		{"git-tool", func(e *fakeExecutor, _ fstest.MapFS) { delete(e.paths, "git") }},
 		{"speckit-tool", func(e *fakeExecutor, _ fstest.MapFS) { delete(e.paths, "specify") }},
-		{"claude-code-tool", func(e *fakeExecutor, _ fstest.MapFS) { delete(e.paths, "claude") }},
-		{"codex-cli-tool", func(e *fakeExecutor, _ fstest.MapFS) { delete(e.paths, "codex") }},
+		{"coding-agent-tool", func(e *fakeExecutor, _ fstest.MapFS) { delete(e.paths, "claude"); delete(e.paths, "codex") }},
 		{"git-repository", func(e *fakeExecutor, _ fstest.MapFS) { e.stdout = "false" }},
 		{"speckit-initialized", func(_ *fakeExecutor, root fstest.MapFS) { delete(root, ".specify/integrations/speckit.manifest.json") }},
 		{"constitution", func(_ *fakeExecutor, root fstest.MapFS) { delete(root, ".specify/memory/constitution.md") }},
@@ -172,7 +172,7 @@ func TestRunDoctorEachSingleFailureIsIsolatedAndExitOne(t *testing.T) {
 			root := cloneFS(readyFS())
 			tt.setup(exec, root)
 			report := RunDoctor(context.Background(), exec, root)
-			if report.Overall != doctor.Fail || len(report.Checks) != 9 {
+			if report.Overall != doctor.Fail || len(report.Checks) != 8 {
 				t.Fatalf("unexpected report: %#v", report)
 			}
 			for i, got := range report.Checks {
@@ -192,15 +192,15 @@ func TestRunDoctorEachSingleFailureIsIsolatedAndExitOne(t *testing.T) {
 	}
 }
 
-func TestRunDoctorOutsideRepositoryAndAllFailuresStillReportsNine(t *testing.T) {
+func TestRunDoctorOutsideRepositoryAndAllFailuresStillReportsEight(t *testing.T) {
 	t.Run("outside repository", func(t *testing.T) {
 		exec := readyExecutor()
 		exec.stdout = "false"
 		report := RunDoctor(context.Background(), exec, fstest.MapFS{})
-		if len(report.Checks) != 9 || report.Overall != doctor.Fail {
+		if len(report.Checks) != 8 || report.Overall != doctor.Fail {
 			t.Fatalf("unexpected report: %#v", report)
 		}
-		for _, result := range report.Checks[4:] {
+		for _, result := range report.Checks[3:] {
 			if result.Status != doctor.Fail {
 				t.Errorf("repository check passed outside repository: %#v", result)
 			}
@@ -208,7 +208,7 @@ func TestRunDoctorOutsideRepositoryAndAllFailuresStillReportsNine(t *testing.T) 
 	})
 	t.Run("all fail", func(t *testing.T) {
 		report := RunDoctor(context.Background(), &fakeExecutor{runErr: errors.New("not found")}, fstest.MapFS{})
-		if len(report.Checks) != 9 || report.Overall != doctor.Fail {
+		if len(report.Checks) != 8 || report.Overall != doctor.Fail {
 			t.Fatalf("unexpected report: %#v", report)
 		}
 		for _, result := range report.Checks {
@@ -217,4 +217,15 @@ func TestRunDoctorOutsideRepositoryAndAllFailuresStillReportsNine(t *testing.T) 
 			}
 		}
 	})
+}
+
+// Any one catalog agent makes the environment ready, and the text report
+// names it (F013-FR-009, SC-006).
+func TestRunDoctorIsReadyWithOnlyANewCatalogAgent(t *testing.T) {
+	exec := &fakeExecutor{stdout: "true", paths: map[string]string{"git": "git", "specify": "specify", "vibe": "vibe"}}
+	var stdout, stderr bytes.Buffer
+	code := Run(context.Background(), []string{"doctor"}, exec, nil, readyFS(), bytes.NewReader(nil), &stdout, &stderr)
+	if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), "  [PASS] Coding agent: mistral-vibe\n") {
+		t.Fatalf("code %d stderr %q stdout:\n%s", code, stderr.String(), stdout.String())
+	}
 }
