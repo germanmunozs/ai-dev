@@ -123,7 +123,7 @@ func TestSetupWizardCancels(t *testing.T) {
 // Invalid choices are usage failures: exit 2, nothing written.
 func TestSetupWizardInvalidAnswers(t *testing.T) {
 	for name, input := range map[string]io.Reader{
-		"unknown number":     lines("3"),
+		"unknown number":     lines("9"),
 		"unknown id":         lines("gemini"),
 		"no agent":           lines(""),
 		"duplicate":          lines("1,1"),

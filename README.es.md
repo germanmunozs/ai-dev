@@ -2,7 +2,7 @@
 
 [English](README.md) · **Español**
 
-`ai-dev` es una CLI en Go que acompaña un proceso de desarrollo guiado por especificaciones (Spec-Driven Development, SDD) con agentes de programación (Claude Code y Codex CLI), **sin quitarle nunca la autoridad al humano**. Diagnostica el entorno, ejecuta agentes de forma explícita, selecciona el agente adecuado para cada rol, lleva el estado del ciclo de vida de cada feature, registra decisiones humanas (Human Gates) y gestiona la inicialización supervisada de repositorios Git.
+`ai-dev` es una CLI en Go que acompaña un proceso de desarrollo guiado por especificaciones (Spec-Driven Development, SDD) con agentes de programación (Claude Code, Codex CLI, Gemini CLI, OpenCode y otros), **sin quitarle nunca la autoridad al humano**. Diagnostica el entorno, ejecuta agentes de forma explícita, selecciona el agente adecuado para cada rol, lleva el estado del ciclo de vida de cada feature, registra decisiones humanas (Human Gates) y gestiona la inicialización supervisada de repositorios Git.
 
 El principio que atraviesa todo el diseño:
 
@@ -66,7 +66,7 @@ Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas
 - **Windows:** usa ai-dev dentro de **WSL2**, con una distribución Linux y el Git de esa distribución. El proyecto y `HOME` deben estar en el filesystem de Linux (por ejemplo `~/proyectos/…`, que es ext4). Un proyecto en `/mnt/c/…` se monta como `9p` (drvfs) y Git Management lo rechaza (`filesystem_unsupported`), porque no es un filesystem local de producción.
 - **Git ≥ 2.45** para Git Management (usa `init --ref-format` y `config --end-of-options`).
   - Instalaciones de Git verificadas: Apple (Xcode o Command Line Tools), `/usr` y Debian/Ubuntu (`/usr/lib/git-core`), `/usr/local` y Homebrew. Con cualquier otra disposición, la inspección se rechaza (`attributes_incompatible`), porque ai-dev no puede evaluar con exactitud la configuración que ese Git lleva compilada.
-- Opcionales, según lo que se use: `specify` (Spec Kit), `claude` (Claude Code), `codex` (Codex CLI).
+- Opcionales, según lo que se use: `specify` (Spec Kit) y al menos un agente de programación soportado (ver [002](#002--coding-agent-execution)).
 
 ### Instalar desde un release (sin Go ni Git)
 
@@ -198,8 +198,7 @@ flowchart LR
     end
 
     git[("Git")]
-    claude["Claude Code<br/>(claude)"]
-    codex["Codex CLI<br/>(codex)"]
+    agents["Agentes del catálogo<br/>(claude, codex, gemini, …)"]
     specify["Spec Kit<br/>(specify)"]
     repo[("Repositorio del proyecto<br/>specs/, .specify/, .git/")]
     state[("Estado duradero<br/>~/Library/… o ~/.local/state/…")]
@@ -207,8 +206,7 @@ flowchart LR
     human -- "comandos, decisiones,<br/>confirmación de digest" --> cli
     auto -- "--format json" --> cli
     cli -- "proceso controlado<br/>(argv exacto, entorno saneado)" --> git
-    cli -- "agent run" --> claude
-    cli -- "agent run" --> codex
+    cli -- "agent run" --> agents
     cli -- "doctor: versión" --> specify
     cli -- "lectura, workflow-state.json,<br/>.ai-dev/config.json" --> repo
     cli -- "autorizaciones, auditoría,<br/>locks" --> state
@@ -246,7 +244,7 @@ flowchart TB
 
     subgraph adapters["Adaptadores"]
         system["system<br/>(único os/exec general)"]
-        adapterspkg["execution/adapters<br/>claude, codex"]
+        adapterspkg["execution/adapters<br/>invocaciones del catálogo"]
         gatestore["gatestore<br/>(única escritura de Workflow State)"]
         configstore["configstore<br/>(única escritura de agents.json)"]
         gitprocess["gitprocess<br/>(único os/exec de Git)"]
@@ -286,9 +284,9 @@ cmd/ai-dev/              punto de entrada y pruebas end-to-end por subproceso
 internal/
   app/                   composición, routing de comandos, asistente interactivo
   report/                renderizado texto/JSON de todos los informes
-  doctor/ checks/        001 — modelo de readiness y los nueve checks
+  doctor/ checks/        001 — modelo de readiness y los ocho checks
   agent/ execution/      002 — catálogo de agentes y modelo de ejecución
-    execution/adapters/        adaptadores claude/codex
+    execution/adapters/        invocación verificada de cada agente del catálogo
   instruction/           002 — fuente de la instrucción (argumento o stdin)
   role/ selection/       003 — roles y política rol → agente (fija o del proyecto, 011)
   projectconfig/         011 — lectura y validación estricta de .ai-dev/agents.json
@@ -314,24 +312,23 @@ specs/NNN-*/             spec, plan, contratos, data model, tareas por feature
 
 ### 001 · Environment Doctor
 
-`ai-dev doctor` ejecuta **nueve checks independientes**, siempre en el mismo orden. Que uno falle no impide que se ejecuten los demás; cada fallo explica qué falta y cómo remediarlo.
+`ai-dev doctor` ejecuta **ocho checks independientes**, siempre en el mismo orden. Que uno falle no impide que se ejecuten los demás; cada fallo explica qué falta y cómo remediarlo.
 
 | # | ID | Área | Comprueba |
 |---|---|---|---|
 | 1 | `git-tool` | Environment | `git` instalado y ejecutable |
 | 2 | `speckit-tool` | Environment | `specify` instalado |
-| 3 | `claude-code-tool` | Environment | `claude` instalado |
-| 4 | `codex-cli-tool` | Environment | `codex` instalado |
-| 5 | `git-repository` | Repository | El directorio actual es un repositorio Git |
-| 6 | `speckit-initialized` | Repository | `.specify/integrations/speckit.manifest.json` válido |
-| 7 | `constitution` | Repository | `.specify/memory/constitution.md` completo (sin placeholders, con Version y Ratified) |
-| 8 | `claude-integration` | Repository | Integración Spec Kit de Claude instalada |
-| 9 | `codex-integration` | Repository | Integración Spec Kit de Codex instalada |
+| 3 | `coding-agent-tool` | Environment | Al menos un agente de programación soportado instalado; cuando pasa, su nombre los lista (`Coding agent: claude-code, gemini-cli`) |
+| 4 | `git-repository` | Repository | El directorio actual es un repositorio Git |
+| 5 | `speckit-initialized` | Repository | `.specify/integrations/speckit.manifest.json` válido |
+| 6 | `constitution` | Repository | `.specify/memory/constitution.md` completo (sin placeholders, con Version y Ratified) |
+| 7 | `claude-integration` | Repository | Integración Spec Kit de Claude instalada |
+| 8 | `codex-integration` | Repository | Integración Spec Kit de Codex instalada |
 
 ```mermaid
 flowchart LR
-    start(["ai-dev doctor"]) --> run["RunAll: 9 checks<br/>aislados entre sí"]
-    run --> c1["Environment<br/>git · specify · claude · codex"]
+    start(["ai-dev doctor"]) --> run["RunAll: 8 checks<br/>aislados entre sí"]
+    run --> c1["Environment<br/>git · specify · agente de programación"]
     run --> c2["Repository<br/>repo · Spec Kit · constitución · integraciones"]
     c1 & c2 --> agg{"¿Todos pass?"}
     agg -- sí --> ok["Overall: pass<br/>exit 0"]
@@ -342,14 +339,24 @@ La detección de autenticación de Claude y Codex queda **fuera de alcance** a p
 
 ### 002 · Coding Agent Execution
 
-Es una abstracción neutral respecto al proveedor para descubrir e invocar agentes. Hoy soporta `claude-code` y `codex-cli`, y se pueden añadir otros sin cambiar el modelo de ejecución.
+Es una abstracción neutral respecto al proveedor para descubrir e invocar agentes. Desde la Feature 013 el catálogo tiene ocho agentes, listados siempre en este orden:
 
 | Agente | Ejecutable | Invocación |
 |---|---|---|
 | `claude-code` | `claude` | `claude --print -- <instruction>` |
 | `codex-cli` | `codex` | `codex exec -- <instruction>` |
+| `factory-droid` | `droid` | `droid exec -- <instruction>` |
+| `gemini-cli` | `gemini` | `gemini --prompt=<instruction>` |
+| `kiro-cli` | `kiro-cli` | `kiro-cli chat --no-interactive -- <instruction>` |
+| `mistral-vibe` | `vibe` | `vibe --prompt=<instruction>` |
+| `opencode` | `opencode` | `opencode run -- <instruction>` |
+| `qwen-code` | `qwen` | `qwen --prompt=<instruction>` |
 
-La instrucción llega como argumento **o** por stdin no interactivo, nunca por ambos a la vez. `ai-dev` no eleva permisos ni salta el sandbox o las aprobaciones del agente. La instrucción va siempre después de `--`, así que una instrucción que empieza por `-` nunca se lee como una opción del agente (002, enmienda 1).
+La instrucción va después de `--`, o pegada a la opción del prompt en un solo argumento (`--prompt=<instruction>`) cuando se verificó que el parser del agente lee todo lo que sigue a `=` como valor. Ninguna invocación lleva una opción que relaje aprobaciones, permisos, confianza o sandbox.
+
+**Añadir un agente.** Un agente entra al catálogo solo si cumple los criterios de admisión de la [Feature 013](specs/013-agent-catalog/spec.md) (F013-FR-003), con evidencia; el [registro de admisión](specs/013-agent-catalog/research.md) lista cada candidato evaluado y por qué entró o no. GitHub Copilot CLI, Amp, Goose, Forge, Grok Build, IBM Bob y DeepSeek Harness quedan fuera porque el nombre de su ejecutable coincide con el de otros programas muy usados (por ejemplo, AWS Copilot CLI también instala `copilot`), así que ai-dev no podría distinguirlos por el nombre; Grok Build e IBM Bob además necesitan opciones que relajan sus aprobaciones.
+
+La instrucción llega como argumento **o** por stdin no interactivo, nunca por ambos a la vez. `ai-dev` no eleva permisos ni salta el sandbox o las aprobaciones del agente. Una instrucción que empieza por `-` nunca se lee como una opción del agente (002, enmienda 1; 013, enmienda A1).
 
 El resultado distingue tres outcomes:
 - `agent_succeeded`: el agente terminó con éxito.
@@ -362,7 +369,7 @@ sequenceDiagram
     participant A as ai-dev agent run
     participant I as instruction
     participant R as execution.Runner
-    participant AD as Adapter (claude/codex)
+    participant AD as Invocation (catalog)
     participant L as system.Launcher
     participant P as Proceso del agente
 

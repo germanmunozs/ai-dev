@@ -14,10 +14,12 @@ func TestCanonicalIDsAreStable(t *testing.T) {
 func TestCanonicalIDsRemainSeparateFromDisplayLabels(t *testing.T) {
 	registry := NewRegistry(&recordingExecutor{paths: map[string]string{}})
 	statuses := registry.List()
-	wantLabels := []string{"Claude Code", "OpenAI Codex CLI"}
+	if len(statuses) != len(wantCatalog) {
+		t.Fatalf("List() has %d agents, want %d", len(statuses), len(wantCatalog))
+	}
 	for i, status := range statuses {
-		if status.Agent.DisplayLabel != wantLabels[i] {
-			t.Errorf("status %d label = %q, want %q", i, status.Agent.DisplayLabel, wantLabels[i])
+		if status.Agent.DisplayLabel != wantCatalog[i].DisplayLabel {
+			t.Errorf("status %d label = %q, want %q", i, status.Agent.DisplayLabel, wantCatalog[i].DisplayLabel)
 		}
 		if string(status.Agent.ID) == status.Agent.DisplayLabel {
 			t.Errorf("status %d uses display label as ID", i)

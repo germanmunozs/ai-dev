@@ -18,6 +18,15 @@
 - Q: What must “intact” mean for each coding-agent integration check? → A: The installation record must be valid and every required file must exist and satisfy declared structural requirements; permitted customization does not fail.
 - Q: Must every failed check include actionable remediation guidance in addition to explaining what is missing or invalid? → A: Yes; every failure includes both a diagnosis and a concise corrective action.
 
+### Session 2026-11-22 (Feature 013 cross-feature Amendment A2)
+
+- **Authority record (2026-11-22): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, approved Feature 013 (`specs/013-agent-catalog/spec.md`) with its Required Amendments in the words "si, apruebo la 013, haz el commit y ejecuta /speckit-plan". The approver identity is a declared, auditable assertion, not an authenticated identity.
+- **FR-002, FR-011, FR-012:** the Claude Code and Codex CLI tool checks are replaced by one check, `coding-agent-tool`, that passes when at least one agent of the supported-agent catalog is available and names the available agents in catalog order; when it fails it states that no supported coding agent was found and points to `ai-dev agents` (F013-FR-009). Doctor evaluates eight checks.
+- **FR-006, SC-002 and the edge case on every check failing:** "nine" becomes "eight". The readiness rule is unchanged: Ready only if every check passes.
+- The Claude and Codex Spec Kit integration checks (FR-016) are unchanged.
+- **Implementation finding (2026-11-23):** the available agents are named in the check's *name* (`Coding agent: claude-code, mistral-vibe`), not in its explanation, because this feature's report contract keeps a passing check's explanation and remediation empty. The owner chose this option ("En el nombre (Recomendado)"). `contracts/cli-contract.md` and `data-model.md` record the retired identifiers. This is a declared, unauthenticated assertion.
+- No other requirement of this feature changes. Until Feature 013 is implemented, this feature behaves as before.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Check readiness before starting work (Priority: P1)
@@ -84,7 +93,7 @@ An automated workflow (for example, a script or a CI job) runs the doctor comman
 ### Functional Requirements
 
 - **FR-001**: The system MUST provide a command, `ai-dev doctor`, that performs a full readiness assessment of the current development environment and the current repository with no required arguments.
-- **FR-002**: The system MUST evaluate exactly the following nine checks on every invocation: (1) Git tool availability, (2) Spec Kit tool availability, (3) Claude Code tool availability, (4) Codex CLI tool availability, (5) current directory is a valid Git repository, (6) Spec Kit is initialized in the current repository, (7) the project constitution is present and complete, (8) the Claude Spec Kit integration installed in the current repository is complete and intact, and (9) the Codex Spec Kit integration installed in the current repository is complete and intact. Each additional coding-agent integration added to the readiness requirements in the future MUST be represented by its own independent check.
+- **FR-002**: The system MUST evaluate exactly the following nine checks on every invocation: (1) Git tool availability, (2) Spec Kit tool availability, (3) Claude Code tool availability, (4) Codex CLI tool availability, (5) current directory is a valid Git repository, (6) Spec Kit is initialized in the current repository, (7) the project constitution is present and complete, (8) the Claude Spec Kit integration installed in the current repository is complete and intact, and (9) the Codex Spec Kit integration installed in the current repository is complete and intact. Each additional coding-agent integration added to the readiness requirements in the future MUST be represented by its own independent check. *(Amended by Feature 013, A2: checks 3 and 4 become the single `coding-agent-tool` check, for eight checks.)*
 - **FR-003**: Each check MUST produce exactly one of two explicit results: Pass or Fail. No check may be left unreported, partially reported, or reported in an ambiguous state.
 - **FR-004**: The failure of any one check MUST NOT prevent any other, independent check from running and reporting its own result in the same invocation.
 - **FR-005**: Every check that results in Fail MUST include a human-readable explanation of specifically what is missing or invalid for that check and a concise corrective action the developer can take. The corrective action need not prescribe an exact command.
