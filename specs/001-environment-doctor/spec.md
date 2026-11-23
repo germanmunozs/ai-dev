@@ -24,6 +24,7 @@
 - **FR-002, FR-011, FR-012:** the Claude Code and Codex CLI tool checks are replaced by one check, `coding-agent-tool`, that passes when at least one agent of the supported-agent catalog is available and names the available agents in catalog order; when it fails it states that no supported coding agent was found and points to `ai-dev agents` (F013-FR-009). Doctor evaluates eight checks.
 - **FR-006, SC-002 and the edge case on every check failing:** "nine" becomes "eight". The readiness rule is unchanged: Ready only if every check passes.
 - The Claude and Codex Spec Kit integration checks (FR-016) are unchanged.
+- **Implementation finding (2026-11-23):** the available agents are named in the check's *name* (`Coding agent: claude-code, mistral-vibe`), not in its explanation, because this feature's report contract keeps a passing check's explanation and remediation empty. The owner chose this option ("En el nombre (Recomendado)"). `contracts/cli-contract.md` and `data-model.md` record the retired identifiers. This is a declared, unauthenticated assertion.
 - No other requirement of this feature changes. Until Feature 013 is implemented, this feature behaves as before.
 
 ## User Scenarios & Testing *(mandatory)*

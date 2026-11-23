@@ -18,14 +18,14 @@ func TestWriteAgentListTextPreservesRegistryOrderAndValues(t *testing.T) {
 		t.Fatalf("WriteAgentListText() error = %v", err)
 	}
 	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("lines = %q, want 2", lines)
+	if len(lines) != len(agent.Catalog()) {
+		t.Fatalf("lines = %q, want one per catalog agent (%d)", lines, len(agent.Catalog()))
 	}
 	wantFields := [][]string{
 		{"claude-code", "Claude", "Code", "available"},
 		{"codex-cli", "OpenAI", "Codex", "CLI", "unavailable"},
 	}
-	for i, line := range lines {
+	for i, line := range lines[:len(wantFields)] {
 		if got := strings.Fields(line); !equalStrings(got, wantFields[i]) {
 			t.Errorf("line %d fields = %q, want %q", i, got, wantFields[i])
 		}
@@ -51,7 +51,7 @@ func TestWriteAgentListJSONWritesOneStableObject(t *testing.T) {
 	if decoder.More() {
 		t.Fatal("JSON output contains more than one value")
 	}
-	if len(got.Agents) != 2 {
+	if len(got.Agents) != len(agent.Catalog()) {
 		t.Fatalf("agents = %#v", got.Agents)
 	}
 	if got.Agents[0].ID != "claude-code" || got.Agents[0].DisplayLabel != "Claude Code" || got.Agents[0].Availability != "available" {

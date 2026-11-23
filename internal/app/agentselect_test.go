@@ -660,7 +660,7 @@ func TestNoFurtherAutomaticActionAfterNonSelectedOutcome(t *testing.T) {
 		registry := agent.NewRegistry(executor)
 		var stdout, stderr bytes.Buffer
 		RunAgentSelect([]string{"implementation"}, registry, fstest.MapFS{}, &stdout, &stderr)
-		if want := []string{"claude", "codex"}; !reflect.DeepEqual(executor.lookups, want) {
+		if want := catalogExecutables; !reflect.DeepEqual(executor.lookups, want) {
 			t.Fatalf("LookPath calls = %v, want %v", executor.lookups, want)
 		}
 	})
@@ -669,7 +669,7 @@ func TestNoFurtherAutomaticActionAfterNonSelectedOutcome(t *testing.T) {
 		registry := agent.NewRegistry(executor)
 		var stdout, stderr bytes.Buffer
 		RunAgentSelect([]string{"specification"}, registry, fstest.MapFS{}, &stdout, &stderr)
-		if want := []string{"claude", "codex"}; !reflect.DeepEqual(executor.lookups, want) {
+		if want := catalogExecutables; !reflect.DeepEqual(executor.lookups, want) {
 			t.Fatalf("LookPath calls = %v, want %v", executor.lookups, want)
 		}
 	})

@@ -12,6 +12,30 @@ import (
 	"testing"
 )
 
+// rolePairs is every ROLE=AGENT completion for the given roles, agents in
+// catalog order (F013-FR-012).
+func rolePairs(roles ...string) []string {
+	var pairs []string
+	for _, role := range roles {
+		for _, id := range catalogIDs {
+			pairs = append(pairs, role+"="+id)
+		}
+	}
+	return pairs
+}
+
+// idsWithPrefix is every catalog identifier starting with prefix, in
+// catalog order.
+func idsWithPrefix(prefix string) []string {
+	var ids []string
+	for _, id := range catalogIDs {
+		if strings.HasPrefix(id, prefix) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 func TestCompletionCommand(t *testing.T) {
 	for _, shell := range []string{"bash", "zsh"} {
 		code, first, stderr, _, _ := runTopLevel(t, "completion", shell)
@@ -43,9 +67,9 @@ var completionCases = []struct {
 }{
 	// F011-FR-020: setup, its agents and the ROLE=AGENT pairs.
 	{[]string{"ai-dev", "setup", ""}, []string{"show", "apply"}},
-	{[]string{"ai-dev", "setup", "apply", "--agent", "c"}, []string{"claude-code", "codex-cli"}},
-	{[]string{"ai-dev", "setup", "apply", "--role", ""}, []string{"specification=claude-code", "specification=codex-cli", "planning=claude-code", "planning=codex-cli", "implementation=claude-code", "implementation=codex-cli", "review=claude-code", "review=codex-cli", "remediation=claude-code", "remediation=codex-cli"}},
-	{[]string{"ai-dev", "setup", "apply", "--role", "impl"}, []string{"implementation=claude-code", "implementation=codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--agent", "c"}, idsWithPrefix("c")},
+	{[]string{"ai-dev", "setup", "apply", "--role", ""}, rolePairs("specification", "planning", "implementation", "review", "remediation")},
+	{[]string{"ai-dev", "setup", "apply", "--role", "impl"}, rolePairs("implementation")},
 	{[]string{"ai-dev", "setup", "apply", "--role", "review=claude-code", "--r"}, []string{"--role", "--replace"}},
 	{[]string{"ai-dev", "wo"}, []string{"workflow"}},
 	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "version", "help", "completion"}},
@@ -53,8 +77,8 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "workflow", "state", "--f"}, []string{"--format"}},
 	{[]string{"ai-dev", "workflow", "state", "--format", ""}, []string{"text", "json"}},
 	{[]string{"ai-dev", "init", "plan", "--strategy", ""}, []string{"basic", "git-flow", "github-flow", "trunk-based"}},
-	{[]string{"ai-dev", "agent", "run", ""}, []string{"claude-code", "codex-cli"}},
-	{[]string{"ai-dev", "agent", "run", "--format", "json", "c"}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "agent", "run", ""}, catalogIDs},
+	{[]string{"ai-dev", "agent", "run", "--format", "json", "c"}, idsWithPrefix("c")},
 	{[]string{"ai-dev", "agent", "select", "re"}, []string{"review", "remediation"}},
 	{[]string{"ai-dev", "help", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
 	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "version", "help", "completion"}},
@@ -67,7 +91,7 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "agent", "run", "claude-code", ""}, nil},
 	{[]string{"ai-dev", "init", "plan", "--author-name", ""}, nil},
 	{[]string{"ai-dev", "nope", ""}, nil},
-	{[]string{"ai-dev", "agent", "run", "--format=json", ""}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "agent", "run", "--format=json", ""}, catalogIDs},
 	{[]string{"ai-dev", "workflow", "state", "--", ""}, nil},
 	{[]string{"ai-dev", "init", "--project-dir", "x", ""}, nil},
 	{[]string{"ai-dev", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
@@ -92,10 +116,10 @@ var bashSplitCases = []struct {
 	{[]string{"ai-dev", "setup", "apply", "--role", "implementation=cl"}, []string{"claude-code"}},
 	// --role=ROLE=AGENT, split twice by bash 4 (review L1).
 	{[]string{"ai-dev", "setup", "apply", "--role", "=", "implementation", "=", "cl"}, []string{"claude-code"}},
-	{[]string{"ai-dev", "setup", "apply", "--role", "=", "implementation", "="}, []string{"claude-code", "codex-cli"}},
-	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "="}, []string{"claude-code", "codex-cli"}},
-	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "=", "claude-code", "--role", "re"}, []string{"review=claude-code", "review=codex-cli", "remediation=claude-code", "remediation=codex-cli"}},
-	{[]string{"ai-dev", "agent", "run", "--format", "=", "json", ""}, []string{"claude-code", "codex-cli"}},
+	{[]string{"ai-dev", "setup", "apply", "--role", "=", "implementation", "="}, catalogIDs},
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "="}, catalogIDs},
+	{[]string{"ai-dev", "setup", "apply", "--role", "implementation", "=", "claude-code", "--role", "re"}, rolePairs("review", "remediation")},
+	{[]string{"ai-dev", "agent", "run", "--format", "=", "json", ""}, catalogIDs},
 	{[]string{"ai-dev", "agent", "run", "--format", "="}, []string{"text", "json"}},
 	{[]string{"ai-dev", "agent", "run", "--format", "=", "j"}, []string{"json"}},
 	{[]string{"ai-dev", "agent", "select", "--format", "=", "r"}, nil},

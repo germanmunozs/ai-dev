@@ -4,7 +4,7 @@ This is the public contract of Feature 013: the identifiers a person types and s
 
 ## Catalog (F013-FR-001, FR-002, FR-005)
 
-Order is normative: every listing (`ai-dev agents`, `setup show`, the assistant, help, completion, the cockpit, doctor's explanation) uses it.
+Order is normative: every listing (`ai-dev agents`, `setup show`, the assistant, help, completion, the cockpit, the name of doctor's passing agent check) uses it.
 
 | # | Identifier | Label | Executable | Invocation |
 |---|---|---|---|---|
@@ -34,7 +34,8 @@ Rows 1 and 2 are unchanged from 002. The admission evidence for each row is in [
 | | Pass | Fail |
 |---|---|---|
 | When | at least one catalog executable is found on `PATH` | none is found |
-| Explanation | `Available: <id>, <id>, …` (catalog order) | `No supported coding agent was found on PATH.` |
+| Name | `Coding agent: <id>, <id>, …` (catalog order) | `Coding agent` |
+| Explanation | empty (001 contract) | `No supported coding agent was found on PATH.` |
 | Remediation | — | `Install a supported coding agent; run ai-dev agents to see the list.` |
 
 Doctor's checks, in order:
@@ -50,7 +51,8 @@ Doctor's checks, in order:
 ## Adding an agent later (SC-008)
 
 1. Add its admission entry, with evidence for every criterion, to a research record. It is a new subsection when done under a later change.
-2. Add one catalog row and one invocation row.
-3. The tests of research R-07 cover it with no new test code, except its row in the table-driven expectations.
+2. Add its identifier constant in `internal/agent/agent.go`, its catalog row in `internal/agent/registry.go`, and its invocation row in `internal/execution/adapters/catalog.go`. A new mode selector or prompt option must also be added, in review, to the allowlist in `catalog_test.go`.
+3. Add its row to the table-driven expectations: `wantCatalog`, `wantVectors`, `catalogIDs`, `catalogExecutables` and `catalogRuns`.
+4. Update this table and the agent tables of `README.md` and `README.es.md`.
 
 No command, outcome, schema or other feature's requirement changes.

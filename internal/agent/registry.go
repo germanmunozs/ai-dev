@@ -2,9 +2,19 @@ package agent
 
 import "github.com/germanmunozs/ai-dev/internal/system"
 
+// supportedAgents is the catalog of contracts/catalog.md (Feature 013): the
+// two original agents first, then the rest in ascending identifier order.
+// Each entry met the admission criteria of F013-FR-003; the evidence is in
+// specs/013-agent-catalog/research.md, R-05.
 var supportedAgents = []Agent{
 	{ID: ClaudeCode, DisplayLabel: "Claude Code", binary: "claude"},
 	{ID: CodexCLI, DisplayLabel: "OpenAI Codex CLI", binary: "codex"},
+	{ID: FactoryDroid, DisplayLabel: "Factory Droid", binary: "droid"},
+	{ID: GeminiCLI, DisplayLabel: "Gemini CLI", binary: "gemini"},
+	{ID: KiroCLI, DisplayLabel: "Kiro CLI", binary: "kiro-cli"},
+	{ID: MistralVibe, DisplayLabel: "Mistral Vibe", binary: "vibe"},
+	{ID: OpenCode, DisplayLabel: "OpenCode", binary: "opencode"},
+	{ID: QwenCode, DisplayLabel: "Qwen Code", binary: "qwen"},
 }
 
 // Registry enumerates the fixed supported-agent set in stable report order.

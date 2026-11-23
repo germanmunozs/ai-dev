@@ -33,7 +33,7 @@ A `doctor.Check` with:
 - identifier `coding-agent-tool`;
 - name "Coding agent";
 - area `Environment`;
-- `Pass` when at least one catalog agent is available, with the available identifiers in catalog order;
+- `Pass` when at least one catalog agent is available, with the name `Coding agent: <ids>` (available identifiers in catalog order) and empty explanation and remediation;
 - `Fail` otherwise, with the remediation pointing to `ai-dev agents`.
 
 ## Unchanged

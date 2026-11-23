@@ -60,11 +60,8 @@ func RunAgentRun(
 	runner := execution.Runner{
 		Registry: agent.NewRegistry(executor),
 		Launcher: launcher,
-		Adapters: map[agent.ID]execution.Adapter{
-			agent.ClaudeCode: adapters.Claude{},
-			agent.CodexCLI:   adapters.Codex{},
-		},
-		Stdin: stdin,
+		Adapters: catalogAdapters(),
+		Stdin:    stdin,
 	}
 
 	agentStdout, agentStderr := stdout, stderr
@@ -94,4 +91,15 @@ func finishAgentRun(format string, result execution.Report, stdout, stderr io.Wr
 		return 0
 	}
 	return 1
+}
+
+// catalogAdapters gives the runner the verified invocations of Feature 013;
+// adapters.Invocations returns a copy, so the table itself stays fixed.
+func catalogAdapters() map[agent.ID]execution.Adapter {
+	invocations := adapters.Invocations()
+	result := make(map[agent.ID]execution.Adapter, len(invocations))
+	for id, invocation := range invocations {
+		result[id] = invocation
+	}
+	return result
 }

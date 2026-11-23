@@ -17,7 +17,7 @@ ai-dev doctor [--format text|json]
 - An unrecognized flag or an invalid `--format` value is a usage error: the process prints
   a usage message to stderr and exits `2` without running any check.
 - The command performs a full, read-only assessment of the environment and the current
-  working directory's repository state (see `data-model.md` for the nine checks run). It
+  working directory's repository state (see `data-model.md` for the checks run: nine, eight since Feature 013 Amendment A2). It
   makes no network calls, writes nothing to disk, and starts no background process.
 
 ## Exit codes
@@ -111,6 +111,12 @@ keys will not be renamed or repurposed without a major, documented change).
 - The nine `id` values in `data-model.md` are permanent identifiers. A future feature that
   adds a tenth coding-agent-integration check adds a new `id`; it does not renumber or
   rename the existing nine.
+  *(Amended by Feature 013, A2, approved by the owner on 2026-11-22: `claude-code-tool` and
+  `codex-cli-tool` are retired and replaced by `coding-agent-tool`, which passes when any
+  catalog agent is available. Doctor reports eight checks. The other seven identifiers are
+  unchanged and keep this guarantee, and so does `coding-agent-tool`. When it passes, its
+  `name` is `Coding agent: <ids>`; `explanation` and `remediation` stay empty, as this
+  contract requires for a passing check. Automation keys off `id`, never `name`.)*
 - Exit code meanings (`0`/`1`/`2`) do not change.
 - `--format text` prose (the `Explanation`/`Remediation` wording) is *not* part of the
   contract and may be reworded for clarity without being a breaking change — this is why

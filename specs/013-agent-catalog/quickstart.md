@@ -19,7 +19,7 @@
 | `./ai-dev agent run qwen-code x` with no `qwen` on `PATH` | `execution_failed`, unavailable |
 | `./ai-dev agent run claude-code x` and `codex-cli x` | argument vectors unchanged: `--print -- x`, `exec -- x` |
 | `./ai-dev doctor` with no agent on `PATH` | `coding-agent-tool` fails, points to `ai-dev agents`; eight checks |
-| `./ai-dev doctor` with only the `vibe` fake | `coding-agent-tool` passes: `Available: mistral-vibe` |
+| `./ai-dev doctor` with only the `vibe` fake | `[PASS] Coding agent: mistral-vibe` |
 | `./ai-dev setup apply --agent gemini-cli --agent factory-droid --role specification=gemini-cli --role planning=gemini-cli --role implementation=factory-droid --role review=gemini-cli --role remediation=factory-droid`, then `./ai-dev agent select implementation` | `configuration_written`; `agent=factory-droid source=project` |
 | `./ai-dev agent select implementation` without a configuration | `agent=codex-cli source=built_in` (unchanged) |
 | `./ai-dev agent run --help`, `ai-dev completion zsh` | list the 8 identifiers in catalog order |

@@ -77,7 +77,7 @@ func TestRunSetupShowOutcomes(t *testing.T) {
 					t.Errorf("missing %q in %q", line, stdout)
 				}
 			}
-			if !reflect.DeepEqual(executor.lookups, []string{"claude", "codex"}) || executor.runs != 0 {
+			if !reflect.DeepEqual(executor.lookups, catalogExecutables) || executor.runs != 0 {
 				t.Fatalf("lookups=%v runs=%d", executor.lookups, executor.runs)
 			}
 		})
@@ -149,10 +149,14 @@ func TestRunSetupApplyOutcomes(t *testing.T) {
 	}
 
 	different := append(append([]string{}, applyArgs[:len(applyArgs)-1]...), "remediation=claude-code")
+	wantExists := "ai-dev: outcome=configuration_exists\n  agent claude-code availability=available chosen=no\n"
+	for _, id := range catalogIDs[1:] {
+		wantExists += "  agent " + id + " availability=unavailable chosen=no\n"
+	}
 	for name, root := range map[string]fstest.MapFS{"different": written, "invalid": configFS("{}")} {
 		store := &fakeConfigStore{}
 		code, stdout, _ := runApply(t, root, store, different...)
-		if code != 1 || len(store.writes) != 0 || stdout != "ai-dev: outcome=configuration_exists\n  agent claude-code availability=available chosen=no\n  agent codex-cli availability=unavailable chosen=no\n" {
+		if code != 1 || len(store.writes) != 0 || stdout != wantExists {
 			t.Errorf("%s without --replace: code=%d stdout=%q", name, code, stdout)
 		}
 		code, stdout, _ = runApply(t, root, store, append([]string{"--replace"}, different...)...)

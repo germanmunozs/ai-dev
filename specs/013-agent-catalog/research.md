@@ -205,8 +205,8 @@ Evidence for each new agent, by criterion:
 
 ## R-08 Doctor's aggregate check
 
-- **Decision:** `checks.NewCodingAgentCheck(executor)`, identifier `coding-agent-tool`, name "Coding agent", area `Environment`, evaluated over `agent.NewRegistry(executor).List()`.
-  - **Pass:** the explanation is `Available: claude-code, gemini-cli`, using identifiers in catalog order.
+- **Decision:** `checks.NewCodingAgentCheck(executor)`, identifier `coding-agent-tool`, name "Coding agent" (failing) or "Coding agent: <ids>" (passing), area `Environment`, evaluated over `agent.NewRegistry(executor).List()`.
+  - **Pass:** the name is `Coding agent: claude-code, gemini-cli`, using identifiers in catalog order; explanation and remediation stay empty, as 001's report contract requires (implementation finding of 2026-11-23, spec Clarifications).
   - **Fail:** the explanation is `No supported coding agent was found on PATH.` and the remediation is `Install a supported coding agent; run ai-dev agents to see the list.`
   - A panic during lookup fails the check, as the existing tool check does.
 - **Position:** third, where `claude-code-tool` was. `codex-cli-tool` is removed. Doctor reports eight checks.
