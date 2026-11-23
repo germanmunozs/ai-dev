@@ -10,6 +10,8 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-23
+
 ### Changed
 
 - `scripts/install-dev.sh` marca las versiones de desarrollo como `v0.2.1-dev+<commit>` en lugar de `v0.1.2-dev+<commit>`.
@@ -61,7 +63,8 @@ Primera versión.
 - `scripts/install-dev.sh` compila e instala una versión de desarrollo (`v0.1.0-dev+<commit>`) para pruebas manuales, y crea un proyecto sandbox con agentes falsos.
 - Releases con archivos para macOS y Linux (amd64 y arm64), `SHA256SUMS` y una attestation de procedencia SLSA firmada para cada archivo.
 
-[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.2.0...dev
+[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.2.1...dev
+[0.2.1]: https://github.com/germanmunozs/ai-dev/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/germanmunozs/ai-dev/releases/tag/v0.1.0
