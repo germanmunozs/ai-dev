@@ -99,6 +99,7 @@ Evidence for each new agent, by criterion:
   5. ✓
   6. The `gemini` cask has no binary ✓
   7. Homebrew and npm on macOS and Linux ✓
+  - Note: the documentation says Antigravity CLI replaces Gemini CLI for unpaid tiers from 2026-06-18. Gemini CLI is still published (0.70.0) and is admitted as such; a later removal would be handled as catalog maintenance.
 - **Kiro CLI:**
   1. `kiro-cli chat --no-interactive "<prompt>"` (kiro.dev/docs/cli/headless) ✓
   2. Positional prompt; `clap_builder` in the 3.5.0 binary; `--` ends options ✓
@@ -128,7 +129,7 @@ Evidence for each new agent, by criterion:
   1. "Use the `--prompt` (or `-p`) flag to run in headless mode" (qwenlm.github.io/qwen-code-docs) ✓
   2. yargs-parser in the 0.28.4 bundle; string option `prompt` ✓
   3. "when running headless commands, Ask Permissions Mode is the default"; `--yolo` and `--approval-mode` are opt-in ✓
-  4. Documented failure codes 53 and 55, `process.exit(1)` in the bundle, and 0 on completion inherited from Gemini CLI, of which it is a fork ✓
+  4. In v0.28.4, `packages/cli/src/llm.tsx` ends a headless run with `process.exit(exitCode)`, where `runNonInteractive` (`nonInteractiveCli.ts`) returns 0 on completion, 1 on failure and 130 on interruption; the documentation adds failure codes 53 and 55 ✓
   5. ✓
   6. No other `qwen` package found ✓
   7. npm on macOS and Linux ✓

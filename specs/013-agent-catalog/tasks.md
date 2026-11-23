@@ -40,19 +40,18 @@
 
 **Goal**: `ai-dev agent run <id> <instruction>` starts exactly the published invocation for every agent. **Independent test**: fake executables that print their arguments.
 
-- [ ] T008 [P] [US2] Catalog guard tests in `internal/execution/adapters/catalog_test.go`, written before T009 (research R-07, SC-003, SC-004, F013-FR-007):
+- [ ] T008 [P] [US2] Catalog guard tests in `internal/execution/adapters/catalog_test.go`, written before T010 (research R-07, SC-003, SC-004, F013-FR-007):
   - **drift:** the keys of `Invocations` equal the identifiers of `agent.Catalog()`, and each `Invocation.Executable` equals that agent's `Executable()`;
   - **exact vectors from contracts/catalog.md:** `claude --print -- I`, `codex exec -- I`, `droid exec -- I`, `gemini --prompt=I`, `kiro-cli chat --no-interactive -- I`, `vibe --prompt=I`, `opencode run -- I` and `qwen --prompt=I`;
   - **instruction safety:** for every agent and for each of `-x a b`, `--help`, `-h`, `--version`, `-p`, `--yolo`, `--dangerously-skip-permissions`, `--`, `-` and `a=b`:
     - with `AfterEndOfOptions`, the last argument is the instruction and the only `--` comes right before it;
     - with `AttachedOption`, the last argument is the option, `=` and the instruction, and no argument is `--`;
+  - **option shape:** every `AttachedOption` row has an `Option` that starts with `--`, and every `AfterEndOfOptions` row has an empty `Option` (data-model.md);
   - **denylist:** no argument other than the instruction contains, case-insensitively, `yolo`, `dangerous`, `skip-permission`, `bypass`, `trust`, `approve`, `allow-all`, `auto`, `force`, `full-auto`, `accept-license`, `sandbox` or `permission`;
   - **self-checks:** a fixture invocation with `--yolo` in `Mode` makes the denylist assertion fail, and one with a missing catalog row makes the drift assertion fail.
 
   Move the cases of `injection_test.go`, `claude_test.go` and `codex_test.go` here, then delete those three files.
-- [ ] T009 [US2] Implement `internal/execution/adapters/catalog.go`: `var Invocations = map[agent.ID]Invocation{…}` with the eight rows of contracts/catalog.md. Each row has a comment naming its evidence in research R-05. Delete `internal/execution/adapters/claude.go` and `codex.go`, and update the package comment.
-- [ ] T010 [US2] In `internal/app/agentrun.go`, build `execution.Runner.Adapters` from `adapters.Invocations`, copied into a fresh map so the package table cannot be mutated through the runner.
-- [ ] T011 [P] [US2] End-to-end test in `cmd/ai-dev/agentcatalog_test.go`, written before T010 is considered done (SC-002, SC-003, US2 scenarios 1–4):
+- [ ] T009 [P] [US2] End-to-end test in `cmd/ai-dev/agentcatalog_test.go`, written before T010 and T011 (SC-002, SC-003, US2 scenarios 1–4):
   - build the binary;
   - put one fake script per catalog executable in a temporary directory. Each fake prints `ARG:<arg>` per argument and exits with `$FAKE_EXIT` (default 0);
   - run with `PATH=<fakes>:/usr/bin:/bin`:
@@ -61,6 +60,8 @@
     - `FAKE_EXIT=3` gives `agent_failed` and exit 1;
     - removing the `qwen` fake gives `execution_failed` (unavailable) for `qwen-code`;
     - `--format json` keeps the report alone on standard output.
+- [ ] T010 [US2] Implement `internal/execution/adapters/catalog.go`: `var Invocations = map[agent.ID]Invocation{…}` with the eight rows of contracts/catalog.md. Each row has a comment naming its evidence in research R-05. Delete `internal/execution/adapters/claude.go` and `codex.go`, and update the package comment.
+- [ ] T011 [US2] In `internal/app/agentrun.go`, build `execution.Runner.Adapters` from `adapters.Invocations`, copied into a fresh map so the package table cannot be mutated through the runner.
 - [ ] T012 [US2] Update `internal/app/agentrun_test.go` and `internal/execution/runner_test.go` wherever they construct `adapters.Claude{}` or `adapters.Codex{}`: use `adapters.Invocations[agent.ClaudeCode]` and `adapters.Invocations[agent.CodexCLI]`, without changing what each test asserts.
 
 **Checkpoint:** every catalog agent runs exactly as 002 specifies; the two existing vectors are unchanged.
@@ -75,7 +76,7 @@
   - a configuration written before this feature, choosing only `claude-code` and `codex-cli`, stays valid and byte-identical after `setup show`;
   - `setup show` lists the eight agents.
 - [ ] T014 [US3] Make T013 pass. No code change is expected beyond T003, because 011 derives from `agent.Catalog()`. Any failure points to an enumeration that must move to the catalog (F013-FR-012).
-- [ ] T015 [P] [US3] Help and completion tests in `internal/app/help_test.go` (or the existing completion test file), and a cockpit check in `internal/app/cockpit_test.go` (F013-FR-012):
+- [ ] T015 [P] [US3] Help and completion tests in `internal/app/help_test.go` (help) and `internal/app/completion_test.go` (completion scripts), and a cockpit check in `internal/app/cockpit_test.go` (F013-FR-012):
   - `ai-dev agent run --help` and `ai-dev help agent select` list the eight identifiers in catalog order;
   - the zsh and bash completion scripts complete the eight identifiers after `agent run` and in `setup apply --role ROLE=`;
   - the cockpit's Agents area shows the eight agents.
@@ -123,7 +124,7 @@
 - [ ] T021 [P] Documentation in `README.md` and `README.es.md`, kept in step (CONTRIBUTING):
   - the supported-agents list gives the eight agents with identifiers and executables;
   - the doctor table has eight checks, with `coding-agent-tool` described;
-  - a short "Adding an agent" paragraph links to `specs/013-agent-catalog/research.md` (admission criteria and record) and states that GitHub Copilot CLI, Amp, Goose and Forge are excluded because their executable names collide with other widely used programs (criterion 6).
+  - a short "Adding an agent" paragraph links to `specs/013-agent-catalog/research.md` (admission criteria and record) and states that GitHub Copilot CLI, Amp, Goose, Forge, Grok Build, IBM Bob and DeepSeek Harness are excluded because their executable names collide with other widely used programs (criterion 6, research R-04).
 - [ ] T022 [P] `CHANGELOG.md` and `CHANGELOG.es.md`, under `[Unreleased]`:
   - **Added:** Factory Droid, Gemini CLI, Kiro CLI, Mistral Vibe, OpenCode and Qwen Code;
   - **Changed:** `ai-dev doctor` replaces `claude-code-tool` and `codex-cli-tool` with `coding-agent-tool` (eight checks), and machine readers of the doctor report must update; agent lists show the full catalog.
@@ -138,7 +139,9 @@
   - F013-FR-006 and FR-007 against each row of `catalog.go`;
   - the denylist's completeness;
   - that no code path runs an agent outside `agent run`;
-  - SC-005.
+  - SC-005;
+  - F013-FR-013: no new input (configuration, environment variable or file) can name an executable, a path or an argument; the invocation table is fixed at build time;
+  - SC-008: adding one more admissible agent would change only `internal/agent/registry.go`, `internal/execution/adapters/catalog.go`, its admission entry and the table-driven test expectations.
 
   Record the findings and their resolution here.
 
