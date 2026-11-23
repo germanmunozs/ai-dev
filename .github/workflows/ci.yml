@@ -94,7 +94,7 @@ jobs:
   # Known vulnerabilities in the standard library and in reachable code, and
   # staticcheck's default checks, for Linux and macOS. Both tools are fetched at
   # pinned versions, verified by the Go checksum database; they are never added to
-  # go.mod, which stays free of external dependencies.
+  # go.mod, which holds only the binary's own dependencies.
   static-analysis:
     runs-on: ubuntu-latest
     timeout-minutes: 30

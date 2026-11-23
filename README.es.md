@@ -873,6 +873,7 @@ Desde la Feature 012 el binario depende de Bubble Tea v2 y Lip Gloss v2 (22 mód
 - **Versiones fijadas:** `go.mod` y `go.sum` fijan cada módulo con su checksum, y `go mod verify` debe pasar.
 - **Regla de los 14 días:** se toma la versión más reciente con al menos 14 días de publicada en la fecha en que se añade o actualiza. Nunca se sube una versión de forma implícita: `go mod tidy` puede intentarlo, así que cada actualización se revisa en el diff de `go.mod`.
 - **Vulnerabilidades:** govulncheck corre en CI y una vulnerabilidad alcanzable hace fallar el job.
+- **Actualizaciones:** Dependabot propone cada semana las actualizaciones de los módulos Go, 14 días después de su publicación (las de seguridad, sin esa espera). Cada propuesta es un pull request que se revisa como cualquier otro: el diff de `go.mod`, la licencia y los checks.
 - **Licencias:** solo MIT, BSD o Apache-2.0, comprobadas en el LICENSE de cada módulo al añadirlo. La lista con fechas y licencias está en [`specs/012-terminal-cockpit/tasks.md`](specs/012-terminal-cockpit/tasks.md).
 - **Frontera:** solo `internal/cockpit` importa estas bibliotecas, y un test de frontera le impide importar paquetes de dominio, `os/exec`, `net` o `syscall`, y llamar funciones que escriban.
 
