@@ -10,6 +10,8 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-23
+
 ### Added
 
 - **013 Agent Catalog Expansion:** seis agentes de programación más se pueden detectar, configurar para un rol y ejecutar con `ai-dev agent run`: Factory Droid (`factory-droid`), Gemini CLI (`gemini-cli`), Kiro CLI (`kiro-cli`), Mistral Vibe (`mistral-vibe`), OpenCode (`opencode`) y Qwen Code (`qwen-code`). Cada uno cumplió unos criterios de admisión publicados, con evidencia. ai-dev invoca cada uno en su propio modo no interactivo, sin que la instrucción pueda leerse nunca como una opción y sin ninguna opción que relaje sus aprobaciones, permisos o sandbox. El registro de admisión, con cada candidato evaluado, está en `specs/013-agent-catalog/research.md`.
@@ -54,6 +56,7 @@ Primera versión.
 - `scripts/install-dev.sh` compila e instala una versión de desarrollo (`v0.1.0-dev+<commit>`) para pruebas manuales, y crea un proyecto sandbox con agentes falsos.
 - Releases con archivos para macOS y Linux (amd64 y arm64), `SHA256SUMS` y una attestation de procedencia SLSA firmada para cada archivo.
 
-[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...dev
+[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.2.0...dev
+[0.2.0]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/germanmunozs/ai-dev/releases/tag/v0.1.0
