@@ -43,7 +43,7 @@ func TestInstallDevScript(t *testing.T) {
 		t.Fatalf("install: exit %d\n%s", code, output)
 	}
 	bin := filepath.Join(prefix, "ai-dev")
-	if output, code := run(repoRoot, os.Environ(), bin, "version"); code != 0 || !strings.Contains(output, "v0.1.2-dev+") {
+	if output, code := run(repoRoot, os.Environ(), bin, "version"); code != 0 || !strings.Contains(output, "v0.2.1-dev+") {
 		t.Fatalf("installed version: exit %d %q", code, output)
 	}
 
