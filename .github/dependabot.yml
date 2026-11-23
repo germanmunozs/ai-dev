@@ -2,16 +2,21 @@
 # the Go modules in go.mod (the cockpit's dependencies). Go module version
 # updates wait 14 days after publication, as the dependency policy requires
 # (README, Third-party dependencies); security updates are not delayed.
+# Version updates target dev, as feature branches do; without target-branch
+# they would go to the default branch, main. Security updates always target
+# the default branch, a limit of Dependabot.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    target-branch: dev
     schedule:
       interval: weekly
     commit-message:
       prefix: ci
   - package-ecosystem: gomod
     directory: /
+    target-branch: dev
     schedule:
       interval: weekly
     cooldown:
