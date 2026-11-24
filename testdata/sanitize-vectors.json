@@ -1,0 +1,67 @@
+[
+  {
+    "name": "csi color",
+    "input": "a\u001b[31mred\u001b[0m",
+    "want": "a\\x1b[31mred\\x1b[0m"
+  },
+  {
+    "name": "osc 8 hyperlink",
+    "input": "\u001b]8;;http://x\u0007t\u001b]8;;\u0007",
+    "want": "\\x1b]8;;http://x\\x07t\\x1b]8;;\\x07"
+  },
+  {
+    "name": "osc 52 clipboard",
+    "input": "\u001b]52;c;aGk=\u0007",
+    "want": "\\x1b]52;c;aGk=\\x07"
+  },
+  {
+    "name": "c1 csi",
+    "input": "a\u009b31mb",
+    "want": "a\\u009b31mb"
+  },
+  {
+    "name": "bidi override",
+    "input": "abc\u202edef",
+    "want": "abc\\u202edef"
+  },
+  {
+    "name": "bidi isolate",
+    "input": "x\u2066y\u2069z",
+    "want": "x\\u2066y\\u2069z"
+  },
+  {
+    "name": "nul",
+    "input": "a\u0000b",
+    "want": "a\\x00b"
+  },
+  {
+    "name": "carriage return",
+    "input": "ok\rforged",
+    "want": "ok\\x0dforged"
+  },
+  {
+    "name": "tab",
+    "input": "ab\tc",
+    "want": "ab      c"
+  },
+  {
+    "name": "newline",
+    "input": "one\ntwo",
+    "want": "one\\x0atwo"
+  },
+  {
+    "name": "delete",
+    "input": "a\u007fb",
+    "want": "a\\x7fb"
+  },
+  {
+    "name": "plain ascii",
+    "input": "specs/014-neovim-integration/spec.md",
+    "want": "specs/014-neovim-integration/spec.md"
+  },
+  {
+    "name": "unicode",
+    "input": "\u00fcn\u00ef-c\u00f3digo \u65e5\u672c \u2713",
+    "want": "\u00fcn\u00ef-c\u00f3digo \u65e5\u672c \u2713"
+  }
+]

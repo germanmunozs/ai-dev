@@ -357,8 +357,8 @@ func (m Model) formBody() []string {
 		}
 		prefix := marker + label + ": "
 		out = append(out, m.fit(prefix+m.form.inputs[i].render(i == m.form.field, m.width-ansi.StringWidth(prefix))))
-		if field.Hint != "" {
-			out = append(out, faintStyle.Render(m.fit("    "+field.Hint)))
+		if hint := m.form.action.hintFor(m.form.row, i); hint != "" {
+			out = append(out, faintStyle.Render(m.fit("    "+hint)))
 		}
 	}
 	if m.form.err != "" {

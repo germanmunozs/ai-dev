@@ -72,7 +72,7 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "setup", "apply", "--role", "impl"}, rolePairs("implementation")},
 	{[]string{"ai-dev", "setup", "apply", "--role", "review=claude-code", "--r"}, []string{"--role", "--replace"}},
 	{[]string{"ai-dev", "wo"}, []string{"workflow"}},
-	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "version", "help", "completion"}},
+	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "open", "version", "help", "completion"}},
 	{[]string{"ai-dev", "workflow", ""}, []string{"state", "transition", "next", "guide", "approve", "abandon"}},
 	{[]string{"ai-dev", "workflow", "state", "--f"}, []string{"--format"}},
 	{[]string{"ai-dev", "workflow", "state", "--format", ""}, []string{"text", "json"}},
@@ -81,7 +81,7 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "agent", "run", "--format", "json", "c"}, idsWithPrefix("c")},
 	{[]string{"ai-dev", "agent", "select", "re"}, []string{"review", "remediation"}},
 	{[]string{"ai-dev", "help", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
-	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "version", "help", "completion"}},
+	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "open", "version", "help", "completion"}},
 	{[]string{"ai-dev", "completion", ""}, []string{"bash", "zsh"}},
 	{[]string{"ai-dev", "git", "commit", ""}, []string{"validate"}},
 	{[]string{"ai-dev", "version", "-"}, []string{"--format", "--help"}},
@@ -95,6 +95,13 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "workflow", "state", "--", ""}, nil},
 	{[]string{"ai-dev", "init", "--project-dir", "x", ""}, nil},
 	{[]string{"ai-dev", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
+	// F014-FR-026: open completes its options, and a file after "--".
+	{[]string{"ai-dev", "open", "-"}, []string{"--format", "--line", "--column", "--help"}},
+	{[]string{"ai-dev", "open", "--format", ""}, []string{"text", "json"}},
+	{[]string{"ai-dev", "open", "--line", ""}, nil},
+	{[]string{"ai-dev", "open", "--", "no"}, []string{"FILES"}},
+	{[]string{"ai-dev", "open", "--line", "3", "--", "no"}, []string{"FILES"}},
+	{[]string{"ai-dev", "open", "--", "a", ""}, nil},
 }
 
 // bashSplitCases are the words bash 4 and later produce for --option=value,
