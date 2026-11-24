@@ -15,7 +15,20 @@
 }
 ```
 
-LazyVim preset: the same specification plus `keys = require("ai-dev.lazyvim").keys` in a `config` that appends the runtime path first. The README gives the exact block. Without lazy.nvim: put `nvim/` on `'runtimepath'` and call `require("ai-dev").setup()`.
+LazyVim preset: the same specification plus a literal `keys` table. It must be literal: lazy.nvim evaluates the specification before `config` puts `nvim/` on the runtime path, and before the first clone, so `require("ai-dev.lazyvim")` would fail there.
+
+```lua
+keys = {
+  { "<leader>if", "<cmd>AiDev features<cr>", desc = "ai-dev features" },
+  { "<leader>id", "<cmd>AiDev doctor<cr>",   desc = "ai-dev doctor" },
+  { "<leader>ia", "<cmd>AiDev agents<cr>",   desc = "ai-dev agents" },
+  { "<leader>ii", "<cmd>AiDev ask<cr>",      desc = "ai-dev ask" },
+  { "<leader>ii", ":AiDev ask<cr>", mode = "x", desc = "ai-dev ask (selection)" },
+  { "<leader>it", "<cmd>AiDev tui<cr>",      desc = "ai-dev tui" },
+},
+```
+
+`lua/ai-dev/lazyvim.lua` holds the same table; a test checks that the README block equals it. Without lazy.nvim: put `nvim/` on `'runtimepath'` and call `require("ai-dev").setup()`, or `setup({ preset = true })` to set the same mappings.
 
 ## Command
 
@@ -67,7 +80,7 @@ Argument vectors (the configured `cmd` first):
 
 ## Compatibility (R-09)
 
-On first use and in the health check, `cmd version --format json` must report `ai-dev.version/v1` with a version ≥ v0.3.0 and < v1.0.0, or a development build. Each JSON read must carry its known schema, and `doctor`'s must have its known shape. Otherwise every view shows the incompatibility and no action is offered.
+On first use and in the health check, `cmd version --format json` must report `ai-dev.version/v1` with a version ≥ v0.3.0 and < v1.0.0, or a development build. Each JSON read must carry its known schema; the outputs without a schema field (`doctor`, `agents`, `agent select`) must have the shapes of R-09. Otherwise every view shows the incompatibility and no action is offered.
 
 ## Health check (`:checkhealth ai-dev`)
 
@@ -91,7 +104,7 @@ See data-model.md, Plugin Configuration.
 | `<leader>ii` | `:AiDev ask`; in visual mode with the selection |
 | `<leader>it` | `:AiDev tui` |
 
-A which-key group named `ai-dev` is defined only if which-key is present. No preset key replaces a LazyVim v16.0.2 default mapping.
+The same mappings as the literal block of Installation. A which-key group named `ai-dev` is defined only if which-key is present. No preset key replaces a LazyVim v16.0.2 default mapping.
 
 ## Removal
 

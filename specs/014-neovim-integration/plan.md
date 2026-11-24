@@ -96,8 +96,8 @@ Post-design re-check: PASS. The only changes to existing behavior are `open` in 
   - It writes the text or JSON report (`contracts/open.md`) and maps outcomes to exit codes.
 - **`internal/app/{app,catalog,help,completion}.go`:** route `open`; add the catalog entry with help and completion (`--line`, `--column`, `--format`, file names after `--`); `open` in the top-level usage and the general help (A1, A2).
 - **`internal/cockpit`:**
-  - `FeatureRow` gains `Artifacts []string`: the raw relative paths of the feature's existing `spec.md`, `plan.md` and `tasks.md`, filled by `internal/app`.
-  - `actions.go` gains "open spec", "open plan" and "open tasks". Each is available only when the file exists; each needs no value from the person and runs `ai-dev open -- <path>` through the existing review, confirmation and hand-over (A3).
+  - `FeatureRow` gains `Files []string`: the raw names of the regular files directly in the feature's directory (no symbolic links or subdirectories), filled by `internal/app`.
+  - `actions.go` gains "open spec", "open plan" and "open tasks", each available only when the file exists and needing no value, and "open file…", with one typed `file` field whose hint lists the feature's regular files and whose value must be one of them. Each runs `ai-dev open -- <path>` through the existing review, confirmation and hand-over (A3, contracts/open.md).
   - No other area, key or action changes.
 - **`nvim/`** (new; `contracts/plugin.md`):
   - `lua/ai-dev/init.lua`: `setup(opts)`, the `:AiDev` command with subcommands and completion.
@@ -128,6 +128,12 @@ German Munoz, repository owner, confirmed these on 2026-11-24 ("si, opción A y 
 - **F014-FR-002, "an absolute path" (interpretation 2, confirmed).** Every absolute path is refused, even one inside the project. Callers (the cockpit, the person) pass project-relative paths. This keeps the reports free of absolute paths (F014-FR-025).
 - **Where the Neovim tests run in CI (option A).** They run inside the existing required job `gates`, not in a separate job, so they block a merge without any change to branch protection (R-08). Rejected: a separate job made required, which needs a branch-protection change after its first run, and a separate optional job, whose failure would not block a merge.
 
+After `/speckit-analyze`, the owner approved on 2026-11-24 ("si, apruebo I3-A, A1 y U1, aplica los cambios"), with the same caveat:
+
+- **F014-FR-006, "each artifact" (I3-A).** Besides "open spec", "open plan" and "open tasks", the cockpit offers "open file…" for any regular file of the feature's directory. It uses a typed field validated against the listed files, since the cockpit has no selection input (contracts/open.md).
+- **`--` is required by `ai-dev open` (A1).** A path without `--` is a usage failure, as the cockpit and the plugin always pass it.
+- **LazyVim installation is a manual check (U1).** The automated tests check the preset against the pinned list of LazyVim v16.0.2 leader mappings, not an installed LazyVim, because CI installs no third-party plugins over the network. quickstart.md has the manual step, done by the owner.
+
 ## Project Structure
 
 ```text
@@ -136,10 +142,11 @@ specs/014-neovim-integration/
 internal/editor/{location,msgpack,rpc,endpoint_unix,endpoint_other,open}.go, *_test.go   NEW
 internal/app/open.go, open_test.go, open_nvim_test.go                                     NEW
 internal/app/{app,catalog,help,completion,cockpit}.go          MODIFIED (route, catalog, usage, artifacts)
-internal/cockpit/{data,actions}.go                             MODIFIED (Artifacts, "open" actions)
+internal/cockpit/{data,actions}.go                             MODIFIED (Files, "open" actions)
 nvim/lua/ai-dev/{init,config,cli,views,reference,actions,sanitize,quote,health,lazyvim}.lua   NEW
 nvim/tests/run.lua, nvim/tests/*_test.lua, nvim/tests/fixtures/                           NEW
 cmd/ai-dev/nvimplugin_test.go                                  NEW (drives the Lua and end-to-end tests)
+internal/testutil/nvim/nvim.go, nvim_test.go                   NEW (test helper: finds Neovim, skips or fails)
 testdata/{sanitize,quote}-vectors.json                         NEW (shared by Go and Lua)
 .github/workflows/ci.yml                                       MODIFIED (Neovim steps in gates)
 tests pinning usage, general help, catalog, completion          UPDATED (A1, A2)
@@ -152,7 +159,7 @@ README.md, README.es.md, CHANGELOG.md, CHANGELOG.es.md, SECURITY.md   UPDATED
 |---|---|---|
 | Format | `gofmt -l .` | no output |
 | Vet | `go vet ./...` | exit 0 |
-| Tests | `go test -race ./...`; in `gates`, the Neovim tests once per version with `AI_DEV_REQUIRE_NVIM=1` | exit 0; no Neovim test skipped in `gates` |
+| Tests | `go test -race ./...`; in `gates`, `go test -race -run '^TestNvim' ./...` once per version with `AI_DEV_REQUIRE_NVIM=1` | exit 0; no Neovim test skipped in `gates` |
 | Fuzz | `go test -fuzz FuzzDecode -fuzztime 20s ./internal/editor` in CI's existing fuzz step | no failure |
 | Static analysis | `staticcheck ./...` for linux and darwin (CI `static-analysis`) | exit 0 |
 | Vulnerabilities | `govulncheck ./...` (CI `static-analysis`) | no reachable vulnerability |

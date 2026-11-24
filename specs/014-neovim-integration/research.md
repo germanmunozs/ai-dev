@@ -78,6 +78,7 @@ Phase 0 of the plan for Feature 014, done on 2026-11-24 without running any codi
   - Default specs use the first keys `- . < ? K L S \` b c d f g l n q s u w x |`.
   - Extras add `" , / : D E G H R a e h m o p r t`. The AI extras take `<leader>a`.
   - `i` is free in both.
+- **Form (found by /speckit-analyze, C1):** the preset's `keys` are a literal table in the lazy.nvim specification. `keys = require("ai-dev.lazyvim").keys` would run when lazy.nvim reads the specification, before `config` appends `nvim/` to the runtime path and before the first clone. `lua/ai-dev/lazyvim.lua` keeps the same table for tests and for `setup({ preset = true })`.
 - **Test:** the list of LazyVim v16.0.2 leader mappings is stored as a fixture with the command that produced it. A plugin test fails if a preset mapping equals one of them or has one of them as a prefix.
 
 ## R-07 Size limit for a code reference

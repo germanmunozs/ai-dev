@@ -90,5 +90,6 @@ State of one action: `collecting` → `previewing` → (`declined` | `confirmed`
 | `cmd` | `"ai-dev"` | non-empty string; resolved with `exepath` |
 | `concurrency` | `8` | integer 1–16 |
 | `terminal` | `"tab"` | `"tab"`, `"split"` or `"vsplit"` |
+| `preset` | `false` | boolean; `true` sets the mappings of `ai-dev.lazyvim` for configurations without lazy.nvim |
 
 An unknown option or an invalid value is reported once with `vim.notify` at warning level, and the default is used for that option.
