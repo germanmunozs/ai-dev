@@ -22,8 +22,8 @@ Expected: all pass. With `AI_DEV_REQUIRE_NVIM=1`, no test reports `SKIP` for a m
    - `open -- specs`;
    - a symbolic link to a file outside the project;
    - `NVIM=/tmp/nothing open -- README.md`.
-   - `open README.md` (no `--`) exits 2 with the usage line.
-4. **Cockpit (A3).** `ai-dev tui` → Features → a feature → "Open spec" → review → confirm. Inside a Neovim terminal it opens in the parent; elsewhere in the foreground. Then "Open file…": the hint lists the feature's files; a name not in the list is refused in the review.
+   Usage: `open README.md` (no `--`) opens nothing and exits 2 with the usage line.
+4. **Cockpit (A3).** `ai-dev tui` → Features → a feature → "Open spec" → review → confirm. Inside a Neovim terminal it opens in the parent; elsewhere in the foreground. Then "Open file…": the hint lists the feature's files (at most 20); a name that is not a regular file of the feature is refused in the review.
 5. **Plugin views (US2).** Install with the lazy.nvim block of contracts/plugin.md, pointing `dir` to this checkout, and set `opts = { cmd = "/tmp/ai-dev-014" }`. `:AiDev features` lists each feature with the fields of `workflow guide --format json`; `<CR>` opens a feature's file; `r` refreshes and updates the time.
 6. **Ask an agent (US3).** With a fake agent first on PATH, select lines and run `:'<,'>AiDev ask`. Check:
    - the preview shows the path, the range, the digest and the instruction, and Cancel runs nothing;
