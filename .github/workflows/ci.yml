@@ -81,12 +81,49 @@ jobs:
       - name: Tests
         run: go test -count=1 ./...
 
+      # Feature 014 (research R-08): the oldest supported Neovim and the
+      # latest release, each from its GitHub release archive pinned by the
+      # SHA-256 of its release asset.
+      - name: Install Neovim
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Linux)
+              asset=nvim-linux-x86_64
+              digests="v0.11.7=38a7c6317f94503841096c00e8fde05ef04b9472fc9d7d62b6e033cecd6f7991 v0.12.6=474430d53e6264f6d6dd18db42d6dc9df3a1b56ca9e88a325bbf860e1a811d87"
+              verify() { sha256sum -c -; } ;;
+            macOS)
+              asset=nvim-macos-arm64
+              digests="v0.11.7=9c84686ce84bbab725ff3d88ca3ac1d6da5a72128b68d9dd8094e34d4049a126 v0.12.6=1dbd148222b051ba6c307c4d17a318ed083df018a4f6a5a0ce46955ffc9ab87b"
+              verify() { shasum -a 256 -c -; } ;;
+          esac
+          for entry in $digests; do
+            version=${entry%%=*}
+            archive="$RUNNER_TEMP/$asset-$version.tar.gz"
+            curl -fsSL -o "$archive" "https://github.com/neovim/neovim/releases/download/$version/$asset.tar.gz"
+            echo "${entry#*=}  $archive" | verify
+            mkdir -p "$RUNNER_TEMP/nvim-$version"
+            tar -xzf "$archive" -C "$RUNNER_TEMP/nvim-$version" --strip-components=1
+          done
+
+      # Every test that needs Neovim is named TestNvim…; AI_DEV_REQUIRE_NVIM
+      # makes a missing or old Neovim a failure instead of a skip.
+      - name: Neovim tests
+        run: |
+          set -euo pipefail
+          for version in v0.11.7 v0.12.6; do
+            bin="$RUNNER_TEMP/nvim-$version/bin"
+            test "$("$bin/nvim" --version | head -1)" = "NVIM $version"
+            PATH="$bin:$PATH" AI_DEV_REQUIRE_NVIM=1 go test -race -count=1 -run '^TestNvim' ./...
+          done
+
       - name: Race detector
         run: go test -race -count=3 -timeout 60m ./internal/gitstore ./internal/gitmanager ./internal/gitprocess ./internal/app ./cmd/ai-dev
 
       - name: Fuzz
         run: |
           go test -run '^$' -fuzz '^FuzzConventionalCommitValidator$' -fuzztime 20s ./internal/conventionalcommit
+          go test -run '^$' -fuzz '^FuzzDecode$' -fuzztime 20s ./internal/editor
           for target in FuzzWildmatch FuzzCanonicalWriter FuzzAttributeParser FuzzPlanDecoder; do
             go test -run '^$' -fuzz "^${target}\$" -fuzztime 20s ./internal/gitmanager
           done

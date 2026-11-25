@@ -1,0 +1,226 @@
+[
+  {
+    "name": "guide-01-draft",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "01-draft"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-02-specified",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "02-specified"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-03-planned",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "03-planned"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-04-tasked",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "04-tasked"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-05-implemented",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "05-implemented"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-06-approved",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "06-approved"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-07-abandoned",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "07-abandoned"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-08-invalid",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "08-invalid"
+    ],
+    "exit_code": 1
+  },
+  {
+    "name": "guide-09-inconsistent",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "09-inconsistent"
+    ],
+    "exit_code": 1
+  },
+  {
+    "name": "guide-10-red",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "10-\u001b[31mred"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "guide-99-removed",
+    "project": "views",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "99-removed"
+    ],
+    "exit_code": 1
+  },
+  {
+    "name": "guide-invalid-config",
+    "project": "invalid-config",
+    "args": [
+      "workflow",
+      "guide",
+      "--format",
+      "json",
+      "--",
+      "01-draft"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "setup-show",
+    "project": "views",
+    "args": [
+      "setup",
+      "show",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "setup-show-invalid-config",
+    "project": "invalid-config",
+    "args": [
+      "setup",
+      "show",
+      "--format",
+      "json"
+    ],
+    "exit_code": 1
+  },
+  {
+    "name": "agents",
+    "project": "views",
+    "args": [
+      "agents",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "agent-select-specification",
+    "project": "views",
+    "args": [
+      "agent",
+      "select",
+      "--format",
+      "json",
+      "--",
+      "specification"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "agent-select-implementation",
+    "project": "views",
+    "args": [
+      "agent",
+      "select",
+      "--format",
+      "json",
+      "--",
+      "implementation"
+    ],
+    "exit_code": 1
+  },
+  {
+    "name": "doctor",
+    "project": "no-specs",
+    "args": [
+      "doctor",
+      "--format",
+      "json"
+    ],
+    "exit_code": 1
+  }
+]

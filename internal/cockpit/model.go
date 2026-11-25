@@ -495,7 +495,7 @@ func (m Model) formKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		for i := range m.form.inputs {
 			values[i] = m.form.inputs[i].value()
 		}
-		if refusal := m.form.action.Validate(values); refusal != "" {
+		if refusal := m.form.action.ValidateFor(m.form.row, values); refusal != "" {
 			m.form.err = refusal
 			return m, nil
 		}
@@ -546,7 +546,7 @@ func (m Model) areaActions() []Action {
 	var ids []ActionID
 	switch m.area {
 	case featuresArea:
-		ids = []ActionID{RunAgent, Approve, Abandon}
+		ids = []ActionID{RunAgent, Approve, Abandon, OpenSpec, OpenPlan, OpenTasks, OpenFile}
 	case agentsArea:
 		ids = []ActionID{Setup}
 	case repositoryArea:

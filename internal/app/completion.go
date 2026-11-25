@@ -56,7 +56,7 @@ func writeCompletionTables(b *strings.Builder) {
 		}
 		b.WriteString("\t*) _ai_dev_r=\"\" ;;\n\tesac\n}\n\n")
 	}
-	var paths, children, options, values, args [][2]string
+	var paths, children, options, values, args, after [][2]string
 	children = append(children, [2]string{"", childWords(nil)})
 	for _, spec := range catalog {
 		path := strings.Join(spec.path, " ")
@@ -82,12 +82,16 @@ func writeCompletionTables(b *strings.Builder) {
 				args = append(args, [2]string{path + " " + strconv.Itoa(i), strings.Join(arg.values, " ")})
 			}
 		}
+		if len(spec.args) > 0 && spec.args[0].file {
+			after = append(after, [2]string{path, "f"})
+		}
 	}
 	table("_ai_dev_is_path", "Catalog paths.", paths)
 	table("_ai_dev_children", "The next words of each path.", children)
 	table("_ai_dev_options", "The options of each path.", options)
 	table("_ai_dev_value", "Options that take a value: v (fixed values), f (a file) or t (free text).", values)
 	table("_ai_dev_arg", "Fixed values of positional arguments, by path and index.", args)
+	table("_ai_dev_after", "Paths whose first word after -- is a file (f).", after)
 }
 
 func childWords(path []string) string {
@@ -142,7 +146,13 @@ _ai_dev_run() {
 	opts=0
 	while [ "$i" -lt "$cw" ]; do
 		case "${w[i]}" in
-		--) return 0 ;;
+		--)
+			# Only a file argument completes after "--", and only the
+			# first word after it.
+			_ai_dev_after "$cmdpath"
+			if [ "$_ai_dev_r" = f ] && [ "$i" -eq $((cw - 1)) ]; then _ai_dev_files; fi
+			return 0
+			;;
 		--*=*) opts=1 ;;
 		-*)
 			opts=1

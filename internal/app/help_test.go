@@ -58,7 +58,7 @@ func TestHelpCommand(t *testing.T) {
 			t.Fatalf("%v: help reached a process boundary", args)
 		}
 	}
-	for _, group := range []string{"doctor", "agents", "agent", "workflow", "init", "git", "version", "help"} {
+	for _, group := range []string{"doctor", "agents", "agent", "workflow", "init", "git", "open", "version", "help"} {
 		if !strings.Contains(want, "\n  "+group+" ") && !strings.Contains(want, "\n  "+group+"\n") {
 			t.Fatalf("help does not list the %q group:\n%s", group, want)
 		}
@@ -99,7 +99,7 @@ func TestHelpCommandsAreRouted(t *testing.T) {
 func TestTopLevelUsageNamesEveryGroup(t *testing.T) {
 	for _, args := range [][]string{nil, {"bogus"}, {"--bogus"}} {
 		code, stdout, stderr, _, _ := runTopLevel(t, args...)
-		if code != 2 || stdout != "" || stderr != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|version|help|completion> [options]\n" {
+		if code != 2 || stdout != "" || stderr != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|open|version|help|completion> [options]\n" {
 			t.Fatalf("%v: exit=%d stdout=%q stderr=%q", args, code, stdout, stderr)
 		}
 	}
@@ -298,6 +298,18 @@ func TestHelpListsTheAgentCatalog(t *testing.T) {
 		code, stdout, stderr, _, _ := runTopLevel(t, path...)
 		if code != 0 || stderr != "" || !strings.Contains(stdout, values) {
 			t.Fatalf("%v: exit %d, stderr %q, missing %q in:\n%s", path, code, stderr, values, stdout)
+		}
+	}
+}
+
+// F014-FR-026: open has its own help, from the catalog.
+func TestOpenHelp(t *testing.T) {
+	for _, args := range [][]string{{"help", "open"}, {"open", "--help"}, {"open", "-h"}} {
+		code, stdout, stderr, _, launcher := runTopLevel(t, args...)
+		if code != 0 || stderr != "" || launcher.launches != 0 ||
+			!strings.HasPrefix(stdout, "ai-dev open: Open a project file at a line in Neovim\n\n"+openUsage+"\n") ||
+			!strings.Contains(stdout, "Changes: nothing in the project; opens the file in Neovim\n") {
+			t.Fatalf("%v: exit=%d stdout=%q stderr=%q", args, code, stdout, stderr)
 		}
 	}
 }

@@ -1,0 +1,1 @@
+{"schema_version":"ai-dev.workflow-guide/v1","feature_id":"09-inconsistent","outcome":"artifacts_inconsistent","current_state":"planned","missing_artifacts":["plan.md"],"templates":[],"statement":"options for the human only; not authorization. Running an agent or a review is not approval; approval is your own Human Gate decision after completing the activity"}

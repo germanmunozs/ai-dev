@@ -497,3 +497,38 @@ func TestCockpitAgentsAreaListsTheCatalog(t *testing.T) {
 		t.Fatalf("availability not shown:\n%s", text)
 	}
 }
+
+// The row's files are the regular files directly in the feature's
+// directory: no subdirectory, no symbolic link (A3, contracts/open.md).
+func TestCockpitFeatureFiles(t *testing.T) {
+	project := t.TempDir()
+	feature := filepath.Join(project, "specs", "014-x")
+	if err := os.MkdirAll(filepath.Join(feature, "contracts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"spec.md", "plan.md", "-x b.md"} {
+		if err := os.WriteFile(filepath.Join(feature, name), []byte("# x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outside := filepath.Join(project, "secret.txt")
+	if err := os.WriteFile(outside, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(feature, "link.md")); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := cockpitSource{executor: &fakeExecutor{}, root: os.DirFS(project)}.LoadFeatures(context.Background())
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("rows %+v, %v", rows, err)
+	}
+	if want := []string{"-x b.md", "plan.md", "spec.md"}; !reflect.DeepEqual(rows[0].Files, want) {
+		t.Fatalf("files %q, want %q", rows[0].Files, want)
+	}
+	if ok, _ := cockpit.ActionByID(cockpit.OpenTasks).Available(&rows[0]); ok {
+		t.Fatal("open tasks available without tasks.md")
+	}
+	if ok, _ := cockpit.ActionByID(cockpit.OpenPlan).Available(&rows[0]); !ok {
+		t.Fatal("open plan unavailable with plan.md")
+	}
+}

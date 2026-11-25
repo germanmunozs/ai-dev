@@ -26,6 +26,10 @@
 - Q: Can a person approve or abandon a feature from the cockpit? → A: **Yes, through the command.** The person types the approver, the target state and the reason; the cockpit shows the exact command and runs it only after an explicit confirmation. No key approves by itself.
 - **Planning constraint (not a user-visible requirement).** The cockpit is built on Bubble Tea and Lip Gloss, pinned to exact versions. They are the project's first third-party dependencies; the plan must justify them under constitution principles III and V and add a dependency vulnerability check to continuous integration.
 
+### Session 2026-11-24 (amended by Feature 014, A3)
+
+- Feature 014 (`specs/014-neovim-integration/spec.md`), approved by the owner on 2026-11-24 ("si, apruebo la 014, haz el commit y ejecuta /speckit-plan"), amends F012-FR-008. This is a declared, unauthenticated assertion. Once Feature 014 is implemented, the cockpit offers one more action, "open in editor" for each artifact of a feature it shows, which runs `ai-dev open` through the same hand-over (F014-FR-006). Every other area, view, action and key is unchanged.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Open the cockpit and find my way (Priority: P1)

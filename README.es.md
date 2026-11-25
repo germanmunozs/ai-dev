@@ -29,6 +29,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
    - [008 · Git Management](#008--git-management)
    - [011 · Agent Detection and Role Configuration](#011--agent-detection-and-role-configuration)
    - [012 · Terminal Cockpit](#012--terminal-cockpit)
+   - [014 · Neovim Integration](#014--neovim-integration)
 6. [Modelo de seguridad](#modelo-de-seguridad)
 7. [Persistencia](#persistencia)
 8. [Desarrollo y calidad](#desarrollo-y-calidad)
@@ -54,6 +55,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 010 Command Help and Shell Completion | `ai-dev <comando> --help`, `ai-dev help <comando>`, `ai-dev completion` | Implementada |
 | 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implementada |
 | 012 Terminal Cockpit | `ai-dev tui` | Implementada |
+| 014 Neovim Integration | `ai-dev open`, plugin de Neovim en `nvim/` | Implementada |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -76,7 +78,7 @@ Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas
 curl -fsSLO https://raw.githubusercontent.com/germanmunozs/ai-dev/main/scripts/install.sh
 less install.sh                          # léelo antes de ejecutarlo
 sh install.sh                            # último release, en ~/.local/bin
-sh install.sh --version v0.2.0           # un release concreto
+sh install.sh --version v0.2.1           # un release concreto
 sh install.sh --prefix /opt/ai-dev/bin   # otro destino
 sh install.sh --uninstall                # quita el binario, solo si es ai-dev
 ```
@@ -97,7 +99,7 @@ go build -o ai-dev ./cmd/ai-dev
 
 ### Instalar una versión de desarrollo para probar
 
-Para probar cambios que aún no están en un release, [`scripts/install-dev.sh`](scripts/install-dev.sh) compila este checkout y deja el binario en `~/.local/bin/ai-dev`. Marca la versión como `v0.2.1-dev+<commit>`, con `.dirty` si hay cambios sin commit. No edita archivos de arranque del shell, configuración ni credenciales: si `~/.local/bin` no está en el `PATH`, indica qué añadir.
+Para probar cambios que aún no están en un release, [`scripts/install-dev.sh`](scripts/install-dev.sh) compila este checkout y deja el binario en `~/.local/bin/ai-dev`. Marca la versión como `v0.2.2-dev+<commit>`, con `.dirty` si hay cambios sin commit. No edita archivos de arranque del shell, configuración ni credenciales: si `~/.local/bin` no está en el `PATH`, indica qué añadir.
 
 ```sh
 scripts/install-dev.sh                      # compilar e instalar (--prefix DIR para otro destino)
@@ -113,14 +115,14 @@ El sandbox es un repositorio git con una feature (`specs/001-demo`) y unos `clau
 Un build local informa de la versión que Go le asigna y de su commit. Para un release se fija la versión al enlazar:
 
 ```sh
-go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.2.0" -o ai-dev ./cmd/ai-dev
+go build -ldflags "-X github.com/germanmunozs/ai-dev/internal/version.Version=v0.2.1" -o ai-dev ./cmd/ai-dev
 ```
 
 También se puede instalar con `go install github.com/germanmunozs/ai-dev/cmd/ai-dev@latest`, o descargar un binario de [Releases](https://github.com/germanmunozs/ai-dev/releases). Cada release trae un archivo por plataforma (macOS y Linux, amd64 y arm64), `SHA256SUMS` y una attestation de procedencia firmada. Para verificarlo antes de usarlo:
 
 ```sh
 shasum -a 256 -c SHA256SUMS --ignore-missing
-gh attestation verify ai-dev_v0.2.0_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
+gh attestation verify ai-dev_v0.2.1_darwin_arm64.tar.gz --repo germanmunozs/ai-dev
 ```
 
 **Publicar un release** (responsable del proyecto):
@@ -162,6 +164,7 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 | `ai-dev setup show` | Muestra los agentes detectados y la asignación de roles vigente, y de dónde sale | No |
 | `ai-dev setup apply --agent A… --role ROL=AGENTE… [--replace]` | Escribe la misma configuración sin preguntar | Sí: `.ai-dev/agents.json` |
 | `ai-dev tui` | Cockpit interactivo de terminal (requiere TTY): estado de las features, entorno, agentes y repositorio, y lanzamiento de las acciones | Nada por sí mismo; cada acción ejecuta su propio comando tras confirmarla |
+| `ai-dev open [--line N] [--column N] -- <ruta>` | Abre un archivo del proyecto en una línea en Neovim: en el Neovim padre dentro de una de sus terminales, si no en primer plano | Nada en el proyecto |
 
 `--help` y `-h` solo se reconocen justo después del comando: `ai-dev agent run claude-code --help` envía `--help` como instrucción, sin mostrar la ayuda.
 
@@ -292,6 +295,7 @@ internal/
   projectconfig/         011 — lectura y validación estricta de .ai-dev/agents.json
   configstore/           011 — escritura atómica de .ai-dev/agents.json
   cockpit/               012 — presentación del cockpit (Bubble Tea), sin autoridad ni dominio
+  editor/                014 — validación de rutas, comprobación de $NVIM y cliente msgpack-RPC de ai-dev open
   workflow/              004 — estados, reglas de transición, registro
   sdd/                   005 — recomendación del siguiente paso
   gate/ gatestore/       006 — decisiones humanas y su persistencia atómica
@@ -302,6 +306,7 @@ internal/
   system/                frontera de procesos externos y lanzador de agentes
 scripts/install.sh       instalación desde un release de GitHub (sin Go ni Git)
 scripts/install-dev.sh   instalación de desarrollo para pruebas manuales
+nvim/                    014 — plugin de Neovim (lua/ai-dev/) y sus pruebas headless
 specs/NNN-*/             spec, plan, contratos, data model, tareas por feature
 .specify/                configuración de Spec Kit y constitución del proyecto
 ```
@@ -783,6 +788,98 @@ ai-dev setup apply --agent claude-code --agent codex-cli \
 - **Texto inerte:** todo lo que viene de archivos, del entorno o de los comandos se muestra saneado. Las secuencias de escape, OSC (portapapeles, hipervínculos), los controles C0/C1 y los controles bidireccionales aparecen escapados de forma visible y nunca llegan a la terminal.
 - **Señales:** `Ctrl-C` dentro de un comando lo interrumpe a él, no al cockpit. La terminal se restaura siempre al salir: 0 con `q` o `Ctrl-C`, 130 con un `SIGINT` externo y 143 con `SIGTERM`.
 - **Dependencias:** usa Bubble Tea v2.1.1 y Lip Gloss v2.1.0, las primeras dependencias de terceros del proyecto; la política está en [Desarrollo y calidad](#desarrollo-y-calidad).
+
+### 014 · Neovim Integration
+
+Dos partes opcionales: el comando `ai-dev open` y un plugin de Neovim en [`nvim/`](nvim/), versionado con ai-dev. Ninguno tiene autoridad propia: las decisiones solo las registran los comandos de siempre, tras su propia confirmación y con la misma evidencia que al teclearlos.
+
+**`ai-dev open [--format text|json] [--line N] [--column N] -- <ruta>`** abre un archivo del proyecto en una línea y columna (1 por defecto).
+
+- Dentro de una terminal de Neovim (con `$NVIM`), abre el archivo en ese Neovim, en una ventana que no sea una terminal, y termina enseguida. Si no, ejecuta `nvim` en primer plano.
+- `--` es obligatorio. La ruta es relativa al proyecto y debe ser uno de sus archivos regulares; una ruta absoluta se rechaza siempre.
+- No hay alternativa: si `$NVIM` está definido pero se rechaza, no se abre nada. Nunca busca otras instancias de Neovim.
+- Las acciones de feature del cockpit incluyen "Open spec", "Open plan", "Open tasks" y "Open file…", que ejecutan `ai-dev open` tras la revisión y confirmación de siempre.
+
+| Resultado | Salida | Cuándo |
+|---|---|---|
+| `opened` | 0 | el Neovim padre abrió el archivo, o el Neovim en primer plano salió con 0 |
+| `path_refused` | 1 | `absolute_path`, `not_found`, `outside_project`, `not_regular_file` |
+| `editor_refused` | 1 | `$NVIM` no es un socket local tuyo que responda como Neovim 0.11.7 o posterior, o Neovim informó de un error |
+| `editor_unavailable` | 1 | sin `$NVIM`, y sin terminal o sin `nvim` en el `PATH` |
+| `editor_failed` | 1 | el Neovim en primer plano salió con otro código |
+
+**Requisitos del plugin:** Neovim 0.11.7 o posterior (probado en 0.11.7 y 0.12.6, en macOS y Linux), y ai-dev v0.3.0 o posterior, por debajo de v1.0.0, o una versión de desarrollo.
+
+**Instalación con lazy.nvim:**
+
+```lua
+{
+  "germanmunozs/ai-dev",
+  version = "*",          -- último tag de release
+  cmd = "AiDev",
+  config = function(plugin, opts)
+    vim.opt.rtp:append(plugin.dir .. "/nvim")
+    require("ai-dev").setup(opts)
+  end,
+  opts = {},
+}
+```
+
+Sin lazy.nvim, añade el directorio `nvim/` de un checkout a `'runtimepath'` y llama a `require("ai-dev").setup()`. Con `setup({ preset = true })` también tienes los mapeos del preset de LazyVim.
+
+**Preset de LazyVim:** la misma especificación con mapeos bajo `<leader>i`, ninguno de los cuales sustituye un mapeo de LazyVim v16.0.2. El grupo de which-key solo se añade si which-key está instalado.
+
+<!-- ai-dev-preset:begin -->
+```lua
+{
+  "germanmunozs/ai-dev",
+  version = "*",
+  cmd = "AiDev",
+  config = function(plugin, opts)
+    vim.opt.rtp:append(plugin.dir .. "/nvim")
+    require("ai-dev").setup(opts)
+  end,
+  opts = {},
+  keys = {
+    { "<leader>if", "<cmd>AiDev features<cr>", desc = "ai-dev features" },
+    { "<leader>id", "<cmd>AiDev doctor<cr>", desc = "ai-dev doctor" },
+    { "<leader>ia", "<cmd>AiDev agents<cr>", desc = "ai-dev agents" },
+    { "<leader>ii", "<cmd>AiDev ask<cr>", desc = "ai-dev ask" },
+    { "<leader>ii", ":AiDev ask<cr>", mode = "x", desc = "ai-dev ask (selection)" },
+    { "<leader>it", "<cmd>AiDev tui<cr>", desc = "ai-dev tui" },
+  },
+},
+{ "folke/which-key.nvim", optional = true, opts = { spec = { { "<leader>i", group = "ai-dev" } } } },
+```
+<!-- ai-dev-preset:end -->
+
+| Comando | Efecto |
+|---|---|
+| `:AiDev features` | vista de features: estado, siguiente actividad, rol y agente de cada feature, de `ai-dev workflow guide` |
+| `:AiDev doctor` | vista del entorno, de `ai-dev doctor` |
+| `:AiDev agents` | agentes y asignación de roles, de `ai-dev setup show` |
+| `:AiDev ask` | preguntar a un agente sobre el archivo actual; `:'<,'>AiDev ask` sobre las líneas seleccionadas |
+| `:AiDev next`, `approve`, `abandon` | siguiente paso, aprobación o abandono de la feature; eliges la feature de la lista |
+| `:AiDev tui` | el cockpit en una terminal de Neovim |
+| `:AiDev health` | `:checkhealth ai-dev` |
+
+Las vistas son de solo lectura. Sus teclas existen solo en sus propios buffers: `r` vuelve a evaluar, `<CR>` sobre una feature lista sus archivos y abre el que elijas, `n`, `a` y `x` inician next, approve y abandon para la feature bajo el cursor, y `q` cierra. No se evalúa nada en segundo plano.
+
+| Opción | Por defecto | Valores |
+|---|---|---|
+| `cmd` | `"ai-dev"` | el ejecutable de ai-dev, buscado en el `PATH` |
+| `concurrency` | `8` | procesos de ai-dev a la vez mientras carga una vista, de 1 a 16 |
+| `terminal` | `"tab"` | dónde se ejecutan los comandos: `"tab"`, `"split"` o `"vsplit"` |
+| `preset` | `false` | `true` define los mapeos del preset sin lazy.nvim |
+
+Una opción desconocida o un valor no válido se avisa con una advertencia, y se usa su valor por defecto.
+
+- **Cada acción pregunta antes:** pide los valores sin rellenar ninguno, muestra una vista previa con el comando exacto (en una ejecución de agente, también el agente, la referencia, si se incluye el texto y la instrucción completa) y pregunta "Run this command?", con Cancel por defecto. Solo Run inicia el comando en una terminal de Neovim, donde su salida te llega sin cambios. Al terminar, el plugin muestra `ai-dev exited with code N` y nada más sobre el resultado. Ninguna tecla ni mapeo aprueba nada.
+- **Privacidad:** una referencia contiene la ruta del archivo en el proyecto, el rango de líneas y el SHA-256 del archivo guardado. El texto seleccionado solo se incluye si lo eliges en la vista previa: como máximo 32 KiB, y 64 KiB para la instrucción completa. Un buffer con cambios sin guardar se rechaza, así que guarda primero. El digest se vuelve a calcular al pulsar Run, y un archivo que cambió desde la vista previa se rechaza. El agente lee el archivo por sí mismo y puede enviar lo que lee a su proveedor.
+- **Cerrar Neovim** termina un agente que se esté ejecutando en una de sus terminales.
+- **Sin archivos ni shell:** el plugin no escribe ningún archivo, no inicia otro programa que el ai-dev configurado, siempre con listas de argumentos, y muestra saneado el texto de archivos y comandos, como el cockpit.
+- **Problemas:** `:checkhealth ai-dev` informa de las versiones de Neovim y de ai-dev y de si son compatibles. Si `ai-dev open` informa `editor_refused`, `$NVIM` no nombra un socket de Neovim tuyo que funcione: ejecútalo desde una terminal del Neovim que quieras, o sin `$NVIM`.
+- **Eliminación:** quita la especificación y reinicia Neovim. No queda nada, porque el plugin define su comando, autocomandos y mapeos solo en `setup()`.
 
 ## Modelo de seguridad
 

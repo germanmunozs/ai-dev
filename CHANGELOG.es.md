@@ -10,6 +10,20 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
+### Added
+
+- **014 Neovim Integration:**
+  - `ai-dev open [--format text|json] [--line N] [--column N] -- <ruta>` abre un archivo del proyecto en una línea en Neovim: en el Neovim padre cuando se ejecuta en una de sus terminales (`$NVIM`), si no en primer plano. Rechaza rutas absolutas, rutas fuera del proyecto y lo que no sea un archivo regular, y un `$NVIM` que no sea un socket local del usuario que responda como Neovim 0.11.7 o posterior, sin alternativa. Su informe JSON es `ai-dev.open/v1`.
+  - Las acciones de feature del cockpit añaden "Open spec", "Open plan", "Open tasks" y "Open file…", que ejecutan `ai-dev open` tras la revisión y confirmación de siempre; las acciones existentes no cambian.
+  - Un plugin de Neovim en `nvim/`, instalable con lazy.nvim, con un preset opcional de LazyVim bajo `<leader>i`. Muestra features, entorno y agentes a partir del JSON de ai-dev, pregunta a un agente sobre un archivo o una selección con una referencia (ruta, rango de líneas y SHA-256) y el texto solo si se elige, y ejecuta next, approve, abandon y el cockpit en una terminal de Neovim, cada uno tras una vista previa y una confirmación explícita. Necesita Neovim 0.11.7 o posterior y ai-dev v0.3.0 o posterior.
+
+### Changed
+
+- El uso general, la ayuda general y el completado de shell incluyen `open`.
+- `scripts/install-dev.sh` marca las versiones de desarrollo como `v0.2.2-dev+<commit>` en lugar de `v0.2.1-dev+<commit>`.
+
 ## [0.2.1] - 2026-11-23
 
 ### Changed
@@ -63,7 +77,8 @@ Primera versión.
 - `scripts/install-dev.sh` compila e instala una versión de desarrollo (`v0.1.0-dev+<commit>`) para pruebas manuales, y crea un proyecto sandbox con agentes falsos.
 - Releases con archivos para macOS y Linux (amd64 y arm64), `SHA256SUMS` y una attestation de procedencia SLSA firmada para cada archivo.
 
-[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.2.1...dev
+[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.3.0...dev
+[0.3.0]: https://github.com/germanmunozs/ai-dev/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/germanmunozs/ai-dev/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...v0.1.1

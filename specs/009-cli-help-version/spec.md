@@ -35,6 +35,12 @@
   - **F009-FR-003:** the general help lists `tui`.
   - **F009-FR-005:** the top-level usage line names `tui` too (F012-FR-020).
 
+### Session 2026-11-24 (amended by Feature 014, A2)
+
+- Feature 014 (`specs/014-neovim-integration/spec.md`), approved by the owner on 2026-11-24 ("si, apruebo la 014, haz el commit y ejecuta /speckit-plan"), amends this feature. This is a declared, unauthenticated assertion.
+  - **F009-FR-003:** the general help lists `open`.
+  - **F009-FR-005:** the top-level usage line names `open` too (F014-FR-026).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Know which build is running (Priority: P1)

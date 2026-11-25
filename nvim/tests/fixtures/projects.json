@@ -1,0 +1,34 @@
+{
+  "invalid-config": {
+    ".ai-dev/agents.json": "garbage\n",
+    "specs/01-draft/spec.md": "fixture\n"
+  },
+  "no-specs": {},
+  "views": {
+    ".ai-dev/agents.json": "{\n  \"schema_version\": \"ai-dev.agents/v1\",\n  \"agents\": [\n    \"claude-code\",\n    \"codex-cli\",\n    \"gemini-cli\"\n  ],\n  \"roles\": {\n    \"specification\": \"claude-code\",\n    \"planning\": \"gemini-cli\",\n    \"implementation\": \"codex-cli\",\n    \"review\": \"claude-code\",\n    \"remediation\": \"gemini-cli\"\n  }\n}\n",
+    "specs/01-draft/spec.md": "fixture\n",
+    "specs/02-specified/spec.md": "fixture\n",
+    "specs/02-specified/workflow-state.json": "{\"state\": \"specified\"}\n",
+    "specs/03-planned/plan.md": "fixture\n",
+    "specs/03-planned/spec.md": "fixture\n",
+    "specs/03-planned/workflow-state.json": "{\"state\": \"planned\"}\n",
+    "specs/04-tasked/plan.md": "fixture\n",
+    "specs/04-tasked/spec.md": "fixture\n",
+    "specs/04-tasked/tasks.md": "fixture\n",
+    "specs/04-tasked/workflow-state.json": "{\"state\": \"tasked\"}\n",
+    "specs/05-implemented/plan.md": "fixture\n",
+    "specs/05-implemented/spec.md": "fixture\n",
+    "specs/05-implemented/tasks.md": "fixture\n",
+    "specs/05-implemented/workflow-state.json": "{\"state\": \"implemented\"}\n",
+    "specs/06-approved/plan.md": "fixture\n",
+    "specs/06-approved/spec.md": "fixture\n",
+    "specs/06-approved/tasks.md": "fixture\n",
+    "specs/06-approved/workflow-state.json": "{\"state\": \"approved\"}\n",
+    "specs/07-abandoned/spec.md": "fixture\n",
+    "specs/07-abandoned/workflow-state.json": "{\"state\": \"abandoned\"}\n",
+    "specs/08-invalid/workflow-state.json": "{\"state\": \"Planned\"}\n",
+    "specs/09-inconsistent/spec.md": "fixture\n",
+    "specs/09-inconsistent/workflow-state.json": "{\"state\": \"planned\"}\n",
+    "specs/10-\u001b[31mred/spec.md": "fixture\n"
+  }
+}
