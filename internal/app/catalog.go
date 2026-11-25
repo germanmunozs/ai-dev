@@ -17,6 +17,7 @@ import (
 type argSpec struct {
 	name        string
 	values      []string
+	file        bool // a file name, completed after "--"
 	description string
 }
 
@@ -228,6 +229,14 @@ var catalog = []commandSpec{
 		changes: changesConfiguration, exitCodes: exitCodesDomain},
 	{path: []string{"tui"}, description: "Open the interactive terminal cockpit (needs a terminal)", usage: cockpitUsage,
 		changes: "nothing by itself; actions run their own commands", exitCodes: "0 on q or Ctrl-C, 130 on an interrupt signal, 143 on termination, 2 usage failure or no terminal."},
+	{path: []string{"open"}, description: "Open a project file at a line in Neovim", usage: openUsage,
+		args: []argSpec{{name: "path", file: true, description: "A file of the project, relative to the current directory, after --"}},
+		options: []optionSpec{
+			formatOption(),
+			textOption("line", "N", "Line to open, from 1 (default 1)"),
+			textOption("column", "N", "Column to open, from 1 (default 1)"),
+		},
+		changes: "nothing in the project; opens the file in Neovim", exitCodes: exitCodesDomain},
 	{path: []string{"version"}, description: "Print which build of ai-dev is running", usage: versionUsage,
 		options: []optionSpec{formatOption()}, changes: changesNothing, exitCodes: exitCodesPlain},
 	{path: []string{"help"}, description: "Print this help, or one command's help", usage: helpUsage,

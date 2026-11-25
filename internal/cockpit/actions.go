@@ -1,6 +1,10 @@
 package cockpit
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
 
 // ActionID names one action (data-model.md).
 type ActionID string
@@ -12,6 +16,10 @@ const (
 	Setup          ActionID = "setup"
 	Init           ActionID = "init"
 	CommitValidate ActionID = "commit-validate"
+	OpenSpec       ActionID = "open-spec"
+	OpenPlan       ActionID = "open-plan"
+	OpenTasks      ActionID = "open-tasks"
+	OpenFile       ActionID = "open-file"
 )
 
 // Field is one value the person types; none is ever prefilled
@@ -56,7 +64,22 @@ var actions = []Action{
 	{ID: Init, Title: "Initialize repository", Changes: "the repository and its project configuration, only after its own confirmation"},
 	{ID: CommitValidate, Title: "Validate a commit message", Changes: "nothing",
 		Fields: []Field{{Label: "message", Required: true}}},
+	// The "open" actions run ai-dev open (Feature 014, A3).
+	{ID: OpenSpec, Title: "Open spec", Feature: true, Changes: changesOpen},
+	{ID: OpenPlan, Title: "Open plan", Feature: true, Changes: changesOpen},
+	{ID: OpenTasks, Title: "Open tasks", Feature: true, Changes: changesOpen},
+	{ID: OpenFile, Title: "Open file…", Feature: true, Changes: changesOpen,
+		Fields: []Field{{Label: "file", Required: true}}},
 }
+
+const changesOpen = "nothing in the project; opens the file in Neovim"
+
+// openFiles names the file each fixed "open" action opens.
+var openFiles = map[ActionID]string{OpenSpec: "spec.md", OpenPlan: "plan.md", OpenTasks: "tasks.md"}
+
+// maxHintFiles bounds the file list in the "open file" hint, which takes
+// one line of the form.
+const maxHintFiles = 20
 
 // Actions lists every action in a stable order.
 func Actions() []Action { return actions }
@@ -82,6 +105,15 @@ func (a Action) Available(row *FeatureRow) (bool, string) {
 		return false, "no feature is selected"
 	}
 	switch a.ID {
+	case OpenSpec, OpenPlan, OpenTasks:
+		// Opening a file changes nothing, so the state does not matter.
+		if file := openFiles[a.ID]; !slices.Contains(row.Files, file) {
+			return false, "no " + file + " in this feature"
+		}
+	case OpenFile:
+		if len(row.Files) == 0 {
+			return false, "no files in this feature"
+		}
 	case RunAgent:
 		switch {
 		case row.Terminal:
@@ -112,6 +144,36 @@ func (a Action) Validate(values []string) string {
 	return ""
 }
 
+// ValidateFor is Validate, plus the check that "open file" names one of the
+// feature's regular files exactly (contracts/open.md).
+func (a Action) ValidateFor(row FeatureRow, values []string) string {
+	if refusal := a.Validate(values); refusal != "" {
+		return refusal
+	}
+	if a.ID == OpenFile && !slices.Contains(row.Files, values[0]) {
+		return "not a file of this feature"
+	}
+	return ""
+}
+
+// hintFor is the hint of field i; for "open file" it lists the feature's
+// files, sorted and sanitized, at most maxHintFiles of them.
+func (a Action) hintFor(row FeatureRow, i int) string {
+	if a.ID != OpenFile {
+		return a.Fields[i].Hint
+	}
+	files := slices.Sorted(slices.Values(row.Files))
+	var names []string
+	for _, file := range files[:min(len(files), maxHintFiles)] {
+		names = append(names, Sanitize(file).String())
+	}
+	hint := strings.Join(names, ", ")
+	if extra := len(files) - maxHintFiles; extra > 0 {
+		hint += fmt.Sprintf(" … and %d more", extra)
+	}
+	return hint
+}
+
 // Argv is the exact argument vector after "ai-dev" (contracts/cockpit.md):
 // each value is one argument, options as --name=value and positional
 // values after --, so no value can become an option or split.
@@ -139,6 +201,10 @@ func (a Action) Argv(row FeatureRow, values []string) []string {
 		return []string{"init"}
 	case CommitValidate:
 		return []string{"git", "commit", "validate", "--message=" + value(0)}
+	case OpenSpec, OpenPlan, OpenTasks:
+		return []string{"open", "--", "specs/" + row.ID + "/" + openFiles[a.ID]}
+	case OpenFile:
+		return []string{"open", "--", "specs/" + row.ID + "/" + value(0)}
 	}
 	panic("cockpit: unknown action " + string(a.ID))
 }

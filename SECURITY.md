@@ -32,9 +32,12 @@ Of particular interest are failures of the guarantees described in the [security
 - text reports that, pasted into a shell, run or expand anything;
 - a partial success reported as success, instead of a typed refusal;
 - in the cockpit (`ai-dev tui`), an escape sequence, OSC or bidirectional control that reaches the terminal unescaped, or an action that runs without the review and explicit confirmation;
+- in Neovim (`ai-dev open` and the plugin in `nvim/`), a file name, selection or instruction that is expanded by Ex or by a shell, read as an option or split; a `$NVIM` endpoint that is not a socket of the user and is still used; text that reaches the screen unescaped; or an agent run or decision without the preview and explicit confirmation;
 - a vulnerability in a third-party dependency (Bubble Tea, Lip Gloss and their modules) that is reachable from ai-dev.
 
 Out of scope are the [known limitations](README.md#known-limitations) and the accepted residual risks documented in the specifications (for example REC-06, REC-07 and DUR-01 in [`specs/008-git-management`](specs/008-git-management/)).
+
+**`$NVIM` trust model (Feature 014).** `ai-dev open` trusts `$NVIM` only as far as these checks go: an absolute path whose `Lstat` reports a socket owned by the current user, and a peer that answers Neovim's API with version 0.11.7 or later. A process that can change `$NVIM` already runs as the user. The peer's credentials after connecting are not checked, since the standard library has no portable call for them on macOS; replacing the socket between the check and the connection needs write access to the user's own socket directory ([R-03](specs/014-neovim-integration/research.md)). The file is opened with a constant Lua chunk that receives the path as an argument and calls `nvim_cmd` with file-name expansion off, so `%`, `#` and backquotes in a name are never expanded or run ([R-02](specs/014-neovim-integration/research.md)).
 
 ## Third-party dependencies
 

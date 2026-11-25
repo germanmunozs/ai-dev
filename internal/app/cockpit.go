@@ -199,6 +199,7 @@ func featureRow(root fs.FS, featureID string, selector guide.Selector) cockpit.F
 		State:  cockpit.Sanitize(string(state.Outcome)),
 		Next:   cockpit.Sanitize(string(guidance.Outcome)),
 		Detail: cockpit.SanitizeLines(detail.String()),
+		Files:  featureFiles(root, featureID),
 	}
 	if state.Outcome == workflow.StateReported {
 		row.State, row.Recognized, row.Terminal = cockpit.Sanitize(string(state.State)), true, state.Terminal
@@ -214,6 +215,23 @@ func featureRow(root fs.FS, featureID string, selector guide.Selector) cockpit.F
 		row.AgentAvailable = guidance.Availability == guide.Available
 	}
 	return row
+}
+
+// featureFiles lists the regular files directly in the feature's directory,
+// for the cockpit's "open" actions (A3). A symbolic link or subdirectory is
+// not listed; ai-dev open checks the path again when it runs.
+func featureFiles(root fs.FS, featureID string) []string {
+	entries, err := fs.ReadDir(root, "specs/"+featureID)
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, entry := range entries {
+		if entry.Type().IsRegular() {
+			files = append(files, entry.Name())
+		}
+	}
+	return files
 }
 
 // LoadEnvironment is the text of "ai-dev doctor".

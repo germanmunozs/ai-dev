@@ -1,0 +1,102 @@
+[
+  {
+    "name": "empty",
+    "input": "",
+    "want": "\"\""
+  },
+  {
+    "name": "space",
+    "input": "a b",
+    "want": "\"a b\""
+  },
+  {
+    "name": "single quote",
+    "input": "it's",
+    "want": "\"it's\""
+  },
+  {
+    "name": "double quote",
+    "input": "say \"hi\"",
+    "want": "\"say \\\"hi\\\"\""
+  },
+  {
+    "name": "dollar",
+    "input": "$HOME",
+    "want": "\"\\$HOME\""
+  },
+  {
+    "name": "backquotes",
+    "input": "`id`",
+    "want": "\"\\`id\\`\""
+  },
+  {
+    "name": "bang",
+    "input": "hi!",
+    "want": "\"hi\\!\""
+  },
+  {
+    "name": "semicolon and pipe",
+    "input": "a;b|c",
+    "want": "\"a;b|c\""
+  },
+  {
+    "name": "newline",
+    "input": "one\ntwo",
+    "want": "\"one\\ntwo\""
+  },
+  {
+    "name": "backslash",
+    "input": "a\\b",
+    "want": "\"a\\\\b\""
+  },
+  {
+    "name": "leading dash",
+    "input": "-x",
+    "want": "\"-x\""
+  },
+  {
+    "name": "unicode",
+    "input": "\u00fcn\u00ef-c\u00f3digo",
+    "want": "\"\u00fcn\u00ef-c\u00f3digo\""
+  },
+  {
+    "name": "tab",
+    "input": "a\tb",
+    "want": "\"a\\tb\""
+  },
+  {
+    "name": "escape",
+    "input": "a\u001b[31mb",
+    "want": "\"a\\x1b[31mb\""
+  },
+  {
+    "name": "delete",
+    "input": "a\u007fb",
+    "want": "\"a\\x7fb\""
+  },
+  {
+    "name": "c1 control",
+    "input": "a\u009bb",
+    "want": "\"a\\u009bb\""
+  },
+  {
+    "name": "bidi override",
+    "input": "abc\u202edef",
+    "want": "\"abc\\u202edef\""
+  },
+  {
+    "name": "no-break space",
+    "input": "a\u00a0b",
+    "want": "\"a\\u00a0b\""
+  },
+  {
+    "name": "zero-width space",
+    "input": "a\u200bb",
+    "want": "\"a\\u200bb\""
+  },
+  {
+    "name": "emoji",
+    "input": "ok \ud83d\ude00",
+    "want": "\"ok \ud83d\ude00\""
+  }
+]

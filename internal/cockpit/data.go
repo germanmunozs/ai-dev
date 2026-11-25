@@ -34,6 +34,9 @@ type FeatureRow struct {
 	Recognized, Terminal bool
 	// StepRecommended and AgentAvailable decide "run agent" (F012-FR-011).
 	StepRecommended, AgentAvailable bool
+	// Files are the raw names of the regular files directly in the
+	// feature's directory; they decide the "open" actions (Feature 014).
+	Files []string
 }
 
 // Source evaluates the read-only views. Each method is called once per
