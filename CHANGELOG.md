@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
 ### Added
 
 - **014 Neovim Integration:**
@@ -75,7 +77,8 @@ First release.
 - `scripts/install-dev.sh` builds and installs a development version (`v0.1.0-dev+<commit>`) for manual testing, and creates a sandbox project with fake agents.
 - Releases with archives for macOS and Linux (amd64 and arm64), `SHA256SUMS` and a signed SLSA provenance attestation for each archive.
 
-[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.2.1...dev
+[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.3.0...dev
+[0.3.0]: https://github.com/germanmunozs/ai-dev/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/germanmunozs/ai-dev/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...v0.1.1

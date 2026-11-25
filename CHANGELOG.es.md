@@ -10,6 +10,8 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
 ### Added
 
 - **014 Neovim Integration:**
@@ -75,7 +77,8 @@ Primera versión.
 - `scripts/install-dev.sh` compila e instala una versión de desarrollo (`v0.1.0-dev+<commit>`) para pruebas manuales, y crea un proyecto sandbox con agentes falsos.
 - Releases con archivos para macOS y Linux (amd64 y arm64), `SHA256SUMS` y una attestation de procedencia SLSA firmada para cada archivo.
 
-[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.2.1...dev
+[Unreleased]: https://github.com/germanmunozs/ai-dev/compare/v0.3.0...dev
+[0.3.0]: https://github.com/germanmunozs/ai-dev/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/germanmunozs/ai-dev/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/germanmunozs/ai-dev/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/germanmunozs/ai-dev/compare/v0.1.0...v0.1.1
