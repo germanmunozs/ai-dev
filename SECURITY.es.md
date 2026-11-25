@@ -32,9 +32,12 @@ Interesan especialmente los fallos de las garantías descritas en el [modelo de 
 - informes de texto que, pegados en un shell, ejecuten o expandan algo;
 - un éxito parcial reportado como éxito, en lugar de un refusal tipado;
 - en el cockpit (`ai-dev tui`), una secuencia de escape, OSC o control bidireccional que llegue a la terminal sin escapar, o una acción que se ejecute sin la revisión y la confirmación explícita;
+- en Neovim (`ai-dev open` y el plugin de `nvim/`), un nombre de archivo, selección o instrucción que Ex o un shell expandan, que se lea como opción o que se divida; un `$NVIM` que no sea un socket del usuario y aun así se use; texto que llegue a la pantalla sin escapar; o una ejecución de agente o una decisión sin la vista previa y la confirmación explícita;
 - una vulnerabilidad en una dependencia de terceros (Bubble Tea, Lip Gloss y sus módulos) que sea alcanzable desde ai-dev.
 
 Quedan fuera de alcance las [limitaciones conocidas](README.es.md#limitaciones-conocidas) y los riesgos residuales aceptados que documentan las especificaciones (por ejemplo REC-06, REC-07 y DUR-01 en [`specs/008-git-management`](specs/008-git-management/)).
+
+**Modelo de confianza de `$NVIM` (Feature 014).** `ai-dev open` confía en `$NVIM` solo hasta donde llegan estas comprobaciones: una ruta absoluta cuyo `Lstat` indica un socket del usuario actual, y un par que responde a la API de Neovim con la versión 0.11.7 o posterior. Un proceso que puede cambiar `$NVIM` ya se ejecuta como el usuario. No se comprueban las credenciales del par tras conectar, porque la biblioteca estándar no tiene una llamada portable para ello en macOS; sustituir el socket entre la comprobación y la conexión requiere permiso de escritura en el propio directorio de sockets del usuario ([R-03](specs/014-neovim-integration/research.md)). El archivo se abre con un fragmento Lua constante que recibe la ruta como argumento y llama a `nvim_cmd` sin expansión de nombres de archivo, así que `%`, `#` y las comillas invertidas de un nombre nunca se expanden ni se ejecutan ([R-02](specs/014-neovim-integration/research.md)).
 
 ## Dependencias de terceros
 

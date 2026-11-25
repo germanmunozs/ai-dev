@@ -10,8 +10,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- **014 Neovim Integration:**
+  - `ai-dev open [--format text|json] [--line N] [--column N] -- <path>` opens a project file at a line in Neovim: in the parent Neovim when run in one of its terminals (`$NVIM`), otherwise in the foreground. It refuses absolute paths, paths outside the project and anything that is not a regular file, and a `$NVIM` that is not a local socket of the user answering as Neovim 0.11.7 or later, with no fallback. Its JSON report is `ai-dev.open/v1`.
+  - The cockpit's feature actions add "Open spec", "Open plan", "Open tasks" and "Open file…", which run `ai-dev open` after the usual review and confirmation; the existing actions are unchanged.
+  - A Neovim plugin in `nvim/`, installable with lazy.nvim, with an optional LazyVim preset under `<leader>i`. It shows features, environment and agents from ai-dev's JSON, asks an agent about a file or a selection with a reference (path, line range and SHA-256) and the text only when chosen, and runs next, approve, abandon and the cockpit in a Neovim terminal, each after a preview and an explicit confirmation. It requires Neovim 0.11.7 or later and ai-dev v0.3.0 or later.
+
 ### Changed
 
+- The top-level usage, the general help and shell completion list `open`.
 - `scripts/install-dev.sh` marks development builds as `v0.2.2-dev+<commit>` instead of `v0.2.1-dev+<commit>`.
 
 ## [0.2.1] - 2026-11-23

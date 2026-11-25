@@ -40,6 +40,7 @@ keys = {
 | `doctor` | Opens the environment view |
 | `agents` | Opens the agents view |
 | `ask` | In normal mode, a reference to the whole file; with a range (`:'<,'>AiDev ask`), to those lines. Starts the `ask` action |
+| `next`, `approve`, `abandon` | Start that action for a feature chosen from the list (see below) |
 | `tui` | Opens `ai-dev tui` in a Neovim terminal |
 | `health` | Runs `:checkhealth ai-dev` |
 

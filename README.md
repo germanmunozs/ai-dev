@@ -29,6 +29,7 @@ An agent finishing successfully, an artifact existing or a transition being vali
    - [008 · Git Management](#008--git-management)
    - [011 · Agent Detection and Role Configuration](#011--agent-detection-and-role-configuration)
    - [012 · Terminal Cockpit](#012--terminal-cockpit)
+   - [014 · Neovim Integration](#014--neovim-integration)
 6. [Security model](#security-model)
 7. [Persistence](#persistence)
 8. [Development and quality](#development-and-quality)
@@ -54,6 +55,7 @@ An agent finishing successfully, an artifact existing or a transition being vali
 | 010 Command Help and Shell Completion | `ai-dev <command> --help`, `ai-dev help <command>`, `ai-dev completion` | Implemented |
 | 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implemented |
 | 012 Terminal Cockpit | `ai-dev tui` | Implemented |
+| 014 Neovim Integration | `ai-dev open`, Neovim plugin in `nvim/` | Implemented |
 
 Each feature has its specification, plan, contracts, data model and tasks in [`specs/`](specs/).
 
@@ -162,6 +164,7 @@ Every command accepts `--format text|json`. Text is for humans; JSON is stable a
 | `ai-dev setup show` | Shows the detected agents and the current role assignment, and where it comes from | No |
 | `ai-dev setup apply --agent A… --role ROLE=AGENT… [--replace]` | Writes the same configuration without prompting | Yes: `.ai-dev/agents.json` |
 | `ai-dev tui` | Interactive terminal cockpit (requires a TTY): feature state, environment, agents and repository, and launching the actions | Nothing by itself; each action runs its own command after it is confirmed |
+| `ai-dev open [--line N] [--column N] -- <path>` | Opens a project file at a line in Neovim: the parent Neovim inside one of its terminals, otherwise in the foreground | Nothing in the project |
 
 `--help` and `-h` are recognized only right after the command: `ai-dev agent run claude-code --help` sends `--help` as the instruction, without showing the help.
 
@@ -292,6 +295,7 @@ internal/
   projectconfig/         011 — strict reading and validation of .ai-dev/agents.json
   configstore/           011 — atomic writing of .ai-dev/agents.json
   cockpit/               012 — cockpit presentation (Bubble Tea), no authority or domain
+  editor/                014 — path validation, $NVIM check and msgpack-RPC client of ai-dev open
   workflow/              004 — states, transition rules, record
   sdd/                   005 — next-step recommendation
   gate/ gatestore/       006 — human decisions and their atomic persistence
@@ -302,6 +306,7 @@ internal/
   system/                external process boundary and agent launcher
 scripts/install.sh       installation from a GitHub release (no Go or Git)
 scripts/install-dev.sh   development installation for manual testing
+nvim/                    014 — Neovim plugin (lua/ai-dev/) and its headless tests
 specs/NNN-*/             spec, plan, contracts, data model, tasks per feature
 .specify/                Spec Kit configuration and the project constitution
 ```
@@ -783,6 +788,98 @@ ai-dev setup apply --agent claude-code --agent codex-cli \
 - **Inert text:** everything that comes from files, the environment or the commands is shown sanitized. Escape sequences, OSC (clipboard, hyperlinks), C0/C1 controls and bidirectional controls appear visibly escaped and never reach the terminal.
 - **Signals:** `Ctrl-C` inside a command interrupts the command, not the cockpit. The terminal is always restored on exit: 0 with `q` or `Ctrl-C`, 130 with an external `SIGINT` and 143 with `SIGTERM`.
 - **Dependencies:** it uses Bubble Tea v2.1.1 and Lip Gloss v2.1.0, the project's first third-party dependencies; the policy is in [Development and quality](#development-and-quality).
+
+### 014 · Neovim Integration
+
+Two optional parts: the command `ai-dev open`, and a Neovim plugin in [`nvim/`](nvim/), versioned with ai-dev. Neither has any authority of its own: decisions are recorded only by the usual commands, after their own confirmation, and with the same evidence as when typed.
+
+**`ai-dev open [--format text|json] [--line N] [--column N] -- <path>`** opens a project file at a line and column (1 by default).
+
+- Inside a Neovim terminal (`$NVIM` set), it opens the file in that Neovim, in a window that is not a terminal, and returns at once. Otherwise it runs `nvim` in the foreground.
+- `--` is required. The path is relative to the project and must name one of its regular files; an absolute path is always refused.
+- There is no fallback: when `$NVIM` is set but refused, nothing is opened. It never looks for other Neovim instances.
+- The cockpit's feature actions include "Open spec", "Open plan", "Open tasks" and "Open file…", which run `ai-dev open` after the usual review and confirmation.
+
+| Outcome | Exit | When |
+|---|---|---|
+| `opened` | 0 | the parent Neovim opened the file, or the foreground Neovim exited 0 |
+| `path_refused` | 1 | `absolute_path`, `not_found`, `outside_project`, `not_regular_file` |
+| `editor_refused` | 1 | `$NVIM` is not a local socket of yours that answers as Neovim 0.11.7 or later, or Neovim reported an error |
+| `editor_unavailable` | 1 | no `$NVIM`, and no terminal or no `nvim` on `PATH` |
+| `editor_failed` | 1 | the foreground Neovim exited with another code |
+
+**Plugin requirements:** Neovim 0.11.7 or later (tested on 0.11.7 and 0.12.6, on macOS and Linux), and ai-dev v0.3.0 or later, below v1.0.0, or a development build.
+
+**Installation with lazy.nvim:**
+
+```lua
+{
+  "germanmunozs/ai-dev",
+  version = "*",          -- latest release tag
+  cmd = "AiDev",
+  config = function(plugin, opts)
+    vim.opt.rtp:append(plugin.dir .. "/nvim")
+    require("ai-dev").setup(opts)
+  end,
+  opts = {},
+}
+```
+
+Without lazy.nvim, put the `nvim/` directory of a checkout on `'runtimepath'` and call `require("ai-dev").setup()`. With `setup({ preset = true })` you also get the mappings of the LazyVim preset.
+
+**LazyVim preset:** the same specification with mappings under `<leader>i`, none of which replaces a LazyVim v16.0.2 mapping. The which-key group is added only if which-key is installed.
+
+<!-- ai-dev-preset:begin -->
+```lua
+{
+  "germanmunozs/ai-dev",
+  version = "*",
+  cmd = "AiDev",
+  config = function(plugin, opts)
+    vim.opt.rtp:append(plugin.dir .. "/nvim")
+    require("ai-dev").setup(opts)
+  end,
+  opts = {},
+  keys = {
+    { "<leader>if", "<cmd>AiDev features<cr>", desc = "ai-dev features" },
+    { "<leader>id", "<cmd>AiDev doctor<cr>", desc = "ai-dev doctor" },
+    { "<leader>ia", "<cmd>AiDev agents<cr>", desc = "ai-dev agents" },
+    { "<leader>ii", "<cmd>AiDev ask<cr>", desc = "ai-dev ask" },
+    { "<leader>ii", ":AiDev ask<cr>", mode = "x", desc = "ai-dev ask (selection)" },
+    { "<leader>it", "<cmd>AiDev tui<cr>", desc = "ai-dev tui" },
+  },
+},
+{ "folke/which-key.nvim", optional = true, opts = { spec = { { "<leader>i", group = "ai-dev" } } } },
+```
+<!-- ai-dev-preset:end -->
+
+| Command | Effect |
+|---|---|
+| `:AiDev features` | features view: each feature's state, next activity, role and agent, from `ai-dev workflow guide` |
+| `:AiDev doctor` | environment view, from `ai-dev doctor` |
+| `:AiDev agents` | agents and role assignment, from `ai-dev setup show` |
+| `:AiDev ask` | ask an agent about the current file; `:'<,'>AiDev ask` about the selected lines |
+| `:AiDev next`, `approve`, `abandon` | the feature's next step, approval or abandonment; you choose the feature from the list |
+| `:AiDev tui` | the cockpit in a Neovim terminal |
+| `:AiDev health` | `:checkhealth ai-dev` |
+
+The views are read-only. Their keys exist only in their own buffers: `r` evaluates again, `<CR>` on a feature lists its files and opens the one you choose, `n`, `a` and `x` start next, approve and abandon for the feature under the cursor, and `q` closes. Nothing is evaluated in the background.
+
+| Option | Default | Values |
+|---|---|---|
+| `cmd` | `"ai-dev"` | the ai-dev executable, looked up on `PATH` |
+| `concurrency` | `8` | ai-dev processes at once while a view loads, 1 to 16 |
+| `terminal` | `"tab"` | where commands run: `"tab"`, `"split"` or `"vsplit"` |
+| `preset` | `false` | `true` sets the preset mappings without lazy.nvim |
+
+An unknown option or an invalid value is reported with a warning, and its default is used.
+
+- **Every action asks first:** it asks for the values with nothing prefilled, shows a preview with the exact command (for an agent run, also the agent, the reference, whether the text is included and the complete instruction) and asks "Run this command?", with Cancel as the default. Only Run starts the command in a Neovim terminal, where its output reaches you unchanged. When it ends, the plugin shows `ai-dev exited with code N` and nothing else about the outcome. No key or mapping approves anything.
+- **Privacy:** a reference holds the file's path in the project, the line range and the SHA-256 of the saved file. The selected text is included only if you choose it in the preview: at most 32 KiB, and at most 64 KiB for the whole instruction. A buffer with unsaved changes is refused, so save first. The digest is computed again on Run, and a file changed since the preview is refused. The agent reads the file itself and may send what it reads to its provider.
+- **Closing Neovim** ends an agent running in one of its terminals.
+- **No files, no shell:** the plugin writes no file, starts no program other than the configured ai-dev, always with argument lists, and shows text from files and commands sanitized, like the cockpit.
+- **Troubleshooting:** `:checkhealth ai-dev` reports the Neovim and ai-dev versions and whether they are compatible. If `ai-dev open` reports `editor_refused`, `$NVIM` does not name a working Neovim socket of yours: run it from a terminal of the Neovim you want, or without `$NVIM`.
+- **Removal:** remove the specification and restart Neovim. Nothing remains, because the plugin defines its command, autocommands and mappings only in `setup()`.
 
 ## Security model
 
