@@ -74,7 +74,10 @@ func RunOpen(ctx context.Context, args []string, deps openDependencies, stdin io
 	}
 	path := flags.Arg(0)
 	result := openFile(ctx, deps, path, *line, *column, stdin, stdout, stderr)
-	result.loc.Rel = path
+	// An absolute path is never echoed, not even the one typed (F014-FR-025).
+	if result.Reason != editor.ReasonAbsolutePath {
+		result.loc.Rel = path
+	}
 	if *format == "json" {
 		return writeOpenJSON(result, stdout, stderr)
 	}
@@ -163,6 +166,9 @@ func writeOpenText(r openResult, stdout, stderr io.Writer) int {
 		}
 		return 0
 	case "path_refused":
+		if path == "" {
+			path = "the path"
+		}
 		fmt.Fprintf(stderr, "Refused: %s %s (%s).\n", path, openReasonText[r.Reason], r.Reason)
 	case "editor_refused", "editor_unavailable":
 		text := openReasonText[r.Reason]

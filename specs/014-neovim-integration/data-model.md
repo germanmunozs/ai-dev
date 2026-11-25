@@ -57,6 +57,7 @@ See [contracts/open.md](contracts/open.md).
 Refusals:
 - `no_file`: the buffer has no name, or its `buftype` is not empty;
 - `unsaved`: the buffer is modified;
+- `stale`: the buffer is not modified but no longer matches the file on disk (changed outside Neovim and not reloaded), so its lines would not match the digest (independent review F1);
 - `outside_project`;
 - `not_regular_file`;
 - `selection_too_large`;

@@ -38,8 +38,9 @@ local function close_preview()
   end
 end
 
--- show_preview opens a floating window holding lines; q closes it.
-local function show_preview(lines)
+-- show_preview opens a floating window holding lines; q closes it. With
+-- focus, the window takes the cursor, so q reaches it.
+local function show_preview(lines, focus)
   close_preview()
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(buf, preview_name)
@@ -52,7 +53,7 @@ local function show_preview(lines)
   end
   width = math.min(width, math.max(20, vim.o.columns - 4))
   local height = math.min(#lines, math.max(1, vim.o.lines - 6))
-  vim.api.nvim_open_win(buf, false, {
+  vim.api.nvim_open_win(buf, focus == true, {
     relative = "editor",
     row = math.max(0, math.floor((vim.o.lines - height) / 2) - 1),
     col = math.max(0, math.floor((vim.o.columns - width) / 2)),
@@ -146,7 +147,7 @@ local function confirm(a)
       states[a.name] = nil
       local lines = preview_lines(a)
       table.insert(lines, 1, "Refused (changed): the file changed on disk since this preview. Nothing was run.")
-      show_preview(lines)
+      show_preview(lines, true)
       notify("changed: " .. sanitize(a.ref.path) .. " changed on disk since the preview; nothing was run", vim.log.levels.WARN)
       return
     end
@@ -240,7 +241,8 @@ end
 function M.ask(range)
   local ref, why = reference.from_buffer(0, range)
   if not ref then
-    notify(("cannot refer to this buffer (%s)"):format(why), vim.log.levels.WARN)
+    local hint = why == "stale" and "; the file changed on disk, reload it with :edit" or ""
+    notify(("cannot refer to this buffer (%s)%s"):format(why, hint), vim.log.levels.WARN)
     return
   end
   begin("ask", function()

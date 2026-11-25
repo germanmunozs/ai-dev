@@ -55,7 +55,7 @@ Paths and Neovim messages are sanitized: control and escape sequences are shown 
 - For a foreground run, the report is printed after Neovim exits: `{"schema_version":"ai-dev.open/v1","outcome":"opened","target":"foreground","path":…,"line":…,"column":…}` for exit 0, and `editor_failed` with `"target":"foreground"` and `"exit_code":N` otherwise. The text format stays silent after a successful foreground run.
 - `reason` is present for every refusal.
 - `message` (sanitized) is present only for `editor_error`.
-- No absolute path, no environment value, and not the value of `$NVIM` ever appear (F014-FR-025).
+- No absolute path, no environment value, and not the value of `$NVIM` ever appear (F014-FR-025). An `absolute_path` refusal does not echo the path typed either: `path` is `""`, and the text report says "the path".
 
 ## Parent-instance protocol (R-02)
 

@@ -51,6 +51,24 @@ function T.run_reports_a_missing_executable()
   h.match("not found", r.error)
 end
 
+function T.run_stops_a_command_that_does_not_answer()
+  local dir = h.tmpdir()
+  local cmd = h.fake_ai_dev(dir, "sleep 5")
+  local cli = require("ai-dev.cli")
+  local saved = cli.timeout
+  cli.timeout = 200
+  local ok, err = pcall(function()
+    local start = vim.uv.hrtime()
+    local r = run(cfg(cmd), { "workflow", "guide" })
+    h.truthy((vim.uv.hrtime() - start) / 1e6 < 3000, "stopped before the command ended")
+    h.eq(nil, r.code)
+    h.match("did not answer within 0%.2 s", r.error)
+    h.eq(0, cli.active(), "the slot is released")
+  end)
+  cli.timeout = saved
+  assert(ok, err)
+end
+
 function T.run_returns_before_the_command_ends_and_calls_back_on_the_main_loop()
   local dir = h.tmpdir()
   local cmd = h.fake_ai_dev(dir, "sleep 0.3; echo done")

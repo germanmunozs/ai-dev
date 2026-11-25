@@ -165,7 +165,7 @@ return false`)
 		if code != 1 || report["outcome"] != c.outcome || report["reason"] != c.reason {
 			t.Errorf("%s with %s: exit %d, %v", c.path, c.endpoint, code, report)
 		}
-		if strings.Contains(strings.Join([]string{report["path"].(string)}, ""), base) {
+		if p := report["path"].(string); strings.Contains(p, base) || strings.HasPrefix(p, "/") {
 			t.Errorf("report names an absolute path: %v", report)
 		}
 	}

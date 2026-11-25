@@ -174,6 +174,12 @@ function T.a_file_changed_after_the_preview_is_refused()
   local again = table.concat(h.preview_lines() or {}, "\n")
   h.truthy(again:find("Refused (changed)", 1, true), "the preview is shown again")
   h.truthy(again:find("Agent: claude-code", 1, true))
+  -- The refusal stays until read: it has the focus, and q closes it.
+  local file_win = vim.fn.win_getid(vim.fn.winnr("#"))
+  h.match("ai%-dev://preview$", vim.api.nvim_buf_get_name(0))
+  vim.api.nvim_feedkeys("q", "x", false)
+  h.eq(nil, h.preview_lines(), "q closed the refusal")
+  h.eq(file_win, vim.api.nvim_get_current_win(), "back in the file's window")
 end
 
 function T.refusals_of_the_reference_stop_before_any_question()
@@ -184,6 +190,12 @@ function T.refusals_of_the_reference_stop_before_any_question()
   ask(nil)
   h.eq({}, asked)
   h.match("unsaved", notes[#notes].msg)
+
+  vim.cmd("edit!")
+  h.write(vim.api.nvim_buf_get_name(0), "changed outside\n")
+  ask(nil)
+  h.eq({}, asked)
+  h.match("%(stale%); the file changed on disk, reload it with :edit", notes[#notes].msg)
 end
 
 function T.only_one_ask_runs_at_a_time()

@@ -155,12 +155,17 @@ func TestOpenPathRefused(t *testing.T) {
 	}
 	for path, reason := range cases {
 		code, stdout, stderr := f.run("--", path)
-		if code != 1 || stdout != "" || !strings.HasPrefix(stderr, "Refused: ") || !strings.HasSuffix(stderr, " ("+reason+").\n") {
+		if code != 1 || stdout != "" || !strings.HasPrefix(stderr, "Refused: ") || !strings.HasSuffix(stderr, " ("+reason+").\n") ||
+			strings.Contains(stderr, f.root) {
 			t.Errorf("%q: exit %d, stdout %q, stderr %q", path, code, stdout, stderr)
 		}
 		code, stdout, stderr = f.run("--format", "json", "--", path)
 		r := decodeOpen(t, stdout)
-		if code != 1 || stderr != "" || r.Outcome != "path_refused" || r.Reason != reason || r.Path != path || r.Target != "" {
+		want := path
+		if reason == "absolute_path" {
+			want = "" // never echoed (F014-FR-025)
+		}
+		if code != 1 || stderr != "" || r.Outcome != "path_refused" || r.Reason != reason || r.Path != want || r.Target != "" {
 			t.Errorf("%q JSON: exit %d, %+v, stderr %q", path, code, r, stderr)
 		}
 	}

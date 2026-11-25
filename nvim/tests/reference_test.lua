@@ -81,6 +81,43 @@ function T.refusals()
   refused("not_regular_file")
 end
 
+-- A buffer that is not modified but no longer matches its file (changed
+-- outside Neovim, not reloaded) would pair stale lines with the new
+-- digest; it is refused until reloaded.
+function T.a_buffer_older_than_its_file_is_stale()
+  local reference = require("ai-dev.reference")
+  local _, path = project({ "old line" })
+  h.write(path, "new line\n")
+  local ref, why = reference.from_buffer(0, { 1, 1 })
+  h.eq(nil, ref)
+  h.eq("stale", why)
+  vim.cmd("edit!")
+  ref = assert(reference.from_buffer(0, { 1, 1 }))
+  h.eq("new line\n", ref:text())
+end
+
+-- Every way Neovim reads a file back into the same bytes matches it.
+function T.file_formats_and_encodings_match_their_buffer()
+  local reference = require("ai-dev.reference")
+  local root = project({ "x" })
+  local cases = {
+    ["unix.txt"] = "a\nb\n",
+    ["dos.txt"] = "a\r\nb\r\n",
+    ["noeol.txt"] = "a\nb",
+    ["empty.txt"] = "",
+    ["blank.txt"] = "\n",
+    ["nul.txt"] = "a\0b\n",
+    ["bom.txt"] = "\239\187\191a\n",
+    ["latin1.txt"] = "caf\233\n",
+  }
+  for name, bytes in pairs(cases) do
+    h.write(root .. "/" .. name, bytes)
+    vim.cmd.edit({ args = { root .. "/" .. name }, magic = { file = false, bar = false } })
+    local ref, why = reference.from_buffer(0, nil)
+    h.truthy(ref, name .. ": " .. tostring(why))
+  end
+end
+
 function T.a_terminal_buffer_is_no_file()
   local reference = require("ai-dev.reference")
   vim.cmd.terminal()

@@ -7,14 +7,40 @@ local M = {}
 M.max_text = 32768 -- 32 KiB of selected text (R-07)
 M.max_instruction = 65536 -- 64 KiB for the whole instruction (R-07)
 
-local function digest_of(path)
+local function read(path)
   local f = io.open(path, "rb")
   if not f then
     return nil
   end
   local bytes = f:read("*a")
   f:close()
-  return vim.fn.sha256(bytes)
+  return bytes
+end
+
+local function digest_of(path)
+  local bytes = read(path)
+  return bytes and vim.fn.sha256(bytes)
+end
+
+-- matches_buffer reports whether writing buf would give bytes: its lines
+-- joined by its file format, with its final end of line, byte order mark
+-- and encoding.
+local function matches_buffer(buf, bytes)
+  local bo = vim.bo[buf]
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  if bytes == "" and #lines == 1 and lines[1] == "" then
+    return true
+  end
+  local eol = ({ dos = "\r\n", mac = "\r" })[bo.fileformat] or "\n"
+  local text = table.concat(lines, eol) .. (bo.eol and eol or "")
+  local enc = bo.fileencoding
+  if enc ~= "" and enc ~= "utf-8" then
+    text = vim.iconv(text, "utf-8", enc)
+  end
+  if text and bo.bomb then
+    text = "\239\187\191" .. text
+  end
+  return text == bytes
 end
 
 local Reference = {}
@@ -40,7 +66,8 @@ end
 
 -- from_buffer returns the reference to buf (0 for the current buffer) and
 -- range ({first, last} or nil for the whole file), or nil and the reason:
--- no_file, unsaved, outside_project or not_regular_file.
+-- no_file, unsaved, outside_project, not_regular_file, or stale when the
+-- file on disk no longer holds the buffer's lines.
 function M.from_buffer(buf, range)
   buf = buf == 0 and vim.api.nvim_get_current_buf() or buf
   local name = vim.api.nvim_buf_get_name(buf)
@@ -63,11 +90,14 @@ function M.from_buffer(buf, range)
   if path == "." or not stat or stat.type ~= "file" then
     return nil, "not_regular_file"
   end
-  local digest = digest_of(real)
-  if not digest then
+  local bytes = read(real)
+  if not bytes then
     return nil, "not_regular_file"
   end
-  return setmetatable({ buf = buf, path = path, real = real, range = range, digest = digest }, Reference)
+  if not matches_buffer(buf, bytes) then
+    return nil, "stale"
+  end
+  return setmetatable({ buf = buf, path = path, real = real, range = range, digest = vim.fn.sha256(bytes) }, Reference)
 end
 
 -- compose returns the instruction the agent receives: the person's text, a
