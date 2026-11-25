@@ -145,7 +145,7 @@ func TestNvimPluginAsk(t *testing.T) {
 
 // The reference and ask action tests (F014-FR-011 to FR-017, US3).
 func TestNvimLuaAsk(t *testing.T) {
-	runLua(t, "reference_test.lua", "actions_ask_test.lua")
+	runLua(t, "sha256_test.lua", "reference_test.lua", "actions_ask_test.lua")
 }
 
 // Approve and abandon through the plugin give the same record, output and

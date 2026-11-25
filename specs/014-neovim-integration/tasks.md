@@ -205,6 +205,8 @@
 
   **Gates after the fixes (local macOS, Neovim 0.12.5):** `gofmt -l .` empty; `go vet` ok for darwin and linux; `go test -race -count=1 ./...` all ok; `AI_DEV_REQUIRE_NVIM=1 go test -race -count=1 -run '^TestNvim' ./...` all ok; Lua suite 96 tests, 0 failed; staticcheck v0.8.2 ok for darwin and linux.
 
+  **First CI run on PR #45 (2026-11-25):** on Neovim 0.11.7, on both runners, two reference tests failed with `E976: Using a Blob as a String`. Neovim 0.11 converts a Lua string that holds a NUL into a Blob, which `vim.fn.sha256` refuses; 0.12 accepts it. **Fixed:** `nvim/lua/ai-dev/sha256.lua` hashes in Lua the bytes that hold a NUL and keeps `vim.fn.sha256` for the others; `sha256_test.lua` checks the FIPS 180-4 vectors, a NUL vector from `shasum`, and agreement with `vim.fn.sha256` for every length from 0 to 200 and for a long input.
+
 ## Dependencies
 
 - Phase 1 → Phase 2 → stories.

@@ -2,6 +2,8 @@
 -- the digest of a saved file, and the selected text only when the person
 -- includes it (Feature 014, F014-FR-011, FR-015, data-model.md Code
 -- Reference). The agent reads the file itself.
+local sha256 = require("ai-dev.sha256").hex
+
 local M = {}
 
 M.max_text = 32768 -- 32 KiB of selected text (R-07)
@@ -19,7 +21,7 @@ end
 
 local function digest_of(path)
   local bytes = read(path)
-  return bytes and vim.fn.sha256(bytes)
+  return bytes and sha256(bytes)
 end
 
 -- matches_buffer reports whether writing buf would give bytes: its lines
@@ -97,7 +99,7 @@ function M.from_buffer(buf, range)
   if not matches_buffer(buf, bytes) then
     return nil, "stale"
   end
-  return setmetatable({ buf = buf, path = path, real = real, range = range, digest = vim.fn.sha256(bytes) }, Reference)
+  return setmetatable({ buf = buf, path = path, real = real, range = range, digest = sha256(bytes) }, Reference)
 end
 
 -- compose returns the instruction the agent receives: the person's text, a
