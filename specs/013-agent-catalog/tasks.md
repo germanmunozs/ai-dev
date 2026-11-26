@@ -209,7 +209,7 @@ The reviewer was a separate agent. It had no write access to the repository and 
 | L2 | LOW | The README architecture text still said "claude/codex adapters" (EN and ES), and the README omitted that Grok Build and IBM Bob also fail criterion 3 | Fixed in both languages |
 | L3 | LOW | The 013 contract said doctor names agents in its "explanation", and 001's amendment record lacked the 2026-11-23 decision | Fixed |
 | L4 | LOW | Adding an agent touches more than the files listed (the identifier constant, documentation, non-table tests) | Fixed: the contract's "Adding an agent later" list names every file. `main_test.go` and `completion_test.go` derive their expectations from the shared catalog lists |
-| L5 | LOW | The `setup apply --role` help line lists 40 `ROLE=AGENT` pairs | Accepted: it complies with 010 (allowed values listed when fixed). A compact rendering would need a 010 clarification and is left for a later change |
+| L5 | LOW | The `setup apply --role` help line lists 40 `ROLE=AGENT` pairs | Accepted: it complies with 010 (allowed values listed when fixed). A compact rendering would need a 010 clarification and is left for a later change. Done on 2026-11-25: 010 Amendment 2 states the roles and the agents once each |
 | L6 | LOW | `TestCanonicalIDsRemainSeparateFromDisplayLabels` could panic on a length mismatch, and the instruction-safety test had no negative fixture | Fixed: a length guard was added, and `instructionProblem` has fixtures for a second `--` and for an unknown form |
 | L7 | LOW | The doctor check's name varies with the environment | Accepted: 001 FR-008 keys automation off `id`, which is stable. The CHANGELOG documents it |
 

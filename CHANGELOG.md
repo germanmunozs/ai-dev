@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 - `scripts/install-dev.sh` marks development builds as `v0.3.1-dev+<commit>` instead of `v0.2.2-dev+<commit>`.
+- The help of `setup apply --role` lists the roles and the agents once each (`[values: ROLE: …; AGENT: …]`) instead of all 40 `ROLE=AGENT` pairs. Shell completion still offers every pair.
 
 ## [0.3.0] - 2026-11-25
 

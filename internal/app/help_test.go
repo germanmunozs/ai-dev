@@ -191,7 +191,12 @@ func TestEveryPathAnswersHelp(t *testing.T) {
 				if !strings.Contains(want, "  --"+option.name) {
 					t.Errorf("%v help lacks --%s", path, option.name)
 				}
-				for _, value := range option.values {
+				values := option.values
+				if option.valuesHelp != "" {
+					// Compound values are stated as their parts (010 Amendment 2).
+					values = []string{"[values: " + option.valuesHelp + "]"}
+				}
+				for _, value := range values {
 					if !strings.Contains(want, value) {
 						t.Errorf("%v help lacks value %q of --%s", path, value, option.name)
 					}
@@ -299,6 +304,21 @@ func TestHelpListsTheAgentCatalog(t *testing.T) {
 		if code != 0 || stderr != "" || !strings.Contains(stdout, values) {
 			t.Fatalf("%v: exit %d, stderr %q, missing %q in:\n%s", path, code, stderr, values, stdout)
 		}
+	}
+}
+
+// The --role help states the roles and the agents once each instead of every
+// ROLE=AGENT pair, so it grows by one value per agent (Feature 010,
+// Amendment 2); completion still offers every pair.
+func TestHelpStatesRolePairsCompactly(t *testing.T) {
+	want := "  --role ROLE=AGENT  The agent for one role; give all five [values: ROLE: " +
+		strings.Join(roleNames(), "|") + "; AGENT: " + strings.Join(catalogIDs, "|") + "] [repeatable]\n"
+	code, stdout, stderr, _, _ := runTopLevel(t, "help", "setup", "apply")
+	if code != 0 || stderr != "" || !strings.Contains(stdout, want) || strings.Contains(stdout, "specification=") {
+		t.Fatalf("exit %d, stderr %q, want line %q in:\n%s", code, stderr, want, stdout)
+	}
+	if len(roleAgentValues) != len(roleNames())*len(catalogIDs) {
+		t.Fatalf("completion lost ROLE=AGENT pairs: %d", len(roleAgentValues))
 	}
 }
 
