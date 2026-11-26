@@ -3,7 +3,12 @@ package app
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io/fs"
+	"os"
+	"slices"
+	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -67,5 +72,85 @@ func TestWatchOptionDefaultsAndLimits(t *testing.T) {
 		if _, _, ok := parseWatchOptions(args); !ok {
 			t.Errorf("%q refused; it is a limit", args)
 		}
+	}
+}
+
+// watchExecutor finds the tools named in paths and records every call.
+type watchExecutor struct {
+	mu      sync.Mutex
+	paths   map[string]string
+	runs    []string
+	lookups []string
+}
+
+func (r *watchExecutor) LookPath(name string) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.lookups = append(r.lookups, name)
+	if path := r.paths[name]; path != "" {
+		return path, nil
+	}
+	return "", errors.New("not found")
+}
+
+func (r *watchExecutor) Run(_ context.Context, name string, args ...string) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.runs = append(r.runs, strings.Join(append([]string{name}, args...), " "))
+	return "true\n", nil
+}
+
+func (r *watchExecutor) forget(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.paths, name)
+}
+
+// Revalidation sees an agent leave the search path through the commands'
+// own functions (US4 scenario 3); no agent runs.
+func TestWatchSourceSeesAgentLeavePath(t *testing.T) {
+	dir := writeWatchFixture(t, watchAgentsConfig)
+	executor := &watchExecutor{paths: map[string]string{"git": "/usr/bin/git", "claude": "/tools/claude", "codex": "/tools/codex", "specify": "/tools/specify"}}
+	source := newWatchSource(os.DirFS(dir), executor)
+	envBefore, setupBefore := source.Environment(context.Background()), source.Setup()
+	executor.forget("claude")
+	executor.forget("codex")
+	envAfter, setupAfter := source.Environment(context.Background()), source.Setup()
+	if bytes.Equal(setupBefore, setupAfter) {
+		t.Errorf("setup unchanged after the agents left the path:\n%s", setupAfter)
+	}
+	status := func(r watch.EnvironmentResult) string {
+		for _, c := range r.Checks {
+			if c.ID == "coding-agent-tool" {
+				return c.Status
+			}
+		}
+		return "missing"
+	}
+	if status(envBefore) != "pass" || status(envAfter) != "fail" {
+		t.Errorf("coding-agent-tool check %s then %s, want pass then fail", status(envBefore), status(envAfter))
+	}
+}
+
+// The source runs nothing but the doctor check's git rev-parse, once per
+// environment evaluation (F015-FR-020, analysis C1).
+func TestWatchSourceRunsOnlyGitRevParse(t *testing.T) {
+	dir := writeWatchFixture(t, watchAgentsConfig)
+	executor := &watchExecutor{paths: map[string]string{"git": "/usr/bin/git", "claude": "/tools/claude", "codex": "/tools/codex", "specify": "/tools/specify"}}
+	source := newWatchSource(os.DirFS(dir), executor)
+	features, err := source.Features()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range features {
+		source.State(id)
+		source.Next(id)
+	}
+	source.Setup()
+	source.Environment(context.Background())
+	source.Environment(context.Background())
+	want := []string{"git rev-parse --is-inside-work-tree", "git rev-parse --is-inside-work-tree"}
+	if !slices.Equal(executor.runs, want) {
+		t.Fatalf("runs %q, want %q", executor.runs, want)
 	}
 }

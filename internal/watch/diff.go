@@ -57,3 +57,45 @@ func sameArtifact(a, b Artifact) bool {
 	return a.Name == b.Name && a.Status == b.Status && a.Modified == b.Modified &&
 		(a.Size == nil) == (b.Size == nil) && (a.Size == nil || *a.Size == *b.Size)
 }
+
+// checkChanges lists the checks whose status changed, in id order; a check
+// that appeared or disappeared has null on that side.
+func checkChanges(prev, cur []CheckStatus) []CheckChange {
+	before := map[string]CheckStatus{}
+	for _, c := range prev {
+		before[c.ID] = c
+	}
+	after := map[string]CheckStatus{}
+	for _, c := range cur {
+		after[c.ID] = c
+	}
+	var ids []string
+	for id := range before {
+		ids = append(ids, id)
+	}
+	for id := range after {
+		if _, known := before[id]; !known {
+			ids = append(ids, id)
+		}
+	}
+	slices.Sort(ids)
+	var changes []CheckChange
+	for _, id := range ids {
+		b, hadBefore := before[id]
+		a, hasNow := after[id]
+		if hadBefore && hasNow && b.Status == a.Status {
+			continue
+		}
+		change := CheckChange{ID: id, Remediation: a.Remediation}
+		if hadBefore {
+			status := b.Status
+			change.From = &status
+		}
+		if hasNow {
+			status := a.Status
+			change.To = &status
+		}
+		changes = append(changes, change)
+	}
+	return changes
+}

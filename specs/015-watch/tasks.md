@@ -262,7 +262,7 @@
 
 **Goal**: configuration and environment changes are reported. **Independent test**: `setup apply`, an invalid `agents.json`, and a fake agent removed from the fake executor's `PATH`.
 
-- [ ] T032 [P] [US4] Tests `internal/watch/environment_test.go`, written before T033, in `synctest.Test` (F015-FR-012, US4 scenarios 1–3):
+- [X] T032 [P] [US4] Tests `internal/watch/environment_test.go`, written before T033, in `synctest.Test` (F015-FR-012, US4 scenarios 1–3):
   - A `Changed` on `.ai-dev` or `agents.json` with new `Setup()` bytes yields `agents_config_changed` with those bytes.
   - Bytes with outcome `configuration_invalid` are reported as such, never replaced by defaults.
   - With `--environment-interval 60s`, a check going from `pass` to `fail` at the 60 s tick yields `environment_changed`, listing only that check with `from: "pass"`, `to: "fail"` and its remediation, plus the full environment.
@@ -270,8 +270,8 @@
   - A check that appears or disappears has `null` on that side.
   - With `--environment-interval 0` no tick occurs.
   - `heartbeat` is emitted every 15 s by default and every `--heartbeat`, with `data: {}`.
-- [ ] T033 [US4] Extend `loop.go` and `diff.go` with the `setup` key, the revalidation ticker, the heartbeat ticker, `agents_config_changed` and `environment_changed`.
-- [ ] T034 [US4] Tests in `internal/app/watch_test.go`:
+- [X] T033 [US4] Extend `loop.go` and `diff.go` with the `setup` key, the revalidation ticker, the heartbeat ticker, `agents_config_changed` and `environment_changed`.
+- [X] T034 [US4] Tests in `internal/app/watch_test.go`:
   - With the real source over a fixture and a fake executor whose `LookPath` stops finding a fake agent between two calls, `Environment` and `Setup` change accordingly. This proves the revalidation path with the commands' own functions, and runs no agent.
   - **F015-FR-020 (analysis C1):** a recording executor wraps the fake one. Across `Features`, `State`, `Next`, `Setup` and two `Environment` calls, its only `Run` calls are `git rev-parse --is-inside-work-tree`, one per `Environment` call. `LookPath` calls are allowed; no other `Run` call is.
 

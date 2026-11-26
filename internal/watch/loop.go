@@ -117,6 +117,15 @@ func Run(ctx context.Context, opts Options, cfg Config) (result Result) {
 	}
 	l.picture, l.pending = p, map[string]time.Time{}
 
+	heartbeat := time.NewTicker(opts.Heartbeat)
+	defer heartbeat.Stop()
+	var revalidate <-chan time.Time
+	if opts.EnvironmentInterval > 0 {
+		ticker := time.NewTicker(opts.EnvironmentInterval)
+		defer ticker.Stop()
+		revalidate = ticker.C
+	}
+
 	for {
 		var due <-chan time.Time
 		if l.timer != nil {
@@ -128,6 +137,10 @@ func Run(ctx context.Context, opts Options, cfg Config) (result Result) {
 			return l.stop(Stopped{Reason: "signal"}, 0)
 		case <-l.q.Err():
 			return Result{ExitCode: 2}
+		case <-heartbeat.C:
+			l.push(Heartbeat, struct{}{})
+		case <-revalidate:
+			l.evaluateEnvironment()
 		case c, ok := <-watcher.Events():
 			if !ok {
 				return l.stop(Stopped{Reason: "watch_unavailable", Detail: "watching stopped unexpectedly"}, 1)
@@ -300,6 +313,18 @@ func (l *loop) evaluateSpecs() *stopped {
 		}
 	}
 	return nil
+}
+
+// evaluateEnvironment re-evaluates the doctor checks and the agents'
+// availability, which change with the search path rather than with project
+// files (F015-FR-012).
+func (l *loop) evaluateEnvironment() {
+	cur := l.obs.source.Environment(l.ctx)
+	if checks := checkChanges(l.picture.env.Checks, cur.Checks); len(checks) > 0 {
+		l.push(EnvironmentChanged, EnvironmentChange{Checks: checks, Environment: cur.JSON})
+	}
+	l.picture.env = cur
+	l.evaluateSetup()
 }
 
 func (l *loop) evaluateSetup() {
