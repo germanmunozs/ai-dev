@@ -74,7 +74,7 @@ Emission rules:
   - For one feature, the order is `workflow_state_changed`, `artifacts_changed`, `next_step_changed`, each only when it changed.
   - `feature_added` and `feature_removed` replace the per-feature events for that feature.
 - `--feature` limits feature events only. `agents_config_changed`, `environment_changed`, `heartbeat`, `resync_required` and `watch_stopped` are unaffected.
-- `watch_stopped` is the last event. After `--once` there is none.
+- `watch_stopped` is the last event. After a successful `--once` snapshot there is none. When the project directory cannot be read at start, `--once` emits only `watch_stopped` (`watch_unavailable`) and exits 1, like a watching run.
 
 ## Compatibility
 

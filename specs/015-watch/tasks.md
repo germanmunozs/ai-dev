@@ -26,6 +26,10 @@
   - I3: an unwritable output exits 2;
   - I4: `internal/system` excluded;
   - U3: deletion of the project tested end to end.
+- After the second `/speckit-analyze` (2026-11-26, "si, aplica los tres cambios y haz el commit"):
+  - U6: `--once` with an unreadable project;
+  - C2: the full list of write calls and the `syscall.Open` flags;
+  - I5: `inotifyInit`.
 
 **Story order**: US2 (the snapshot) is built before US1, because every live event follows a snapshot (F015-FR-005). Both are P1, and the MVP is the two together.
 
@@ -111,7 +115,9 @@
 - [ ] T013 [P] Structural test `internal/watch/deps_test.go` (F015-FR-019, F015-FR-020, R-03, owner decision 1):
   - Run `go list -deps ./internal/watch ./internal/fswatch` from the module root.
   - Fail if the output contains `internal/gatestore`, `internal/configstore`, `internal/gitstore`, `internal/gitmanager`, `internal/gitprocess`, `internal/execution`, `internal/report`, `internal/system` or `os/exec`.
-  - Also fail if any non-test file in these packages calls `os.Create`, `os.OpenFile` with a write flag, `os.WriteFile`, `os.Remove`, `os.RemoveAll`, `os.Rename`, `os.Mkdir`, `os.MkdirAll`, `os.Chmod`, `os.Symlink` or `syscall.Flock`. Check this with a `go/parser` walk, like `internal/cockpit/boundary_test.go`.
+  - Also fail if any non-test file in these packages calls `os.Create`, `os.OpenFile` with a write flag, `os.WriteFile`, `os.Remove`, `os.RemoveAll`, `os.Rename`, `os.Mkdir`, `os.MkdirAll`, `os.Chmod`, `os.Chtimes`, `os.Chown`, `os.Lchown`, `os.Link`, `os.Symlink`, `os.Truncate` or `syscall.Flock`.
+  - Also fail if any `syscall.Open` call's flags contain anything other than `O_EVTONLY`, `O_SYMLINK`, `O_CLOEXEC` or `O_RDONLY` (analysis C2).
+  - Check all of this with a `go/parser` walk, like `internal/cockpit/boundary_test.go`.
 
 **The command, catalog, help and completion (A1, A2)**
 
@@ -157,7 +163,7 @@
   - `artifacts` always lists `spec.md`, `plan.md` and `tasks.md`, in that order: `present` with `size` and `modified` for a regular file, `absent`, and `not_regular_file` for a symbolic link (not followed) or a directory.
   - `--feature b --feature zz` gives only `b`, plus `zz` with the source's `feature_unknown` objects and the three artifacts `absent`.
   - `seq` is 1.
-  - With `Once`, the result is exit 0 after exactly one event, and the watcher constructor is never called. A constructor that returns `Unavailable` still gives the snapshot and exit 0 (F015-FR-014, analysis I1).
+  - With `Once`, the result is exit 0 after exactly one event, and the watcher constructor is never called. A constructor that returns `Unavailable` still gives the snapshot and exit 0 (F015-FR-014, analysis I1). With an unreadable project directory, `Once` emits only `watch_stopped` (`watch_unavailable`) and gives exit 1 (analysis U6).
   - Without `Once`, `Sync` is called with the watch set of data-model.md before the source is first read (R-02). The order is checked by a log shared by the fake source and the fake watcher.
 - [ ] T020 [US2] Implement `internal/watch/picture.go` (the Project Picture, artifacts by `Lstat` through `fs.FS`, the history length through `gate.ReadHistory`, and the watch set) and the start of `internal/watch/loop.go`:
   - `Run(ctx, Options, Source, func() (fswatch.Watcher, error), root fs.FS, output io.Writer) Result`.
@@ -191,10 +197,10 @@
 - [ ] T024 [P] [US1] Tests `internal/fswatch/inotify_linux_test.go` (`//go:build linux`), written before T025 (R-01):
   - The same atomic-replace and in-place-write cases as T022, through directory watches only; `Sync` ignores `files`.
   - A symbolic-link directory is not watched (`IN_DONT_FOLLOW|IN_ONLYDIR`).
-  - Through an injected `addWatch` returning `ENOSPC`, `Sync` returns `Unavailable{Reason: "watch_limit"}`, with a detail naming `fs.inotify.max_user_watches` and a remedy `sudo sysctl fs.inotify.max_user_watches=<n>`; an injected `EMFILE` from `init` gives `instance_limit` naming `fs.inotify.max_user_instances`.
+  - Through an injected `addWatch` returning `ENOSPC`, `Sync` returns `Unavailable{Reason: "watch_limit"}`, with a detail naming `fs.inotify.max_user_watches` and a remedy `sudo sysctl fs.inotify.max_user_watches=<n>`; an injected `EMFILE` from `inotifyInit` gives `instance_limit` naming `fs.inotify.max_user_instances`.
   - An injected `IN_Q_OVERFLOW` record yields `Overflow`.
 - [ ] T025 [US1] Implement `internal/fswatch/inotify_linux.go` (`//go:build linux`) per R-01:
-  - `syscall.InotifyInit1(IN_CLOEXEC)`, with `addWatch` and `init` held in package variables for T024;
+  - `syscall.InotifyInit1(IN_CLOEXEC)`, with `addWatch` and `inotifyInit` held in package variables for T024 (`init` is reserved in Go, analysis I5);
   - the mask `IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_MODIFY|IN_CLOSE_WRITE|IN_ATTRIB|IN_DELETE_SELF|IN_MOVE_SELF|IN_DONT_FOLLOW|IN_ONLYDIR`;
   - a reader goroutine that parses `InotifyEvent` records and maps them to `Change` with the watched directory's path (`Gone` for `IN_DELETE_SELF` or `IN_MOVE_SELF`);
   - `Sync`, which adds and removes watches by path. Run this task's tests in CI's `gates` job on `ubuntu-latest`, since the owner's machine has no Linux environment (research.md R-01).
