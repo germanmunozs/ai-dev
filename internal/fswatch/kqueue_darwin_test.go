@@ -10,15 +10,6 @@ import (
 	"time"
 )
 
-func openDescriptors(t *testing.T) int {
-	t.Helper()
-	entries, err := os.ReadDir("/dev/fd")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return len(entries)
-}
-
 // After an atomic replace the old descriptor names a deleted file; Sync
 // reopens the path, so the new file's own writes are seen.
 func TestSyncReopensReplacedFile(t *testing.T) {
@@ -68,24 +59,35 @@ func TestSymbolicLinkFileIsNotFollowed(t *testing.T) {
 
 func TestCloseReleasesDescriptors(t *testing.T) {
 	root, feature, record, spec := project(t)
-	before := openDescriptors(t)
-	w, err := New()
+	watcher, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
-		t.Fatal(err)
+	w := watcher.(*kqueueWatcher)
+	if added, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil || len(added) != 4 {
+		t.Fatalf("Sync added %v, %v; want 4 paths", added, err)
 	}
-	if during := openDescriptors(t); during < before+5 {
-		t.Fatalf("descriptors during watch %d, want at least %d", during, before+5)
+	// The exact descriptors, rather than a count of /dev/fd, which other
+	// goroutines of the test process change (seen on a CI runner).
+	fds := []int{w.kq}
+	w.mu.Lock()
+	for _, v := range w.paths {
+		fds = append(fds, v.fd)
+	}
+	w.mu.Unlock()
+	if len(fds) != 5 {
+		t.Fatalf("descriptors %v, want the kqueue and 4 paths", fds)
 	}
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
 	for range w.Events() {
 	}
-	if after := openDescriptors(t); after != before {
-		t.Fatalf("descriptors after Close %d, want %d", after, before)
+	for _, fd := range fds {
+		var st syscall.Stat_t
+		if err := syscall.Fstat(fd, &st); err != syscall.EBADF {
+			t.Errorf("descriptor %d still open after Close (Fstat: %v)", fd, err)
+		}
 	}
 }
 
