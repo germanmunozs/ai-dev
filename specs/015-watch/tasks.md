@@ -365,6 +365,11 @@
 
   **Gates after the fixes (local macOS):** `gofmt -l .` empty; `go vet` ok for darwin, linux and windows; `go test -race -timeout 30m ./...` exit 0, all 29 packages ok; staticcheck ok for darwin and linux; cross-builds for windows and freebsd ok. Still to run in CI: the Linux adapter tests and govulncheck.
 
+  **CI on PR #50 (2026-11-26):**
+  - First run, 45867207117 on `f4094eb`: `static-analysis` and `git-minimum` passed. `gates (macos-latest)` failed in Tests on `TestCloseReleasesDescriptors`: "descriptors during watch 13, want at least 14". The test counted the entries of `/dev/fd`, which other goroutines of the test process open and close, so the count did not prove which descriptors the watcher held. `gates (ubuntu-latest)` was cancelled by the workflow's `concurrency` rule when the fix was pushed; it had not failed.
+  - **Fixed in `f69d89e`:** the test now takes the watcher's own descriptors (the kqueue and the four observed paths) and expects `Fstat` to return `EBADF` for each after `Close`. No product code changed.
+  - Second run, 45869041585 on `f69d89e`: all four jobs passed. That run also covered the two items left for CI: the Linux adapter tests, on `ubuntu-latest`, and govulncheck.
+
 ## Dependencies
 
 - **Phase 1** comes first, then **Phase 2**:
