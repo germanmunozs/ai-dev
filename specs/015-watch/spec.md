@@ -31,6 +31,17 @@
 - Q: An internal failure after watching started? → A: **`watch_stopped` with reason `internal_error`, exit 2.**
 - Q: The draft's open questions? → A: **`--once` is in scope** (emit the snapshot and exit). **`next_step_changed` does not embed `workflow guide`**; a client that needs it runs `ai-dev workflow guide`. **Target release v0.4.0**, the next minor after v0.3.0.
 
+### Session 2026-11-26 (analysis fixes)
+
+- **Authority record.** After `/speckit-analyze`, the owner approved the ten proposed fixes on 2026-11-26 ("si, aplica los diez cambios"). This is a declared, unauthenticated assertion.
+- The approved fixes change this specification in five places:
+  - `--once` works on every platform (F015-FR-014, F015-FR-016, the unsupported-platform edge case), as the owner decided on the plan.
+  - No evidence is attached when the previous observation could not read the history (F015-FR-008).
+  - `seq` counts emitted events (F015-FR-002).
+  - An unwritable standard output exits 2 (F015-FR-018).
+  - SC-001 measures state changes only.
+- No requirement is added or removed.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A client learns of a state change at once (Priority: P1)
@@ -122,7 +133,7 @@ A client can stop `watch`, detect lost events, and recover a consistent state wi
 - **A symbolic link, or an entry that is not a regular file or directory, under `specs/` or `.ai-dev/`**: it is never followed. A feature directory that is a symbolic link is not a feature, as Feature 004 defines; an artifact or record that is one is reported with the reason, as the existing commands report it.
 - **The operating system's limit on observed paths is reached** (for example Linux's `fs.inotify.max_user_watches`) **or watching cannot be established for another reason**: `watch` emits `watch_stopped` with `reason: "watch_unavailable"`, names the limit or cause and how to raise or fix it, and exits 1.
 - **Watching cannot be established before the snapshot**: the only event is that `watch_stopped`; no snapshot is emitted, so a client never receives a picture it cannot keep current.
-- **An unsupported operating system** (including native Windows): `watch_unavailable`, exit 1, as for the other durable-state operations.
+- **An unsupported operating system** (including native Windows): `watch_unavailable`, exit 1, as for the other durable-state operations; `--once` still emits the snapshot and exits 0 (F015-FR-014).
 - **A feature named by `--feature` that does not exist**: the snapshot lists it with `outcome: "feature_unknown"`, and `feature_added` is emitted if it appears; a structurally invalid identifier is a usage error (exit 2).
 - **Two changes to the same feature within one debounce window**: one event per changed result, computed from the final state; intermediate states that no longer hold are not reported.
 - **Several Human Gate entries appended within one debounce window**: the event carries the latest entry only if its `to_state` equals the new state.
@@ -136,7 +147,7 @@ A client can stop `watch`, detect lost events, and recover a consistent state wi
 **Command and output**
 
 - **F015-FR-001**: `ai-dev watch [--format text|json] [--feature <id>]... [--debounce <duration>] [--heartbeat <duration>] [--environment-interval <duration>] [--once]` MUST observe the project in the current directory until it is stopped. In `json` format each event MUST be one JSON object on one line, terminated by a newline, and written whole.
-- **F015-FR-002**: Every event MUST carry `schema_version` (`"ai-dev.watch/v1"`), `seq` (an integer that starts at 1 and grows by exactly 1 for each event of the process), `type`, `time` (RFC 3339, UTC), `project` (the project directory) and `data`.
+- **F015-FR-002**: Every event MUST carry `schema_version` (`"ai-dev.watch/v1"`), `seq` (an integer that starts at 1 and grows by exactly 1 for each emitted event of the process), `type`, `time` (RFC 3339, UTC), `project` (the project directory) and `data`.
 - **F015-FR-003**: The event types MUST be those of the table under Event Contract, with the data listed there. Within `ai-dev.watch/v1`, new fields and new event types MAY be added and clients MUST ignore those they do not know; removing or renaming a field, or changing its meaning, MUST require `ai-dev.watch/v2`.
 - **F015-FR-004**: In `text` format `watch` MUST print one readable line per event (time, type, feature, summary), meant for debugging, with every string from the project in the shell-inert quoted form of the existing reports.
 
@@ -145,20 +156,20 @@ A client can stop `watch`, detect lost events, and recover a consistent state wi
 - **F015-FR-005**: The first event MUST be `snapshot`, except when watching cannot be established (F015-FR-016). Every `resync_required` MUST be followed by a new `snapshot`. A change that occurs while a snapshot is computed MUST be included in it or reported after it.
 - **F015-FR-006**: Every state, next step, role assignment and check result MUST be computed by the same capabilities as `workflow state`, `workflow next`, `setup show` and `doctor`, with their values and outcomes, and MUST be identical to what those commands report for the same project at the same moment. `watch` MUST NOT interpret project files in any other way.
 - **F015-FR-007**: `watch` MUST emit an event only when a computed result changes, not every time a file is touched.
-- **F015-FR-008**: `workflow_state_changed` MUST report the previous and new state with the outcome of `workflow state` (`state_reported` or `state_invalid`) and MUST NOT report `transition_applied` or any other Human Gate outcome. It MUST carry the Human Gate evidence, as recorded and unchanged, only when a new entry appeared in the record's history since the previous observation and its `to_state` equals the new state; otherwise it MUST carry no evidence and MUST state that the change has no recorded Human Gate.
+- **F015-FR-008**: `workflow_state_changed` MUST report the previous and new state with the outcome of `workflow state` (`state_reported` or `state_invalid`) and MUST NOT report `transition_applied` or any other Human Gate outcome. It MUST carry the Human Gate evidence, as recorded and unchanged, only when the previous observation read the history, a new entry appeared in it since then, and that entry's `to_state` equals the new state; otherwise, including when the previous observation could not read the history, it MUST carry no evidence and MUST state that the change has no recorded Human Gate.
 - **F015-FR-009**: `artifacts_changed` MUST report, for `spec.md`, `plan.md` and `tasks.md`, presence, size and modification time only. `next_step_changed` MUST carry the same content as `ai-dev workflow next --format json` and MUST NOT embed `workflow guide`.
 - **F015-FR-010**: Changes MUST be grouped with a debounce set by `--debounce` (default 250 ms, from 50 ms to 5 s).
 - **F015-FR-011**: `watch` MUST emit `heartbeat` every `--heartbeat` (default 15 s, from 5 s to 300 s).
 - **F015-FR-012**: `watch` MUST re-evaluate the environment checks and the agents' availability every `--environment-interval` (default 60 s, from 5 s to 3600 s; `0` disables revalidation after the snapshot), and the role assignment whenever `.ai-dev/agents.json` changes.
 - **F015-FR-013**: `--feature` (repeatable) MUST limit feature events and the snapshot's features to the named features. Agent, environment and lifecycle events are unaffected.
-- **F015-FR-014**: `--once` MUST emit the snapshot only and exit 0.
+- **F015-FR-014**: `--once` MUST emit the snapshot only and exit 0. It registers no watch, so it MUST work on every platform, including those where watching is unavailable.
 
 **Termination, recovery and exit codes**
 
 - **F015-FR-015**: On SIGINT or SIGTERM `watch` MUST emit `watch_stopped` with `reason: "signal"` and exit 0.
-- **F015-FR-016**: When watching cannot be established or is lost, including when an operating-system limit is reached or the platform is unsupported, `watch` MUST emit `watch_stopped` with `reason: "watch_unavailable"`, name the cause and its remedy, and exit 1. When the project directory disappears, it MUST emit `watch_stopped` with `reason: "project_gone"` and exit 1.
+- **F015-FR-016**: When watching cannot be established or is lost, including when an operating-system limit is reached or the platform is unsupported (except with `--once`, F015-FR-014), `watch` MUST emit `watch_stopped` with `reason: "watch_unavailable"`, name the cause and its remedy, and exit 1. When the project directory disappears, it MUST emit `watch_stopped` with `reason: "project_gone"` and exit 1.
 - **F015-FR-017**: When output is not being read, `watch` MUST keep at most 1,000 pending events. On overflow it MUST discard them, and when output is read again it MUST emit `resync_required` followed by a new `snapshot`. Its memory MUST NOT grow without bound.
-- **F015-FR-018**: Exit codes MUST be: 0 for a stop by signal and for `--once`; 1 for a negative domain result (project directory unreadable, `watch_unavailable`, `project_gone`); 2 for a usage error, and for an internal failure, before or after watching started; after it started, `watch_stopped` with `reason: "internal_error"` MUST precede exit 2.
+- **F015-FR-018**: Exit codes MUST be: 0 for a stop by signal and for `--once`; 1 for a negative domain result (project directory unreadable, `watch_unavailable`, `project_gone`); 2 for a usage error, for an internal failure before or after watching started, and when standard output becomes unwritable (then no further event is emitted); after watching started, `watch_stopped` with `reason: "internal_error"` MUST precede exit 2.
 
 **Read-only and safety**
 
@@ -217,7 +228,7 @@ Example (illustrative; the plan's contract is authoritative):
 
 ### Measurable Outcomes
 
-- **SC-001**: With the default debounce, 95% of state changes reach the client within 1 second of the record being written, across the test suite.
+- **SC-001**: With the default debounce, 95% of state changes (Human Gate decisions and edits of a record's `state`) reach the client within 1 second of the record being written, across the test suite.
 - **SC-002**: In integration tests, every applied Human Gate produces exactly one `workflow_state_changed` carrying its evidence; every refused request produces none; every state change made without a Human Gate produces one event without evidence (100% of fixture cases).
 - **SC-003**: A continuous-integration test that runs `watch` while at least 50 simulated changes are made finds the project tree, other than the simulated changes, byte-identical before and after: 0 writes by `watch`.
 - **SC-004**: At rest, on a project with 100 features, `watch` uses under 0.5% of one CPU and under 30 MB of memory, measured manually by the owner and recorded with the tasks.

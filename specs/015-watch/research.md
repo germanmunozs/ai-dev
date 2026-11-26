@@ -68,7 +68,7 @@ No real coding agent ran during this research. The measurements ran on the owner
     - the cockpit's `specs/*` listing rule (`workflow.FeatureExists`) for the features.
   - The port returns each command's JSON as bytes, and `watch` embeds them unchanged (`json.RawMessage`). The values are therefore the commands' own bytes (SC-007), and a change is detected by comparing bytes.
   - The app adapter receives only a read-only `fs.FS` and the `system.Executor` (`LookPath`, and `git rev-parse` through the doctor check), the same capabilities as `RunWorkflowState`, `RunSetupShow` and `RunDoctor`. It receives no gate store, configuration store, Git dependency or launcher.
-- **Structural test:** `go list -deps ./internal/watch` must not contain `internal/gatestore`, `internal/configstore`, `internal/gitstore`, `internal/gitmanager`, `internal/gitprocess`, `internal/execution`, `internal/report` or `os/exec`. A second test checks that `RunWatch` builds its source from `deps.Root` and `deps.Executor` only.
+- **Structural test:** `go list -deps ./internal/watch` must not contain `internal/gatestore`, `internal/configstore`, `internal/gitstore`, `internal/gitmanager`, `internal/gitprocess`, `internal/execution`, `internal/report`, `internal/system` or `os/exec`. Excluding `internal/system` keeps the executor out of `watch` too: only the app adapter holds it. A recording executor checks that the adapter runs nothing but the doctor check's `git rev-parse --is-inside-work-tree` (F015-FR-020). A second test checks that `RunWatch` builds its source from `deps.Root` and `deps.Executor` only.
 - **Alternatives considered:**
   - Splitting `internal/report` into per-command packages: a large change to 001–014 code for no behavior change.
   - Reimplementing the JSON in `watch`: it would drift from the commands, against F015-FR-006.
@@ -92,7 +92,12 @@ No real coding agent ran during this research. The measurements ran on the owner
   - The record must be one JSON object with exactly one `human_gates` member, with no case variant.
   - That member must be an array of objects, each with `feature_id`, `decision` (`approval` or `abandonment`), `approver`, `from_state`, `to_state` (recognized states), `decided_at` (RFC 3339) and an optional `reason` string.
   - A missing record gives an empty history; anything else gives not ok.
-- **Rule of F015-FR-008:** the loop keeps each feature's history length. On a state change, if the history now holds more entries and the last entry's `to_state` equals the new state, the event carries that entry. In every other case, including an unreadable history, it carries `human_gate: null`.
+- **Rule of F015-FR-008:** the loop keeps each feature's history length, or −1 when the history could not be read. On a state change, the event carries the last entry only when all three hold:
+  - the previous length was not −1;
+  - the history now holds more entries;
+  - the last entry's `to_state` equals the new state.
+
+  In every other case it carries `human_gate: null`, so a history that becomes readable again never presents an old decision as the cause of a change.
 - **Wire-format agreement:** the wire structure is defined in `gatestore/record.go` (unexported), and `gate` cannot import `gatestore`, so the reader declares its own copy. A round-trip test in `internal/gatestore`:
   - commits approvals and abandonments, with and without a reason, through the real store;
   - reads them back with `gate.ReadHistory`;
@@ -109,7 +114,10 @@ No real coding agent ran during this research. The measurements ran on the owner
   - One writer goroutine writes each event line with one `Write` call. The loop puts events in a queue of at most 1,000.
   - `seq` is assigned by the writer at emission, so emitted lines always have consecutive `seq` values (SC-006).
   - When the loop must queue an event and the queue is full, it discards the queue, queues `resync_required` (`queue_overflow`), and stops producing events. When the writer has written `resync_required`, which means the client is reading again, the loop computes a new snapshot of the project as it is then, queues it, and resumes.
-  - Memory is bounded by 1,000 events plus one snapshot (SC-005). The queue limit is a constant; tests set a smaller one through an unexported field.
+  - Memory is bounded by 1,000 events plus one snapshot (SC-005).
+  - The queue limit is a constant, with no option, environment variable or build tag to change it.
+    - Unit tests set a smaller one through an unexported field.
+    - The end-to-end test overflows the real limit with a project of 1,100 features whose artifacts all change at once, which yields more than 1,000 events in one evaluation.
 - **A client that closes its end:** the write fails with `EPIPE`. `SIGPIPE` is turned into an error with the existing `brokenPipeAsError`. No event can be written any more, so `watch` exits 2 (an internal failure after start) without `watch_stopped`.
 - **Alternatives considered:**
   - Non-blocking writes to standard output: they change the file status of a descriptor the client shares.
@@ -141,7 +149,7 @@ No real coding agent ran during this research. The measurements ran on the owner
 
 - **Decision:** two levels.
   - **The loop:** debounce, heartbeat, revalidation, snapshot ordering, overflow, signals and exit reasons are tested with `testing/synctest` (standard library since Go 1.25). Inside a bubble, `time.Sleep`, timers and tickers use a fake clock that advances only when every goroutine is blocked. With a fake watcher and a fake writer, these tests take no real time and cannot race the clock.
-  - **The adapters and the built binary**, which use real kqueue or inotify, use real time with waits of up to 5 s for an expected event and a 1 s quiet period to assert that no event comes. SC-001 is measured by a test that makes 40 changes and checks the 95th percentile of their delivery latency against 1 s. The bound is four times the expected worst case, which leaves margin on shared CI runners.
+  - **The adapters and the built binary**, which use real kqueue or inotify, use real time with waits of up to 5 s for an expected event and a 1 s quiet period to assert that no event comes. SC-001 is measured by a test that makes 40 state changes (Human Gate approvals and edits of `state`) and checks the 95th percentile of their delivery latency against 1 s. The bound is four times the expected worst case, which leaves margin on shared CI runners.
   - Every timing test runs on `macos-latest` and `ubuntu-latest` in `gates`.
 
 ## R-10: Threats and controls

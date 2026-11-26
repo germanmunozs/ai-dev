@@ -29,13 +29,13 @@
   - **`internal/gatestore`:** the round trip of R-05.
   - **`internal/fswatch`** (real file system, in `t.TempDir()`): atomic replace, in-place write, directory creation and removal, `specs` and `.ai-dev` created late, the project renamed or removed, symbolic links not followed, re-synchronization after a replace. Also, on Linux, the `ENOSPC` mapping, through an injected `InotifyAddWatch`, and `IN_Q_OVERFLOW` handling, through an injected event. Waits are bounded at 5 s.
   - **`internal/app`:** options, usage and exit codes; that the source is built only from `Root` and `Executor`; and the snapshot against the four commands' JSON for every fixture state of 001, 004, 005 and 011 (SC-007).
-  - **Structural:** `go list -deps ./internal/watch ./internal/fswatch` excludes `gatestore`, `configstore`, `gitstore`, `gitmanager`, `gitprocess`, `execution`, `report` and `os/exec` (R-03).
+  - **Structural:** `go list -deps ./internal/watch ./internal/fswatch` excludes `gatestore`, `configstore`, `gitstore`, `gitmanager`, `gitprocess`, `execution`, `report`, `system` and `os/exec` (R-03). A recording executor shows that the source runs only `git rev-parse --is-inside-work-tree` (F015-FR-020).
   - **End-to-end** (the built binary as a subprocess, with fake agents only):
-    - SC-001: 40 Human Gate approvals and edits, with the 95th percentile of their latency under 1 s;
+    - SC-001: 40 state changes (Human Gate approvals and edits of `state`), with the 95th percentile of their latency under 1 s;
     - SC-002: Human Gates applied and refused;
     - SC-003: at least 50 changes, then the project tree, except the test's own changes, compared byte for byte, with 0 writes;
-    - SC-005: a pipe left unread until overflow, then read;
-    - `SIGINT` and `SIGTERM` (exit 0), the project removed (exit 1), and `--once`;
+    - SC-005: a pipe left unread while 1,100 features change at once, then read;
+    - `SIGINT` and `SIGTERM` (exit 0), the project renamed and deleted (exit 1), and `--once`;
     - no artifact byte in the output (F015-FR-021).
 - **Target platforms:** macOS and Linux. Elsewhere `watch` reports `watch_unavailable` (exit 1); `--once` works everywhere (R-07). The cross-builds for windows and freebsd compile the unavailable adapter.
 - **Project type:** CLI.
@@ -93,7 +93,7 @@ Post-design re-check: PASS. The only changes to existing behavior are `watch` in
   - It resolves the project's absolute path and identity.
   - It installs `signal.NotifyContext(SIGINT, SIGTERM)` and `brokenPipeAsError`, and creates the `fswatch` adapter (not for `--once`).
   - It runs the loop and maps the result to the exit code.
-- **`internal/app/{app,catalog,help,completion}.go`:** route `watch`; add the catalog entry with help and completion of its options (`--format` values; `--feature` completing feature directories); and add `watch` to the top-level usage and the general help (A1, A2).
+- **`internal/app/{app,catalog,help,completion}.go`:** route `watch`; add the catalog entry with help and completion of its options (`--format` values; `--feature` as free text, with no candidates); and add `watch` to the top-level usage and the general help (A1, A2).
 - **Documentation:**
   - README and README.es: the command, the event contract with an example, the compatibility rules, how a client detects support, the recovery procedure, and the platform limits with their remedies.
   - CHANGELOG and CHANGELOG.es, under `[Unreleased]`.
@@ -108,6 +108,19 @@ German Munoz, repository owner, confirmed these five interpretations on 2026-11-
 3. **`--once` works on every platform**, because it registers no watch (R-07).
 4. **A closed standard output** exits 2 with no event. On a signal, `watch` waits at most 2 s to write `watch_stopped`, then exits 0 anyway (R-06, R-07).
 5. **A fixed debounce window** from the first notification, not one that restarts on every notification (R-04).
+
+After `/speckit-analyze`, the owner approved the ten proposed fixes on 2026-11-26 ("si, aplica los diez cambios"), with the same caveat. The fixes are:
+
+- **I1:** `--once` works on every platform, now stated in the spec (F015-FR-014, F015-FR-016).
+- **U5:** no evidence when the previous observation could not read the history (F015-FR-008, R-05).
+- **U1:** the queue overflow is tested end to end with 1,100 features changing at once, with no test-only option, variable or build tag (R-06).
+- **U2:** `--feature` completes no candidates, like the other feature-identifier arguments.
+- **C1:** a recording executor proves F015-FR-020.
+- **A1:** SC-001 measures state changes only.
+- **I2:** `seq` counts emitted events.
+- **I3:** an unwritable standard output exits 2 (F015-FR-018).
+- **I4:** `internal/system` is excluded from `internal/watch` (R-03).
+- **U3:** the project's deletion is tested end to end.
 
 ## Project Structure
 

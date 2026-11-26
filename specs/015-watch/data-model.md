@@ -42,7 +42,10 @@ A `snapshot` serializes the whole Project Picture, restricted to `--feature` whe
 
 - `gate.Evidence` as read by `gate.ReadHistory` (R-05).
 - It is read-only and never written by `watch`.
-- It is attached to `workflow_state_changed` only when `len(history) > HistoryLen` and the last entry's `ToState` equals the new state.
+- It is attached to `workflow_state_changed` only when all three hold:
+  - `HistoryLen` was not −1;
+  - `len(history) > HistoryLen`;
+  - the last entry's `ToState` equals the new state.
 
 ## Change Key and Debounce Window
 

@@ -15,6 +15,17 @@
 - `--once` works on every platform.
 - A closed standard output exits 2 with no event, and a signal waits at most 2 s to write `watch_stopped`.
 - The debounce window is fixed from the first notification.
+- After `/speckit-analyze` (2026-11-26, "si, aplica los diez cambios"):
+  - I1: `--once` on every platform;
+  - U5: no evidence after an unreadable history;
+  - U1: overflow tested with 1,100 features, with no test-only switch;
+  - U2: `--feature` with no completion candidates;
+  - C1: a recording executor for F015-FR-020;
+  - A1: SC-001 over state changes;
+  - I2: `seq` over emitted events;
+  - I3: an unwritable output exits 2;
+  - I4: `internal/system` excluded;
+  - U3: deletion of the project tested end to end.
 
 **Story order**: US2 (the snapshot) is built before US1, because every live event follows a snapshot (F015-FR-005). Both are P1, and the MVP is the two together.
 
@@ -97,7 +108,7 @@
   - `StateResult{JSON []byte; State string; Recognized bool; Outcome string}`.
   - `EnvironmentResult{JSON []byte; Checks []CheckStatus}`, where `CheckStatus{ID, Status, Remediation string}`.
   - Create `internal/watch/fake_test.go` with a scriptable `fakeSource` and a `fakeWatcher` (a channel of `fswatch.Change`, and a record of every `Sync`), shared by the loop tests.
-- [ ] T013 [P] Structural test `internal/watch/deps_test.go` (F015-FR-019, R-03, owner decision 1):
+- [ ] T013 [P] Structural test `internal/watch/deps_test.go` (F015-FR-019, F015-FR-020, R-03, owner decision 1):
   - Run `go list -deps ./internal/watch ./internal/fswatch` from the module root.
   - Fail if the output contains `internal/gatestore`, `internal/configstore`, `internal/gitstore`, `internal/gitmanager`, `internal/gitprocess`, `internal/execution`, `internal/report`, `internal/system` or `os/exec`.
   - Also fail if any non-test file in these packages calls `os.Create`, `os.OpenFile` with a write flag, `os.WriteFile`, `os.Remove`, `os.RemoveAll`, `os.Rename`, `os.Mkdir`, `os.MkdirAll`, `os.Chmod`, `os.Symlink` or `syscall.Flock`. Check this with a `go/parser` walk, like `internal/cockpit/boundary_test.go`.
@@ -123,7 +134,7 @@
     - `changes: "nothing; reads the project and reports its changes"`;
     - `exitCodes: exitCodesDomain`.
   - `internal/app/app.go`: route `watch`, and set `topLevelUsage` to `Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|open|watch|version|help|completion> [options]`.
-  - Completion: `--feature` completes the directory names under `specs/` that `workflow.FeatureExists` accepts.
+  - Completion: `--feature` is a free-text value with no candidates, like the other feature-identifier arguments (analysis U2).
   - Update the expectations T001 listed, and only those. Add `{"ai-dev", "watch", "-"}` and `{"ai-dev", "watch", "--format", ""}` rows to `internal/app/completion_test.go`, and `watch` to the `help` loop in `internal/app/help_test.go:61`.
 
 **Checkpoint**: `go test ./...` passes. `ai-dev watch --help` prints the contract's usage. The structural test passes on an empty loop.
@@ -146,7 +157,7 @@
   - `artifacts` always lists `spec.md`, `plan.md` and `tasks.md`, in that order: `present` with `size` and `modified` for a regular file, `absent`, and `not_regular_file` for a symbolic link (not followed) or a directory.
   - `--feature b --feature zz` gives only `b`, plus `zz` with the source's `feature_unknown` objects and the three artifacts `absent`.
   - `seq` is 1.
-  - With `Once`, the result is exit 0 after exactly one event, with no `Sync` on the fake watcher.
+  - With `Once`, the result is exit 0 after exactly one event, and the watcher constructor is never called. A constructor that returns `Unavailable` still gives the snapshot and exit 0 (F015-FR-014, analysis I1).
   - Without `Once`, `Sync` is called with the watch set of data-model.md before the source is first read (R-02). The order is checked by a log shared by the fake source and the fake watcher.
 - [ ] T020 [US2] Implement `internal/watch/picture.go` (the Project Picture, artifacts by `Lstat` through `fs.FS`, the history length through `gate.ReadHistory`, and the watch set) and the start of `internal/watch/loop.go`:
   - `Run(ctx, Options, Source, func() (fswatch.Watcher, error), root fs.FS, output io.Writer) Result`.
@@ -191,6 +202,7 @@
   - A `Changed` on a feature directory, with the source's state going from `implemented` to `approved` and the history growing by one approval entry to `approved`, yields exactly one `workflow_state_changed` after the 250 ms debounce. It has `from: "implemented"`, `to: "approved"`, `outcome: "state_reported"`, `state` equal to the source's bytes, and `human_gate` equal to that entry.
   - A notification with the state unchanged (a refused request) yields no event.
   - A state change with the history unchanged (a manual edit), or with an unreadable history, gives `human_gate: null`.
+  - A history unreadable at the previous observation (−1) and readable now, with a last entry whose `to_state` matches the new state, still gives `human_gate: null`; the following change, with a new matching entry, carries it (analysis U5).
   - A new entry whose `to_state` differs from the new state gives null. Two entries appended within one window give the last one only if its `to_state` matches.
   - A record created from `draft` gives `from: "draft"`.
   - A change to `state_invalid` gives `to: null` and `outcome: "state_invalid"`.
@@ -241,7 +253,9 @@
   - With `--environment-interval 0` no tick occurs.
   - `heartbeat` is emitted every 15 s by default and every `--heartbeat`, with `data: {}`.
 - [ ] T033 [US4] Extend `loop.go` and `diff.go` with the `setup` key, the revalidation ticker, the heartbeat ticker, `agents_config_changed` and `environment_changed`.
-- [ ] T034 [US4] Test in `internal/app/watch_test.go`: with the real source over a fixture and a fake executor whose `LookPath` stops finding a fake agent between two calls, `Environment` and `Setup` change accordingly. This proves the revalidation path with the commands' own functions, and runs no agent.
+- [ ] T034 [US4] Tests in `internal/app/watch_test.go`:
+  - With the real source over a fixture and a fake executor whose `LookPath` stops finding a fake agent between two calls, `Environment` and `Setup` change accordingly. This proves the revalidation path with the commands' own functions, and runs no agent.
+  - **F015-FR-020 (analysis C1):** a recording executor wraps the fake one. Across `Features`, `State`, `Next`, `Setup` and two `Environment` calls, its only `Run` calls are `git rev-parse --is-inside-work-tree`, one per `Environment` call. `LookPath` calls are allowed; no other `Run` call is.
 
 ## Phase 7: User Story 5, predictable termination and recovery (P3)
 
@@ -260,21 +274,20 @@
 - [ ] T037 [US5] Wire signals and output errors in `internal/app/watch.go`: `signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` and `brokenPipeAsError`. An unreadable project directory at start gives `watch_unavailable` with detail "the project directory cannot be read" and exit 1. Map `Result` to the exit codes of contracts/watch.md.
 - [ ] T038 [US5] End-to-end tests in `cmd/ai-dev/watch_e2e_test.go` (US5 scenarios 1, 3 and 4, SC-005):
   - `TestWatchSignals`: `SIGINT` and `SIGTERM` each end with a `watch_stopped` `signal` line, and exit 0.
-  - `TestWatchProjectGone`: renaming the project directory ends with `project_gone`, and exit 1.
-  - `TestWatchBlockedClient`:
-    1. Start `watch --heartbeat 5s` with its standard output on a pipe the test does not read.
-    2. Make changes until the queue overflows.
-    3. Check that the process's RSS stays under 30 MB.
-    4. Read: the stream contains `resync_required` followed by `snapshot`.
-
-    The overflow needs many events, so this test may lower the limit through an unexported test-only environment variable `AI_DEV_WATCH_QUEUE_LIMIT`, read only when the binary is built with `-tags watchtest`. Document that in the test.
+  - `TestWatchProjectGone`: in two subtests, renaming and deleting (`os.RemoveAll`) the project directory each end with `project_gone`, and exit 1 (analysis U3).
+  - `TestWatchBlockedClient` (analysis U1: no test-only option, variable or build tag):
+    1. Create a project with 1,100 features, each with `spec.md`.
+    2. Start `watch --debounce 50ms` with its standard output on a pipe the test does not read.
+    3. Rewrite every `spec.md` at once, which yields more than 1,000 events in one evaluation.
+    4. Check that the process's RSS stays bounded (under 64 MB, measured with `ps -o rss=`).
+    5. Read: the stream contains `resync_required` (`queue_overflow`) followed by a `snapshot` that lists all 1,100 features with their new artifacts.
   - `TestWatchClosedOutput`: closing the read end of the pipe gives exit 2.
 
 ## Phase 8: Polish and cross-cutting concerns
 
 - [ ] T039 [P] End-to-end test `TestWatchLatency` in `cmd/ai-dev/watch_e2e_test.go` (SC-001):
-  - 40 changes, alternating Human Gate approvals on fresh fixture features and in-place edits of artifacts, one every 300 ms.
-  - Each latency runs from the end of the change (the `workflow approve` process exiting, or the write returning) to the matching event line.
+  - 40 state changes, alternating Human Gate approvals on fresh fixture features and in-place edits of another feature's `state`, one every 300 ms (analysis A1).
+  - Each latency runs from the end of the change (the `workflow approve` process exiting, or the write returning) to the matching `workflow_state_changed` line.
   - The 95th percentile is under 1 s. Log the percentiles.
 - [ ] T040 [P] End-to-end test `TestWatchWritesNothing` (SC-003, F015-FR-019):
   - Before starting `watch`, record the project tree, every path with its mode, size, modification time and SHA-256.

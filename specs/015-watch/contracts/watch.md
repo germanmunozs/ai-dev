@@ -9,7 +9,7 @@ Usage: ai-dev watch [--format text|json] [--feature <id>]... [--debounce <durati
 | Option | Default | Allowed | Notes |
 |---|---|---|---|
 | `--format` | `text` | `text`, `json` | as every command |
-| `--feature` | all features | a feature identifier, repeatable | validated with 004's rule (`workflow.FeatureDir`); a structurally invalid one is a usage error |
+| `--feature` | all features | a feature identifier, repeatable | validated with 004's rule (`workflow.FeatureDir`); a structurally invalid one is a usage error; completion offers no candidates, as for the other feature-identifier arguments |
 | `--debounce` | `250ms` | 50 ms to 5 s | a Go duration (`300ms`, `1s`) |
 | `--heartbeat` | `15s` | 5 s to 300 s | |
 | `--environment-interval` | `60s` | `0`, or 5 s to 3600 s | `0` disables revalidation after the snapshot |
@@ -58,7 +58,7 @@ Every event is one JSON object on one line, terminated by `\n`, with its members
 | `snapshot` | `{"features": [<Feature>...], "setup": <Setup>, "environment": <Environment>}`. Features are in name order; with `--feature`, only the named ones, and a named feature that does not exist appears with `feature_unknown` in `state` and `next` and empty artifacts |
 | `feature_added` | `<Feature>` |
 | `feature_removed` | `{"feature": <id>}` |
-| `workflow_state_changed` | `{"feature", "from": <state or null>, "to": <state or null>, "outcome": "state_reported"\|"state_invalid", "state": <S>, "human_gate": <HumanGate or null>}`. `from` and `to` are null when that side is not a recognized state. `human_gate` is null unless a new history entry appeared since the previous observation and its `to_state` equals `to` (F015-FR-008) |
+| `workflow_state_changed` | `{"feature", "from": <state or null>, "to": <state or null>, "outcome": "state_reported"\|"state_invalid", "state": <S>, "human_gate": <HumanGate or null>}`. `from` and `to` are null when that side is not a recognized state. `human_gate` is null unless the previous observation read the history, a new entry appeared since then, and its `to_state` equals `to` (F015-FR-008) |
 | `artifacts_changed` | `{"feature", "artifacts": [<Artifact>...]}` |
 | `next_step_changed` | `{"feature", "next": <N>}` |
 | `agents_config_changed` | `{"setup": <Setup>}` |
