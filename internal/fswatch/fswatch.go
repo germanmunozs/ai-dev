@@ -30,10 +30,12 @@ type Change struct {
 
 // Watcher observes a set of paths.
 type Watcher interface {
-	// Sync makes the observed set exactly dirs and files. A path that does
-	// not exist, or is a symbolic link, is skipped. The Linux adapter
-	// observes directories only, so it ignores files.
-	Sync(dirs, files []string) error
+	// Sync makes the observed set exactly dirs and files, and returns the
+	// paths it started observing in this call (new, or reopened because
+	// they were replaced). A path that does not exist, cannot be read, is a
+	// symbolic link or is neither a regular file nor a directory is skipped.
+	// The Linux adapter observes directories only, so it ignores files.
+	Sync(dirs, files []string) (added []string, err error)
 	// Events delivers notifications until Close.
 	Events() <-chan Change
 	// Close releases every descriptor; Events is closed afterwards.

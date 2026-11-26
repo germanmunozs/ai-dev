@@ -96,7 +96,7 @@ func newWatcher(t *testing.T) Watcher {
 func TestAtomicReplaceIsSeen(t *testing.T) {
 	root, feature, record, spec := project(t)
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	replaceAtomically(t, record, `{"state":"approved"}`)
@@ -106,7 +106,7 @@ func TestAtomicReplaceIsSeen(t *testing.T) {
 func TestInPlaceWriteIsSeen(t *testing.T) {
 	root, feature, record, spec := project(t)
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(spec, []byte("changed"), 0o644); err != nil {
@@ -123,7 +123,7 @@ func TestSymbolicLinkDirectoryIsNotFollowed(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, feature, link}, nil); err != nil {
+	if _, err := w.Sync([]string{root, feature, link}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(outside, "x"), []byte("x"), 0o644); err != nil {
@@ -138,7 +138,7 @@ func TestCloseEndsEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.Close(); err != nil {
@@ -158,20 +158,20 @@ func TestFeatureDirectoryCreatedIsSeen(t *testing.T) {
 	root, feature, record, spec := project(t)
 	specs := filepath.Join(root, "specs")
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, specs, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, specs, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(specs, "002-new"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, w, Changed, specs)
+	waitFor(t, w, Changed, specs, filepath.Join(specs, "002-new"))
 }
 
 func TestFeatureDirectoryRemovedIsSeen(t *testing.T) {
 	root, feature, record, spec := project(t)
 	specs := filepath.Join(root, "specs")
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, specs, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, specs, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.RemoveAll(feature); err != nil {
@@ -182,7 +182,7 @@ func TestFeatureDirectoryRemovedIsSeen(t *testing.T) {
 	for !seenSpecs || !seenGone {
 		select {
 		case c := <-w.Events():
-			seenSpecs = seenSpecs || c.Path == specs && c.Kind == Changed
+			seenSpecs = seenSpecs || (c.Path == specs || c.Path == feature) && c.Kind == Changed
 			seenGone = seenGone || c.Path == feature && c.Kind == Gone
 		case <-deadline:
 			t.Fatalf("within 5s: specs changed %v, feature gone %v", seenSpecs, seenGone)
@@ -193,11 +193,36 @@ func TestFeatureDirectoryRemovedIsSeen(t *testing.T) {
 func TestSpecsCreatedLaterIsSeenOnTheProject(t *testing.T) {
 	root := t.TempDir()
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, filepath.Join(root, "specs")}, nil); err != nil {
+	if _, err := w.Sync([]string{root, filepath.Join(root, "specs")}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(root, "specs"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, w, Changed, root)
+	waitFor(t, w, Changed, root, filepath.Join(root, "specs"))
+}
+
+// A path that cannot be read is skipped, not fatal: the parent directory
+// still reports it, and the commands report the file as invalid (review F1).
+func TestUnreadablePathsAreSkipped(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("permissions do not apply to root")
+	}
+	root, feature, record, spec := project(t)
+	locked := filepath.Join(root, "specs", "002-locked")
+	if err := os.Mkdir(locked, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{spec, locked} {
+		if err := os.Chmod(p, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() { _ = os.Chmod(spec, 0o644); _ = os.Chmod(locked, 0o755) })
+	w := newWatcher(t)
+	if _, err := w.Sync([]string{root, feature, locked}, []string{record, spec}); err != nil {
+		t.Fatalf("Sync with unreadable paths: %v", err)
+	}
+	replaceAtomically(t, record, `{"state":"approved"}`)
+	waitFor(t, w, Changed, feature, record)
 }

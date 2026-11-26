@@ -42,10 +42,15 @@ A `snapshot` serializes the whole Project Picture, restricted to `--feature` whe
 
 - `gate.Evidence` as read by `gate.ReadHistory` (R-05).
 - It is read-only and never written by `watch`.
-- It is attached to `workflow_state_changed` only when all three hold:
+- It is attached to `workflow_state_changed` only when all of these hold:
   - `HistoryLen` was not −1;
   - `len(history) > HistoryLen`;
-  - the last entry's `ToState` equals the new state.
+  - the first `HistoryLen` entries are unchanged since the previous observation;
+  - every new entry's `FeatureID` is this feature;
+  - the new entries chain: the first starts at the previous state, each next one at the previous one's `ToState`, and the last ends at the new state.
+
+  The last four conditions come from the independent review (F3): without them, a record copied from another feature, or a history rewritten by a checkout, would show a decision that was never recorded for this change.
+- The history is read before and after the state of each observation, which is repeated (at most three times) until both reads agree (review F7).
 
 ## Change Key and Debounce Window
 

@@ -24,7 +24,7 @@ type featureView struct {
 	next       []byte
 	artifacts  []Artifact
 	historyLen int // entries read at this observation; -1 when the history could not be read
-	last       *gate.Evidence
+	history    []gate.Evidence
 }
 
 // picture is the Project Picture: every result the snapshot carries.
@@ -62,15 +62,45 @@ func (o observer) featureIDs() (ids []string, existing map[string]bool, err erro
 	return slices.Compact(ids), existing, nil
 }
 
+// observeAttempts bounds how often an observation is repeated while a
+// Human Gate keeps changing the record under it.
+const observeAttempts = 3
+
+// feature observes one feature. A name that is not a feature (a --feature
+// that does not exist) is never read through: its artifacts are absent and
+// its history unknown (review F6). The state and the history are two reads
+// of the same record, so the history is read before and after the state and
+// the observation is repeated until both reads agree; otherwise a Human
+// Gate written in between would lose its evidence (review F7).
 func (o observer) feature(id string, exists bool) featureView {
-	v := featureView{exists: exists, state: o.source.State(id), next: o.source.Next(id), artifacts: o.artifacts(id), historyLen: -1}
-	if entries, ok := gate.ReadHistory(o.root, id); ok {
-		v.historyLen = len(entries)
-		if len(entries) > 0 {
-			v.last = &entries[len(entries)-1]
+	if !exists {
+		v := featureView{state: o.source.State(id), next: o.source.Next(id), historyLen: -1}
+		for _, name := range artifactNames {
+			v.artifacts = append(v.artifacts, Artifact{Name: name, Status: "absent"})
+		}
+		return v
+	}
+	var v featureView
+	for range observeAttempts {
+		before, okBefore := gate.ReadHistory(o.root, id)
+		v = featureView{exists: true, state: o.source.State(id), next: o.source.Next(id), historyLen: -1}
+		after, okAfter := gate.ReadHistory(o.root, id)
+		if okBefore && okAfter && slices.EqualFunc(before, after, sameEntry) {
+			v.historyLen, v.history = len(after), after
+			break
+		}
+		if !okBefore && !okAfter {
+			break // unreadable both times: no history
 		}
 	}
+	v.artifacts = o.artifacts(id)
 	return v
+}
+
+// sameEntry reports whether two history entries are the same record.
+func sameEntry(a, b gate.Evidence) bool {
+	return a.FeatureID == b.FeatureID && a.Decision == b.Decision && a.Approver == b.Approver && a.FromState == b.FromState &&
+		a.ToState == b.ToState && a.DecidedAt.Equal(b.DecidedAt) && a.Reason == b.Reason && a.ReasonSet == b.ReasonSet
 }
 
 // artifacts reports the metadata of each artifact, never its content

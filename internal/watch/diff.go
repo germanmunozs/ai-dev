@@ -14,7 +14,7 @@ func featureEvents(id string, prev, cur featureView) []Event {
 	if !bytes.Equal(prev.state.JSON, cur.state.JSON) {
 		events = append(events, Event{Type: WorkflowStateChanged, Data: StateChange{
 			Feature: id, From: stateOf(prev), To: stateOf(cur), Outcome: cur.state.Outcome, State: cur.state.JSON,
-			HumanGate: evidence(prev, cur),
+			HumanGate: evidence(id, prev, cur),
 		}})
 	}
 	if !slices.EqualFunc(prev.artifacts, cur.artifacts, sameArtifact) {
@@ -34,16 +34,29 @@ func stateOf(v featureView) *string {
 	return &state
 }
 
-// evidence attaches the recorded Human Gate entry only when the previous
-// observation read the history, a new entry appeared since, and its
-// to_state is the new state; a change without one has none (F015-FR-008,
-// analysis U5). The entry is reported as recorded, never as an outcome.
-func evidence(prev, cur featureView) *HumanGate {
-	if prev.historyLen < 0 || cur.historyLen <= prev.historyLen || cur.last == nil || !cur.state.Recognized ||
-		string(cur.last.ToState) != cur.state.State {
+// evidence attaches the last recorded Human Gate entry only when the
+// previous observation read the history, the history only grew since (the
+// old entries are unchanged), every new entry is this feature's own and
+// they chain from the previous state to the new one. Anything else, such as
+// a record copied from another feature or a rewritten history, has none
+// (F015-FR-008, analysis U5, review F3). The entry is reported as recorded,
+// never as an outcome.
+func evidence(id string, prev, cur featureView) *HumanGate {
+	if prev.historyLen < 0 || cur.historyLen <= prev.historyLen || !prev.state.Recognized || !cur.state.Recognized ||
+		!slices.EqualFunc(prev.history, cur.history[:prev.historyLen], sameEntry) {
 		return nil
 	}
-	e := cur.last
+	from := prev.state.State
+	for _, entry := range cur.history[prev.historyLen:] {
+		if entry.FeatureID != id || string(entry.FromState) != from {
+			return nil
+		}
+		from = string(entry.ToState)
+	}
+	if from != cur.state.State {
+		return nil
+	}
+	e := cur.history[len(cur.history)-1]
 	g := &HumanGate{Decision: string(e.Decision), Approver: e.Approver, FromState: string(e.FromState),
 		ToState: string(e.ToState), DecidedAt: e.DecidedAt.UTC().Format(time.RFC3339)}
 	if e.ReasonSet {

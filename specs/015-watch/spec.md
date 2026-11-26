@@ -42,6 +42,12 @@
   - SC-001 measures state changes only.
 - No requirement is added or removed.
 
+### Session 2026-11-26 (independent review fixes)
+
+- **Authority record.** After the independent review (tasks.md T046), the owner approved the fixes on 2026-11-26 ("si corrige"), with the proposals presented for each finding. This is a declared, unauthenticated assertion.
+- Q: What is a `specs` that is a file, a symbolic link, or a directory that cannot be read (review F13)? → A: **Like no `specs/` directory:** the snapshot reports zero features and `watch` keeps running. The cockpit's own listing is unchanged.
+- The other fixes change no requirement: they make the implementation meet F015-FR-005, FR-008, FR-014, FR-016, FR-018 and FR-019 as written.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A client learns of a state change at once (Priority: P1)
@@ -127,7 +133,7 @@ A client can stop `watch`, detect lost events, and recover a consistent state wi
 
 ### Edge Cases
 
-- **No `specs/` directory**: the snapshot reports zero features, and `watch` starts observing `specs/` when it is created.
+- **No `specs/` directory**: the snapshot reports zero features, and `watch` starts observing `specs/` when it is created. A `specs` that is a regular file, a symbolic link or a directory that cannot be read counts as no `specs/` directory: zero features, and `watch` keeps running.
 - **An invalid or unreadable `workflow-state.json`**: that feature reports `state_invalid`, as `workflow state` does; the other features keep being observed and reported.
 - **A record replaced atomically by renaming a new file over it**: it is reported as one change, not as a removal followed by an addition.
 - **A symbolic link, or an entry that is not a regular file or directory, under `specs/` or `.ai-dev/`**: it is never followed. A feature directory that is a symbolic link is not a feature, as Feature 004 defines; an artifact or record that is one is reported with the reason, as the existing commands report it.

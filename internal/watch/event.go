@@ -153,11 +153,9 @@ func EncodeJSON(e Event, seq int64) []byte {
 	encoder.SetEscapeHTML(false)
 	err := encoder.Encode(envelope{SchemaVersion: SchemaVersion, Seq: seq, Type: e.Type, Time: formatTime(e.Time), Project: e.Project, Data: e.Data})
 	if err != nil {
-		// Only an invalid embedded object can fail; report it rather than
-		// emit a broken line.
-		out.Reset()
-		_ = encoder.Encode(envelope{SchemaVersion: SchemaVersion, Seq: seq, Type: WatchStopped, Time: formatTime(e.Time), Project: e.Project,
-			Data: Stopped{Reason: "internal_error", Detail: fmt.Sprintf("event %s cannot be encoded: %v", e.Type, err)}})
+		// Only an invalid embedded object can fail. The writer turns this
+		// into watch_stopped internal_error and ends the run (review F10).
+		panic(err)
 	}
 	return out.Bytes()
 }

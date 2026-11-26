@@ -58,7 +58,7 @@ Every event is one JSON object on one line, terminated by `\n`, with its members
 | `snapshot` | `{"features": [<Feature>...], "setup": <Setup>, "environment": <Environment>}`. Features are in name order; with `--feature`, only the named ones, and a named feature that does not exist appears with `feature_unknown` in `state` and `next` and its three artifacts `absent` |
 | `feature_added` | `<Feature>` |
 | `feature_removed` | `{"feature": <id>}` |
-| `workflow_state_changed` | `{"feature", "from": <state or null>, "to": <state or null>, "outcome": "state_reported"\|"state_invalid", "state": <S>, "human_gate": <HumanGate or null>}`. `from` and `to` are null when that side is not a recognized state. `human_gate` is null unless the previous observation read the history, a new entry appeared since then, and its `to_state` equals `to` (F015-FR-008) |
+| `workflow_state_changed` | `{"feature", "from": <state or null>, "to": <state or null>, "outcome": "state_reported"\|"state_invalid", "state": <S>, "human_gate": <HumanGate or null>}`. `from` and `to` are null when that side is not a recognized state. `human_gate` is null unless the previous observation read the history, the old entries are unchanged, and the new entries are this feature's own and chain from `from` to `to`; it is then the last new entry (F015-FR-008, data-model.md) |
 | `artifacts_changed` | `{"feature", "artifacts": [<Artifact>...]}` |
 | `next_step_changed` | `{"feature", "next": <N>}` |
 | `agents_config_changed` | `{"setup": <Setup>}` |

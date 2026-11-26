@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -152,5 +153,27 @@ func TestWatchSourceRunsOnlyGitRevParse(t *testing.T) {
 	want := []string{"git rev-parse --is-inside-work-tree", "git rev-parse --is-inside-work-tree"}
 	if !slices.Equal(executor.runs, want) {
 		t.Fatalf("runs %q, want %q", executor.runs, want)
+	}
+}
+
+// A project reached through a symbolic link is observed at its real path;
+// the adapters never follow a link, so the link itself would be skipped
+// (review F4).
+func TestWatchProjectResolvesSymbolicLinks(t *testing.T) {
+	real, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(link)
+	project, identity := watchProject()
+	if project != real {
+		t.Fatalf("project %q, want the real path %q", project, real)
+	}
+	if _, err := identity(); err != nil {
+		t.Fatalf("identity: %v", err)
 	}
 }

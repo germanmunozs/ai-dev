@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -59,6 +60,16 @@ func (q *queue) Push(e Event) bool {
 	q.items = append(q.items, e)
 	q.signal(q.wake)
 	return true
+}
+
+// safeEncode encodes e, turning a panic of the encoder into an error.
+func (q *queue) safeEncode(e Event, seq int64) (line []byte, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("event %s cannot be encoded: %v", e.Type, recovered)
+		}
+	}()
+	return q.encode(e, seq), nil
 }
 
 // Final queues the last event even while paused or full, so watch_stopped
@@ -140,7 +151,19 @@ func (q *queue) run() {
 		q.mu.Unlock()
 
 		seq++
-		_, err := q.w.Write(q.encode(e, seq))
+		line, failure := q.safeEncode(e, seq)
+		var err error
+		if failure != nil {
+			// The encoder failed: end with watch_stopped internal_error when
+			// that line can still be encoded (review F10).
+			stop := Event{Type: WatchStopped, Time: e.Time, Project: e.Project, Data: Stopped{Reason: "internal_error", Detail: failure.Error()}}
+			if last, failed := q.safeEncode(stop, seq); failed == nil {
+				_, _ = q.w.Write(last)
+			}
+			err = failure
+		} else {
+			_, err = q.w.Write(line)
+		}
 
 		q.mu.Lock()
 		q.writing = false

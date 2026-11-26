@@ -116,6 +116,9 @@ func Run(ctx context.Context, opts Options, cfg Config) (result Result) {
 		return l.stop(unavailable(err), 1)
 	}
 	l.picture, l.pending = p, map[string]time.Time{}
+	if end := l.sync(); end != nil { // paths found between registration and the read (review F2)
+		return end.result
+	}
 
 	heartbeat := time.NewTicker(opts.Heartbeat)
 	defer heartbeat.Stop()
@@ -171,6 +174,11 @@ func (l *loop) notified(c fswatch.Change) *stopped {
 	}
 	if key := l.keyOf(c.Path); key != "" {
 		l.mark(key)
+		// An entry of specs/ may be a feature added or removed (Linux names
+		// the entry, not specs itself; review F12).
+		if rel, err := filepath.Rel(l.cfg.Project, c.Path); err == nil && strings.Count(filepath.ToSlash(rel), "/") == 1 && strings.HasPrefix(filepath.ToSlash(rel), "specs/") {
+			l.mark(keySpecs)
+		}
 	}
 	return nil
 }
@@ -346,8 +354,16 @@ func (l *loop) sync() *stopped {
 		}
 	}
 	slices.Sort(ids)
-	if err := l.watcher.Sync(l.obs.watchSet(ids)); err != nil {
+	added, err := l.watcher.Sync(l.obs.watchSet(ids))
+	if err != nil {
 		return &stopped{l.stop(unavailable(err), 1)}
+	}
+	// A path just observed may have changed after it was read: evaluate it
+	// once more, which emits only on a real difference (review F2).
+	for _, path := range added {
+		if key := l.keyOf(path); key != "" && key != keyProject {
+			l.mark(key)
+		}
 	}
 	return nil
 }
@@ -392,14 +408,14 @@ func (l *loop) start() (picture, error) {
 		return picture{}, errProjectUnreadable{err}
 	}
 	l.identity = identity
-	if err := l.watcher.Sync(l.obs.watchSet(nil)); err != nil {
+	if _, err := l.watcher.Sync(l.obs.watchSet(nil)); err != nil {
 		return picture{}, err
 	}
 	ids, _, err := l.obs.featureIDs()
 	if err != nil {
 		return picture{}, errProjectUnreadable{err}
 	}
-	if err := l.watcher.Sync(l.obs.watchSet(ids)); err != nil {
+	if _, err := l.watcher.Sync(l.obs.watchSet(ids)); err != nil {
 		return picture{}, err
 	}
 	p, err := l.obs.build(l.ctx)
@@ -425,9 +441,14 @@ func (l *loop) stop(s Stopped, code int) Result {
 	return Result{ExitCode: code}
 }
 
-// finish waits for everything queued to be written.
+// finish waits for everything queued to be written. A signal ends the
+// wait, with no further event, so a client that does not read cannot keep
+// --once alive (review F5, as owner decision 4 for watching).
 func (l *loop) finish(code int) Result {
-	for !l.q.Flush(time.Hour) {
+	for !l.q.Flush(time.Second) {
+		if l.ctx.Err() != nil {
+			return Result{ExitCode: code}
+		}
 	}
 	if l.q.Failed() {
 		return Result{ExitCode: 2}

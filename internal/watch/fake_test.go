@@ -84,6 +84,7 @@ type fakeSource struct {
 	checks   map[string]string // check id -> pass or fail
 	err      error
 	panicOn  string
+	onState  func(id string) // called after State computed its result, lock released
 	log      *eventLog
 }
 
@@ -103,6 +104,17 @@ func (s *fakeSource) Features() ([]string, error) {
 }
 
 func (s *fakeSource) State(id string) StateResult {
+	result := s.state(id)
+	s.mu.Lock()
+	hook := s.onState
+	s.mu.Unlock()
+	if hook != nil {
+		hook(id)
+	}
+	return result
+}
+
+func (s *fakeSource) state(id string) StateResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.log.add("source:state:" + id)
@@ -170,6 +182,7 @@ type fakeWatcher struct {
 	events  chan fswatch.Change
 	syncs   [][]string
 	syncErr error
+	onSync  func(added []string) // called with the lock held
 	closed  bool
 	log     *eventLog
 }
@@ -178,12 +191,26 @@ func newFakeWatcher(log *eventLog) *fakeWatcher {
 	return &fakeWatcher{events: make(chan fswatch.Change, 64), log: log}
 }
 
-func (w *fakeWatcher) Sync(dirs, files []string) error {
+func (w *fakeWatcher) Sync(dirs, files []string) ([]string, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.log.add("watcher:sync")
-	w.syncs = append(w.syncs, append(slices.Clone(dirs), files...))
-	return w.syncErr
+	all := append(slices.Clone(dirs), files...)
+	var previous []string
+	if len(w.syncs) > 0 {
+		previous = w.syncs[len(w.syncs)-1]
+	}
+	var added []string
+	for _, p := range all {
+		if !slices.Contains(previous, p) {
+			added = append(added, p)
+		}
+	}
+	w.syncs = append(w.syncs, all)
+	if w.onSync != nil {
+		w.onSync(added)
+	}
+	return added, w.syncErr
 }
 
 func (w *fakeWatcher) Events() <-chan fswatch.Change { return w.events }

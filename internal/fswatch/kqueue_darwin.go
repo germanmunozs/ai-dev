@@ -12,7 +12,8 @@ import (
 // kqueue observes each path through one event-only descriptor (R-01). A
 // descriptor opened with O_EVTONLY holds no lock and keeps no volume busy;
 // O_SYMLINK opens a symbolic link as itself, so it is never followed, and
-// such a path is then skipped.
+// such a path is then skipped. O_NONBLOCK keeps a FIFO swapped in for a
+// file from blocking the open (review F9).
 const vnodeEvents = syscall.NOTE_WRITE | syscall.NOTE_EXTEND | syscall.NOTE_ATTRIB | syscall.NOTE_DELETE | syscall.NOTE_RENAME
 
 // wakeIdent is the user event that wakes the reader on Close.
@@ -25,10 +26,11 @@ type vnode struct {
 }
 
 type kqueueWatcher struct {
-	kq     int
-	events chan Change
-	done   chan struct{}
-	exited chan struct{}
+	kq        int
+	events    chan Change
+	done      chan struct{}
+	exited    chan struct{}
+	endEvents sync.Once
 
 	mu     sync.Mutex
 	paths  map[string]vnode
@@ -56,11 +58,11 @@ func New() (Watcher, error) {
 
 func (w *kqueueWatcher) Events() <-chan Change { return w.events }
 
-func (w *kqueueWatcher) Sync(dirs, files []string) error {
+func (w *kqueueWatcher) Sync(dirs, files []string) ([]string, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
-		return errors.New("watcher closed")
+		return nil, errors.New("watcher closed")
 	}
 	want := map[string]bool{}
 	for _, p := range dirs {
@@ -74,13 +76,14 @@ func (w *kqueueWatcher) Sync(dirs, files []string) error {
 			w.forget(p, v)
 		}
 	}
+	var added []string
 	for p := range want {
 		var st syscall.Stat_t
-		if err := syscall.Lstat(p, &st); err != nil || st.Mode&syscall.S_IFMT == syscall.S_IFLNK {
+		if err := syscall.Lstat(p, &st); err != nil || !observable(st.Mode) {
 			if v, ok := w.paths[p]; ok {
 				w.forget(p, v)
 			}
-			continue // missing, or a symbolic link: not observed
+			continue // missing, unreadable, a symbolic link or a special file
 		}
 		if v, ok := w.paths[p]; ok {
 			if v.dev == uint64(st.Dev) && v.ino == st.Ino {
@@ -88,36 +91,54 @@ func (w *kqueueWatcher) Sync(dirs, files []string) error {
 			}
 			w.forget(p, v) // replaced: observe the new file
 		}
-		if err := w.add(p); err != nil {
-			return err
+		ok, err := w.add(p)
+		if err != nil {
+			return added, err
+		}
+		if ok {
+			added = append(added, p)
 		}
 	}
-	return nil
+	return added, nil
 }
 
-// add opens and registers p; a path that vanished or turned into a
-// symbolic link meanwhile is skipped.
-func (w *kqueueWatcher) add(p string) error {
-	fd, err := syscall.Open(p, syscall.O_EVTONLY|syscall.O_SYMLINK|syscall.O_CLOEXEC, 0)
-	if errors.Is(err, syscall.ENOENT) {
-		return nil
+// observable reports whether mode is a regular file or a directory.
+func observable(mode uint16) bool {
+	kind := mode & syscall.S_IFMT
+	return kind == syscall.S_IFREG || kind == syscall.S_IFDIR
+}
+
+// add opens and registers p. A path that vanished, cannot be read or turned
+// into anything but a regular file or directory meanwhile is skipped
+// (review F1, F9); only a limit or another system failure is an error.
+func (w *kqueueWatcher) add(p string) (bool, error) {
+	fd, err := syscall.Open(p, syscall.O_EVTONLY|syscall.O_SYMLINK|syscall.O_CLOEXEC|syscall.O_NONBLOCK, 0)
+	if skippable(err) {
+		return false, nil
 	}
 	if err != nil {
-		return unavailableFor(err)
+		return false, unavailableFor(err)
 	}
 	var st syscall.Stat_t
-	if err := syscall.Fstat(fd, &st); err != nil || st.Mode&syscall.S_IFMT == syscall.S_IFLNK {
+	if err := syscall.Fstat(fd, &st); err != nil || !observable(st.Mode) {
 		syscall.Close(fd)
-		return nil
+		return false, nil
 	}
 	change := syscall.Kevent_t{Ident: uint64(fd), Filter: syscall.EVFILT_VNODE, Flags: syscall.EV_ADD | syscall.EV_CLEAR, Fflags: vnodeEvents}
 	if _, err := syscall.Kevent(w.kq, []syscall.Kevent_t{change}, nil, nil); err != nil {
 		syscall.Close(fd)
-		return unavailableFor(err)
+		return false, unavailableFor(err)
 	}
 	w.paths[p] = vnode{fd: fd, dev: uint64(st.Dev), ino: st.Ino, dir: st.Mode&syscall.S_IFMT == syscall.S_IFDIR}
 	w.byFD[fd] = p
-	return nil
+	return true, nil
+}
+
+// skippable reports the errors that skip one path rather than stop
+// watching: it is gone, unreadable, or a link (review F1).
+func skippable(err error) bool {
+	return errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EACCES) ||
+		errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.ELOOP)
 }
 
 // forget closes p's descriptor, which also removes its kevent.
@@ -127,8 +148,19 @@ func (w *kqueueWatcher) forget(p string, v vnode) {
 	delete(w.byFD, v.fd)
 }
 
+// read delivers notifications until Close. If it ends any other way, it
+// closes Events, so the loop reports that watching was lost (review F8,
+// F10).
 func (w *kqueueWatcher) read() {
 	defer close(w.exited)
+	defer func() {
+		_ = recover()
+		select {
+		case <-w.done:
+		default:
+			w.endEvents.Do(func() { close(w.events) })
+		}
+	}()
 	buf := make([]syscall.Kevent_t, 64)
 	for {
 		n, err := syscall.Kevent(w.kq, nil, buf, nil)
@@ -180,7 +212,7 @@ func (w *kqueueWatcher) Close() error {
 	}
 	w.mu.Unlock()
 	err := syscall.Close(w.kq)
-	close(w.events)
+	w.endEvents.Do(func() { close(w.events) })
 	return err
 }
 

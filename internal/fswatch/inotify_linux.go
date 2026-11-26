@@ -3,10 +3,12 @@
 package fswatch
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 )
@@ -31,11 +33,12 @@ type watchedDir struct {
 }
 
 type inotifyWatcher struct {
-	fd     int
-	file   *os.File // the descriptor in the runtime poller, so Close ends a blocked Read
-	events chan Change
-	done   chan struct{}
-	exited chan struct{}
+	fd        int
+	file      *os.File // the descriptor in the runtime poller, so Close ends a blocked Read
+	events    chan Change
+	done      chan struct{}
+	exited    chan struct{}
+	endEvents sync.Once
 
 	mu     sync.Mutex
 	dirs   map[string]watchedDir
@@ -63,11 +66,11 @@ func (w *inotifyWatcher) Events() <-chan Change { return w.events }
 
 // Sync observes dirs; files are ignored, since a directory's watch reports
 // its entries.
-func (w *inotifyWatcher) Sync(dirs, _ []string) error {
+func (w *inotifyWatcher) Sync(dirs, _ []string) ([]string, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
-		return errors.New("watcher closed")
+		return nil, errors.New("watcher closed")
 	}
 	want := map[string]bool{}
 	for _, p := range dirs {
@@ -78,6 +81,7 @@ func (w *inotifyWatcher) Sync(dirs, _ []string) error {
 			w.forget(p, d)
 		}
 	}
+	var added []string
 	for p := range want {
 		var st syscall.Stat_t
 		if err := syscall.Lstat(p, &st); err != nil || st.Mode&syscall.S_IFMT != syscall.S_IFDIR {
@@ -93,20 +97,28 @@ func (w *inotifyWatcher) Sync(dirs, _ []string) error {
 			w.forget(p, d)
 		}
 		wd, err := addWatch(w.fd, p, dirEvents)
-		if errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ENOTDIR) {
-			continue
+		if skippable(err) {
+			continue // gone, unreadable or a link: not observed (review F1)
 		}
 		if errors.Is(err, syscall.ENOSPC) {
-			return Unavailable{Reason: "watch_limit", Detail: "the inotify watch limit was reached (fs.inotify.max_user_watches)",
+			return added, Unavailable{Reason: "watch_limit", Detail: "the inotify watch limit was reached (fs.inotify.max_user_watches)",
 				Remedy: "sudo sysctl fs.inotify.max_user_watches=524288"}
 		}
 		if err != nil {
-			return Unavailable{Reason: "watch_failed", Detail: err.Error()}
+			return added, Unavailable{Reason: "watch_failed", Detail: err.Error()}
 		}
 		w.dirs[p] = watchedDir{wd: wd, dev: uint64(st.Dev), ino: st.Ino}
 		w.byWD[int32(wd)] = p
+		added = append(added, p)
 	}
-	return nil
+	return added, nil
+}
+
+// skippable reports the errors that skip one directory rather than stop
+// watching (review F1).
+func skippable(err error) bool {
+	return errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EACCES) ||
+		errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.ELOOP)
 }
 
 func (w *inotifyWatcher) forget(p string, d watchedDir) {
@@ -122,8 +134,19 @@ func (w *inotifyWatcher) pathOf(wd int32) (string, bool) {
 	return p, ok
 }
 
+// read delivers notifications until Close. If it ends any other way, it
+// closes Events, so the loop reports that watching was lost (review F8,
+// F10).
 func (w *inotifyWatcher) read() {
 	defer close(w.exited)
+	defer func() {
+		_ = recover()
+		select {
+		case <-w.done:
+		default:
+			w.endEvents.Do(func() { close(w.events) })
+		}
+	}()
 	buf := make([]byte, 64*(syscall.SizeofInotifyEvent+syscall.NAME_MAX+1))
 	for {
 		n, err := w.file.Read(buf)
@@ -140,8 +163,10 @@ func (w *inotifyWatcher) read() {
 	}
 }
 
-// parseEvents turns inotify records into changes of the watched
-// directories. IN_IGNORED, sent when a watch is removed, is skipped.
+// parseEvents turns inotify records into changes. An event about an entry
+// carries the entry's path, so the caller can ignore entries it does not
+// observe (review F12); an event about the directory itself carries the
+// directory's path. IN_IGNORED, sent when a watch is removed, is skipped.
 func parseEvents(buf []byte, pathOf func(int32) (string, bool)) []Change {
 	var changes []Change
 	for len(buf) >= syscall.SizeofInotifyEvent {
@@ -152,6 +177,7 @@ func parseEvents(buf []byte, pathOf func(int32) (string, bool)) []Change {
 		if next > len(buf) {
 			break
 		}
+		name := string(bytes.TrimRight(buf[syscall.SizeofInotifyEvent:next], "\x00"))
 		buf = buf[next:]
 		switch {
 		case mask&syscall.IN_Q_OVERFLOW != 0:
@@ -165,6 +191,8 @@ func parseEvents(buf []byte, pathOf func(int32) (string, bool)) []Change {
 			kind := Changed
 			if mask&(syscall.IN_DELETE_SELF|syscall.IN_MOVE_SELF) != 0 {
 				kind = Gone
+			} else if name != "" {
+				p = filepath.Join(p, name)
 			}
 			changes = append(changes, Change{Path: p, Kind: kind})
 		}
@@ -183,6 +211,6 @@ func (w *inotifyWatcher) Close() error {
 	close(w.done)
 	err := w.file.Close() // ends the blocked Read and removes every watch
 	<-w.exited
-	close(w.events)
+	w.endEvents.Do(func() { close(w.events) })
 	return err
 }

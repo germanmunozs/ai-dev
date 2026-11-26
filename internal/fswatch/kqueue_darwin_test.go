@@ -5,6 +5,7 @@ package fswatch
 import (
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -23,13 +24,13 @@ func openDescriptors(t *testing.T) int {
 func TestSyncReopensReplacedFile(t *testing.T) {
 	root, feature, record, spec := project(t)
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	replaceAtomically(t, record, `{"state":"approved"}`)
 	waitFor(t, w, Changed, feature, record)
 	drain(w, 300*time.Millisecond)
-	if err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	file, err := os.OpenFile(record, os.O_WRONLY|os.O_APPEND, 0)
@@ -56,7 +57,7 @@ func TestSymbolicLinkFileIsNotFollowed(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := newWatcher(t)
-	if err := w.Sync([]string{root}, []string{link}); err != nil {
+	if _, err := w.Sync([]string{root}, []string{link}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, []byte("changed"), 0o644); err != nil {
@@ -72,7 +73,7 @@ func TestCloseReleasesDescriptors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
 	if during := openDescriptors(t); during < before+5 {
@@ -91,14 +92,92 @@ func TestCloseReleasesDescriptors(t *testing.T) {
 func TestSyncDropsPaths(t *testing.T) {
 	root, feature, record, spec := project(t)
 	w := newWatcher(t)
-	if err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
+	if _, err := w.Sync([]string{root, feature}, []string{record, spec}); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.Sync([]string{root}, nil); err != nil {
+	if _, err := w.Sync([]string{root}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(spec, []byte("changed"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	quietFor(t, w, time.Second)
+}
+
+// A FIFO in place of a file is skipped, never opened in a way that blocks
+// (review F9).
+func TestFIFOIsSkippedWithoutBlocking(t *testing.T) {
+	root, feature, _, spec := project(t)
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(spec, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	w := newWatcher(t)
+	done := make(chan error, 1)
+	go func() {
+		_, err := w.Sync([]string{root, feature}, []string{spec})
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Sync blocked on a FIFO")
+	}
+	if added, _ := w.Sync([]string{root, feature}, []string{spec}); len(added) != 0 {
+		t.Fatalf("second Sync added %v", added)
+	}
+}
+
+// The FIFO case also holds when the swap happens between Sync's Lstat and
+// its open: add itself refuses anything but a file or directory.
+func TestAddSkipsSpecialFiles(t *testing.T) {
+	dir := t.TempDir()
+	fifo := filepath.Join(dir, "fifo")
+	if err := syscall.Mkfifo(fifo, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	w := newWatcher(t).(*kqueueWatcher)
+	w.mu.Lock()
+	ok, err := w.add(fifo)
+	w.mu.Unlock()
+	if ok || err != nil {
+		t.Fatalf("add(fifo) = %v, %v; want skipped", ok, err)
+	}
+}
+
+// When the reader fails for any reason but Close, Events is closed so the
+// loop knows watching was lost (review F8).
+func TestReaderFailureClosesEvents(t *testing.T) {
+	w := newWatcher(t).(*kqueueWatcher)
+	syscall.Close(w.kq) // Kevent now fails with EBADF
+	select {
+	case _, ok := <-w.Events():
+		if ok {
+			t.Fatal("unexpected change")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Events not closed after the reader failed")
+	}
+}
+
+// Sync reports the paths it started observing, including a reopened one.
+func TestSyncReportsAddedPaths(t *testing.T) {
+	root, feature, record, spec := project(t)
+	w := newWatcher(t)
+	added, err := w.Sync([]string{root, feature}, []string{record, spec})
+	if err != nil || len(added) != 4 {
+		t.Fatalf("first Sync added %v, %v; want 4 paths", added, err)
+	}
+	if added, _ := w.Sync([]string{root, feature}, []string{record, spec}); len(added) != 0 {
+		t.Fatalf("unchanged Sync added %v", added)
+	}
+	replaceAtomically(t, record, "{}")
+	if added, _ := w.Sync([]string{root, feature}, []string{record, spec}); len(added) != 1 || added[0] != record {
+		t.Fatalf("Sync after a replace added %v, want [%s]", added, record)
+	}
 }

@@ -143,3 +143,48 @@ func TestWatchSourceWithoutSpecs(t *testing.T) {
 		t.Fatalf("Features = %v, %v; want none", features, err)
 	}
 }
+
+// A specs that is not a real, readable directory holds no features, as if
+// it were absent, so watch keeps running (review F13); the cockpit's own
+// listing is unchanged.
+func TestWatchSourceSpecsNotADirectory(t *testing.T) {
+	cases := map[string]func(t *testing.T, dir string){
+		"file": func(t *testing.T, dir string) {
+			if err := os.WriteFile(filepath.Join(dir, "specs"), []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"symbolic link": func(t *testing.T, dir string) {
+			real := filepath.Join(t.TempDir(), "specs")
+			if err := os.MkdirAll(filepath.Join(real, "001-a"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(real, filepath.Join(dir, "specs")); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"unreadable": func(t *testing.T, dir string) {
+			if os.Getuid() == 0 {
+				t.Skip("permissions do not apply to root")
+			}
+			specs := filepath.Join(dir, "specs")
+			if err := os.MkdirAll(filepath.Join(specs, "001-a"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(specs, 0); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(specs, 0o755) })
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			setup(t, dir)
+			features, err := newWatchSource(os.DirFS(dir), watchFixtureExecutor()).Features()
+			if err != nil || len(features) != 0 {
+				t.Fatalf("Features = %v, %v; want none and no error", features, err)
+			}
+		})
+	}
+}

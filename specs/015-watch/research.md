@@ -98,6 +98,7 @@ No real coding agent ran during this research. The measurements ran on the owner
   - the last entry's `to_state` equals the new state.
 
   In every other case it carries `human_gate: null`, so a history that becomes readable again never presents an old decision as the cause of a change.
+- **Tightened after the independent review (F3):** the old entries must be unchanged, and every new entry must name this feature and chain from the previous state to the new one, as data-model.md lists. A record copied from another feature, or a history rewritten by `git checkout`, then carries no evidence.
 - **Wire-format agreement:** the wire structure is defined in `gatestore/record.go` (unexported), and `gate` cannot import `gatestore`, so the reader declares its own copy. A round-trip test in `internal/gatestore`:
   - commits approvals and abandonments, with and without a reason, through the real store;
   - reads them back with `gate.ReadHistory`;
