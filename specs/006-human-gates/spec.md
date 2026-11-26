@@ -119,6 +119,10 @@
 - **Authority record (2026-11-20): human decision / human-approved cross-feature amendment.** German Munoz, repository owner, decided to amend 004 FR-028 in the words "Hallazgo de 004 FR-028 enmendar", after the finding was reported during the Feature 007 follow-up work. The approver identity is a declared, auditable assertion, not an authenticated identity.
 - 004 FR-028's escaped, quoted form is now Go's double-quoted form with every `$`, backquote and `!` additionally backslash-escaped (004 Amendment 5). It applies by reference to the feature identifier and approver identity its reports render in 004's form (FR-028), and equally to the reason and the supplied target its reports quote. No other requirement of this feature changes.
 
+### Session 2026-11-26 (amended by Feature 015, A3)
+
+- Feature 015 (`specs/015-watch/spec.md`), approved by the owner on 2026-11-26 ("si, apruebo la 015, haz el commit y ejecuta /speckit-plan"), amends this feature. This is a declared, unauthenticated assertion. Once Feature 015 is implemented, the recorded Human Gate evidence (the record's `human_gates` history) is readable, read-only, by ai-dev's reporting capabilities, which present it as recorded and never as a decision of their own (F015-FR-008). FR-003 (the Human Gate capability is the sole Workflow State write path), the evidence format and every other requirement of this feature are unchanged.
+
 ## Responsibility Boundary *(context for all requirements)*
 
 A **Human Gate** is the point at which ai-dev requires an explicit human acceptance decision before
