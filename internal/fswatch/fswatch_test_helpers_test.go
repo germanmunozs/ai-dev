@@ -153,3 +153,51 @@ func TestCloseEndsEvents(t *testing.T) {
 		t.Fatal("events not closed after Close")
 	}
 }
+
+func TestFeatureDirectoryCreatedIsSeen(t *testing.T) {
+	root, feature, record, spec := project(t)
+	specs := filepath.Join(root, "specs")
+	w := newWatcher(t)
+	if err := w.Sync([]string{root, specs, feature}, []string{record, spec}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(specs, "002-new"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, w, Changed, specs)
+}
+
+func TestFeatureDirectoryRemovedIsSeen(t *testing.T) {
+	root, feature, record, spec := project(t)
+	specs := filepath.Join(root, "specs")
+	w := newWatcher(t)
+	if err := w.Sync([]string{root, specs, feature}, []string{record, spec}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(feature); err != nil {
+		t.Fatal(err)
+	}
+	seenSpecs, seenGone := false, false
+	deadline := time.After(5 * time.Second)
+	for !seenSpecs || !seenGone {
+		select {
+		case c := <-w.Events():
+			seenSpecs = seenSpecs || c.Path == specs && c.Kind == Changed
+			seenGone = seenGone || c.Path == feature && c.Kind == Gone
+		case <-deadline:
+			t.Fatalf("within 5s: specs changed %v, feature gone %v", seenSpecs, seenGone)
+		}
+	}
+}
+
+func TestSpecsCreatedLaterIsSeenOnTheProject(t *testing.T) {
+	root := t.TempDir()
+	w := newWatcher(t)
+	if err := w.Sync([]string{root, filepath.Join(root, "specs")}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "specs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, w, Changed, root)
+}

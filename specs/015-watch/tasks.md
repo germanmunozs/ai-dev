@@ -240,7 +240,7 @@
 
 **Goal**: artifacts, next steps and features added or removed are reported, debounced. **Independent test**: create, rewrite and delete artifacts and feature directories while `watch` runs.
 
-- [ ] T029 [P] [US3] Tests `internal/watch/artifacts_test.go`, written before T030, in `synctest.Test` (F015-FR-009, US3 scenarios 1–4):
+- [X] T029 [P] [US3] Tests `internal/watch/artifacts_test.go`, written before T030, in `synctest.Test` (F015-FR-009, US3 scenarios 1–4):
   - Creating `plan.md` yields `artifacts_changed` with the three entries, then `next_step_changed` with the source's new `workflow next` bytes, in that order, in one evaluation.
   - A change in size or modification time alone yields `artifacts_changed` only.
   - Five saves within 200 ms yield one `artifacts_changed`.
@@ -248,13 +248,15 @@
   - `specs/` created after start is observed (the watch set gains it) and its features are added.
   - With `--feature a`, changes to `b` yield nothing.
   - No event contains an artifact's content: fixture artifacts hold a marker string, and the output is checked not to contain it (F015-FR-021).
-- [ ] T030 [US3] Extend `diff.go` and `loop.go` with `artifacts_changed`, `next_step_changed`, the `specs` key, `feature_added` and `feature_removed`, and the order of contracts/watch.md.
-- [ ] T031 [P] [US3] Adapter tests in `internal/fswatch/kqueue_darwin_test.go` and `internal/fswatch/inotify_linux_test.go`:
+- [X] T030 [US3] Extend `diff.go` and `loop.go` with `artifacts_changed`, `next_step_changed`, the `specs` key, `feature_added` and `feature_removed`, and the order of contracts/watch.md.
+- [X] T031 [P] [US3] Adapter tests in `internal/fswatch/kqueue_darwin_test.go` and `internal/fswatch/inotify_linux_test.go`:
   - `mkdir specs/new` yields `Changed` for `specs`;
   - `rm -r` of a watched feature directory yields `Changed` for `specs`, and `Gone` for that directory;
   - `specs` created after `Sync` of the project directory yields `Changed` for the project directory.
 
   Extend T023 and T025 if a case fails.
+
+**Result (2026-11-26):** the code for T030 was already written with T027, because the loop's feature evaluation and listing are shared, so T029's tests passed when first run. Two mutations showed they are not vacuous: ignoring the modification time in the artifact comparison fails `TestArtifactMetadataChangeOnly`, and dropping the `feature_removed` push fails `TestFeatureAddedAndRemoved`. A run of the built binary on a throwaway project showed, in order: one `artifacts_changed` for a new `plan.md`, one for five quick saves, `feature_added` and `feature_removed` for a directory created and removed, and `watch_stopped` on Ctrl-C. In `specified`, a new `plan.md` does not change what `workflow next` recommends, so no `next_step_changed` follows, as expected.
 
 ## Phase 6: User Story 4, agent configuration and environment health (P2)
 
