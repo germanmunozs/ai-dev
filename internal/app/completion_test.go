@@ -72,7 +72,7 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "setup", "apply", "--role", "impl"}, rolePairs("implementation")},
 	{[]string{"ai-dev", "setup", "apply", "--role", "review=claude-code", "--r"}, []string{"--role", "--replace"}},
 	{[]string{"ai-dev", "wo"}, []string{"workflow"}},
-	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "open", "version", "help", "completion"}},
+	{[]string{"ai-dev", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "open", "watch", "version", "help", "completion"}},
 	{[]string{"ai-dev", "workflow", ""}, []string{"state", "transition", "next", "guide", "approve", "abandon"}},
 	{[]string{"ai-dev", "workflow", "state", "--f"}, []string{"--format"}},
 	{[]string{"ai-dev", "workflow", "state", "--format", ""}, []string{"text", "json"}},
@@ -81,7 +81,7 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "agent", "run", "--format", "json", "c"}, idsWithPrefix("c")},
 	{[]string{"ai-dev", "agent", "select", "re"}, []string{"review", "remediation"}},
 	{[]string{"ai-dev", "help", "init", ""}, []string{"inspect", "plan", "apply", "reconcile"}},
-	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "open", "version", "help", "completion"}},
+	{[]string{"ai-dev", "help", ""}, []string{"doctor", "agents", "agent", "workflow", "init", "git", "setup", "tui", "open", "watch", "version", "help", "completion"}},
 	{[]string{"ai-dev", "completion", ""}, []string{"bash", "zsh"}},
 	{[]string{"ai-dev", "git", "commit", ""}, []string{"validate"}},
 	{[]string{"ai-dev", "version", "-"}, []string{"--format", "--help"}},
@@ -102,6 +102,12 @@ var completionCases = []struct {
 	{[]string{"ai-dev", "open", "--", "no"}, []string{"FILES"}},
 	{[]string{"ai-dev", "open", "--line", "3", "--", "no"}, []string{"FILES"}},
 	{[]string{"ai-dev", "open", "--", "a", ""}, nil},
+	// F015-FR-023: watch completes its options; --feature offers no
+	// candidates, like the other feature identifiers (analysis U2).
+	{[]string{"ai-dev", "watch", "-"}, []string{"--format", "--feature", "--debounce", "--heartbeat", "--environment-interval", "--once", "--help"}},
+	{[]string{"ai-dev", "watch", "--format", ""}, []string{"text", "json"}},
+	{[]string{"ai-dev", "watch", "--feature", ""}, nil},
+	{[]string{"ai-dev", "watch", "--once", ""}, nil},
 }
 
 // bashSplitCases are the words bash 4 and later produce for --option=value,

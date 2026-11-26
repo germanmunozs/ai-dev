@@ -58,7 +58,7 @@ func TestHelpCommand(t *testing.T) {
 			t.Fatalf("%v: help reached a process boundary", args)
 		}
 	}
-	for _, group := range []string{"doctor", "agents", "agent", "workflow", "init", "git", "open", "version", "help"} {
+	for _, group := range []string{"doctor", "agents", "agent", "workflow", "init", "git", "open", "watch", "version", "help"} {
 		if !strings.Contains(want, "\n  "+group+" ") && !strings.Contains(want, "\n  "+group+"\n") {
 			t.Fatalf("help does not list the %q group:\n%s", group, want)
 		}
@@ -86,7 +86,13 @@ func TestHelpCommandsAreRouted(t *testing.T) {
 		if command.usage == "" {
 			continue
 		}
-		_, stdout, stderr, _, launcher := runTopLevel(t, command.path...)
+		args := command.path
+		if args[0] == "watch" {
+			// watch runs until stopped; --once still proves the routing
+			// and returns (F015-FR-014).
+			args = []string{"watch", "--once"}
+		}
+		_, stdout, stderr, _, launcher := runTopLevel(t, args...)
 		if reachedNoCommand(stdout + stderr) {
 			t.Fatalf("%v is listed in the help but not routed:\nstdout=%q\nstderr=%q", command.path, stdout, stderr)
 		}
@@ -99,7 +105,7 @@ func TestHelpCommandsAreRouted(t *testing.T) {
 func TestTopLevelUsageNamesEveryGroup(t *testing.T) {
 	for _, args := range [][]string{nil, {"bogus"}, {"--bogus"}} {
 		code, stdout, stderr, _, _ := runTopLevel(t, args...)
-		if code != 2 || stdout != "" || stderr != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|open|version|help|completion> [options]\n" {
+		if code != 2 || stdout != "" || stderr != "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|open|watch|version|help|completion> [options]\n" {
 			t.Fatalf("%v: exit=%d stdout=%q stderr=%q", args, code, stdout, stderr)
 		}
 	}

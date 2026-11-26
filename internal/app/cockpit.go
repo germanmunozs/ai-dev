@@ -159,25 +159,39 @@ type cockpitSource struct {
 // LoadFeatures lists specs/* as Features 004 and 005 recognize them, in
 // name order, each with the state and guide reports.
 func (s cockpitSource) LoadFeatures(context.Context) ([]cockpit.FeatureRow, error) {
-	if _, err := fs.Stat(s.root, "."); err != nil {
+	ids, err := listFeatures(s.root)
+	if err != nil {
+		return nil, err
+	}
+	assignment, _, _, _ := loadAssignment(s.root)
+	selector := selection.NewSelectorFor(agent.NewRegistry(s.executor), assignment)
+	var rows []cockpit.FeatureRow
+	for _, id := range ids {
+		rows = append(rows, featureRow(s.root, id, selector))
+	}
+	return rows, nil
+}
+
+// listFeatures lists specs/* as Feature 004 recognizes them, in name order;
+// the cockpit and ai-dev watch share it.
+func listFeatures(root fs.FS) ([]string, error) {
+	if _, err := fs.Stat(root, "."); err != nil {
 		return nil, fmt.Errorf("the project directory cannot be read: %v", err)
 	}
-	entries, err := fs.ReadDir(s.root, "specs")
+	entries, err := fs.ReadDir(root, "specs")
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("specs cannot be read: %v", err)
 	}
-	assignment, _, _, _ := loadAssignment(s.root)
-	selector := selection.NewSelectorFor(agent.NewRegistry(s.executor), assignment)
-	var rows []cockpit.FeatureRow
+	var ids []string
 	for _, entry := range entries {
-		if workflow.FeatureExists(s.root, entry.Name()) {
-			rows = append(rows, featureRow(s.root, entry.Name(), selector))
+		if workflow.FeatureExists(root, entry.Name()) {
+			ids = append(ids, entry.Name())
 		}
 	}
-	return rows, nil
+	return ids, nil
 }
 
 func featureRow(root fs.FS, featureID string, selector guide.Selector) cockpit.FeatureRow {
