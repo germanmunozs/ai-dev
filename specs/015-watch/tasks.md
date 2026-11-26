@@ -279,7 +279,7 @@
 
 **Goal**: signals, overflow, a vanished project and unavailable watching end or recover predictably. **Independent test**: signals, an unread pipe, the project removed, and an injected watch limit.
 
-- [ ] T035 [P] [US5] Tests `internal/watch/stop_test.go`, written before T036, in `synctest.Test` (F015-FR-015 to FR-018, owner decisions 2 and 4):
+- [X] T035 [P] [US5] Tests `internal/watch/stop_test.go`, written before T036, in `synctest.Test` (F015-FR-015 to FR-018, owner decisions 2 and 4):
   - Cancelling the context yields `watch_stopped` with `signal` as the last event, and exit 0. With a writer that stays blocked, `Run` returns exit 0 after 2 s.
   - A `Gone` on the project directory, or a project identity that changed (injected), yields `watch_stopped` with `project_gone`, and exit 1.
   - A watcher constructor returning `Unavailable` yields only `watch_stopped` (`watch_unavailable`, with the detail and remedy), no snapshot, and exit 1.
@@ -288,9 +288,9 @@
   - A queue overflow yields `resync_required` (`queue_overflow`), then, once the writer resumes, a `snapshot` computed after resumption, with the source state changed during the pause visible in it.
   - A source panic, recovered, yields `watch_stopped` with `internal_error`, and exit 2.
   - A writer error (closed output) yields exit 2 and no further `Write`.
-- [ ] T036 [US5] Extend `loop.go`: the stop reasons, project identity (device and inode, injected through `Options` for tests), overflow pause and resume through the queue, the final `Flush(2 * time.Second)`, and panic recovery. Every exit path closes the watcher.
-- [ ] T037 [US5] Wire signals and output errors in `internal/app/watch.go`: `signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` and `brokenPipeAsError`. An unreadable project directory at start gives `watch_unavailable` with detail "the project directory cannot be read" and exit 1. Map `Result` to the exit codes of contracts/watch.md.
-- [ ] T038 [US5] End-to-end tests in `cmd/ai-dev/watch_e2e_test.go` (US5 scenarios 1, 3 and 4, SC-005):
+- [X] T036 [US5] Extend `loop.go`: the stop reasons, project identity (device and inode, injected through `Options` for tests), overflow pause and resume through the queue, the final `Flush(2 * time.Second)`, and panic recovery. Every exit path closes the watcher.
+- [X] T037 [US5] Wire signals and output errors in `internal/app/watch.go`: `signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` and `brokenPipeAsError`. An unreadable project directory at start gives `watch_unavailable` with detail "the project directory cannot be read" and exit 1. Map `Result` to the exit codes of contracts/watch.md.
+- [X] T038 [US5] End-to-end tests in `cmd/ai-dev/watch_e2e_test.go` (US5 scenarios 1, 3 and 4, SC-005):
   - `TestWatchSignals`: `SIGINT` and `SIGTERM` each end with a `watch_stopped` `signal` line, and exit 0.
   - `TestWatchProjectGone`: in two subtests, renaming and deleting (`os.RemoveAll`) the project directory each end with `project_gone`, and exit 1 (analysis U3).
   - `TestWatchBlockedClient` (analysis U1: no test-only option, variable or build tag):
@@ -300,6 +300,8 @@
     4. Check that the process's RSS stays bounded (under 64 MB, measured with `ps -o rss=`).
     5. Read: the stream contains `resync_required` (`queue_overflow`) followed by a `snapshot` that lists all 1,100 features with their new artifacts.
   - `TestWatchClosedOutput`: closing the read end of the pipe gives exit 2.
+
+**Result (2026-11-26):** most of T036 and all of T037 were already in place from the MVP, so the T035 tests for signals, the project gone, unavailable watching, kernel overflow, a source panic and a closed output passed when first run. What was missing was the new snapshot after a queue overflow, once the client reads again. That test failed and now passes with `loop.resumed`. In T038, `TestWatchBlockedClient` overflowed the real 1,000-event queue with 1,100 features; RSS while blocked was 17,312 KB on macOS.
 
 ## Phase 8: Polish and cross-cutting concerns
 

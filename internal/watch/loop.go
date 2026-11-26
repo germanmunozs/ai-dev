@@ -137,6 +137,8 @@ func Run(ctx context.Context, opts Options, cfg Config) (result Result) {
 			return l.stop(Stopped{Reason: "signal"}, 0)
 		case <-l.q.Err():
 			return Result{ExitCode: 2}
+		case <-l.q.Resumed():
+			end = l.resumed()
 		case <-heartbeat.C:
 			l.push(Heartbeat, struct{}{})
 		case <-revalidate:
@@ -350,6 +352,21 @@ func (l *loop) sync() *stopped {
 	return nil
 }
 
+// resumed queues a new snapshot once the resync_required of a queue
+// overflow is written, computed now so it holds what changed while the
+// client was not reading (F015-FR-017).
+func (l *loop) resumed() *stopped {
+	p, err := l.obs.build(l.ctx)
+	if err != nil {
+		return &stopped{l.stop(unreadable(err), 1)}
+	}
+	l.picture = p
+	l.pending = map[string]time.Time{}
+	l.schedule()
+	l.push(Snapshot, p.snapshot())
+	return l.sync()
+}
+
 // resync reports that events were lost and replaces the client's state
 // with a new snapshot (F015-FR-005).
 func (l *loop) resync(reason string) *stopped {
@@ -360,6 +377,7 @@ func (l *loop) resync(reason string) *stopped {
 	}
 	l.picture = p
 	l.pending = map[string]time.Time{}
+	l.schedule()
 	l.push(Snapshot, p.snapshot())
 	return l.sync()
 }

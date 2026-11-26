@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -300,5 +301,160 @@ func TestWatchHumanGates(t *testing.T) {
 	code, last := p.stop(t, syscall.SIGTERM)
 	if code != 0 || last.Type != "watch_stopped" || !strings.Contains(string(last.Data), `"reason":"signal"`) {
 		t.Fatalf("stop: exit %d, last %s %s", code, last.Type, last.Data)
+	}
+}
+
+// SIGINT and SIGTERM end with watch_stopped signal and exit 0 (US5 1).
+func TestWatchSignals(t *testing.T) {
+	bin := buildAIDev(t)
+	for _, sig := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM} {
+		t.Run(sig.String(), func(t *testing.T) {
+			dir := watchFixture(t)
+			p := startWatch(t, bin, dir, watchEnv(t))
+			p.next(t, 10*time.Second, "snapshot")
+			code, last := p.stop(t, sig)
+			if code != 0 || last.Type != "watch_stopped" || !strings.Contains(string(last.Data), `"reason":"signal"`) {
+				t.Fatalf("exit %d, last %s %s", code, last.Type, last.Data)
+			}
+		})
+	}
+}
+
+// Renaming or deleting the project ends with project_gone and exit 1
+// (US5 4, analysis U3).
+func TestWatchProjectGone(t *testing.T) {
+	bin := buildAIDev(t)
+	for name, remove := range map[string]func(string) error{
+		"renamed": func(dir string) error { return os.Rename(dir, dir+"-moved") },
+		"deleted": os.RemoveAll,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := watchFixture(t)
+			p := startWatch(t, bin, dir, watchEnv(t))
+			p.next(t, 10*time.Second, "snapshot")
+			if err := remove(dir); err != nil {
+				t.Fatal(err)
+			}
+			last := p.next(t, 10*time.Second, "watch_stopped")
+			if !strings.Contains(string(last.Data), `"reason":"project_gone"`) {
+				t.Fatalf("watch_stopped %s, want project_gone", last.Data)
+			}
+			for range p.lines {
+			}
+			err := p.cmd.Wait()
+			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
+				t.Fatalf("exit %v, want 1", err)
+			}
+		})
+	}
+}
+
+// A client that stops reading: the real 1,000-event queue overflows
+// without any test-only switch, memory stays bounded, and reading again
+// yields resync_required then a snapshot (SC-005, analysis U1).
+func TestWatchBlockedClient(t *testing.T) {
+	bin := buildAIDev(t)
+	dir := t.TempDir()
+	const features = 1100
+	for i := range features {
+		feature := filepath.Join(dir, "specs", fmt.Sprintf("%04d-f", i))
+		if err := os.MkdirAll(feature, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(feature, "spec.md"), []byte("# a\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "watch", "--format", "json", "--debounce", "50ms", "--environment-interval", "0")
+	cmd.Dir, cmd.Env, cmd.Stdout, cmd.Stderr = dir, watchEnv(t), write, os.Stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	write.Close()
+	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait(); read.Close() })
+
+	// The snapshot alone fills the pipe; one byte proves watch has started.
+	if _, err := read.Read(make([]byte, 1)); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	for i := range features {
+		if err := os.WriteFile(filepath.Join(dir, "specs", fmt.Sprintf("%04d-f", i), "spec.md"), []byte("# changed\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	time.Sleep(3 * time.Second)
+	out, err := exec.Command("ps", "-o", "rss=", "-p", fmt.Sprint(cmd.Process.Pid)).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rss int
+	if _, err := fmt.Sscan(strings.TrimSpace(string(out)), &rss); err != nil || rss > 64*1024 {
+		t.Fatalf("RSS %q KB, want under 64 MB", out)
+	}
+	t.Logf("RSS while blocked: %d KB", rss)
+
+	reader := bufio.NewReaderSize(read, 1<<20)
+	if _, err := reader.ReadString('\n'); err != nil { // the rest of the first snapshot
+		t.Fatal(err)
+	}
+	var types []string
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) && !(len(types) >= 2 && types[len(types)-2] == "resync_required" && types[len(types)-1] == "snapshot") {
+		text, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("read: %v after %v", err, types)
+		}
+		var line watchLine
+		if err := json.Unmarshal([]byte(text), &line); err != nil {
+			t.Fatalf("invalid line %q", text)
+		}
+		types = append(types, line.Type)
+		if line.Type == "snapshot" {
+			if n := strings.Count(string(line.Data), `"# changed`); n != 0 {
+				t.Fatalf("snapshot carries content")
+			}
+			if n := strings.Count(string(line.Data), `"feature":"`); n != features {
+				t.Fatalf("resync snapshot lists %d features, want %d", n, features)
+			}
+		}
+	}
+	if len(types) < 2 || types[len(types)-2] != "resync_required" || types[len(types)-1] != "snapshot" {
+		t.Fatalf("events after the first snapshot: %d, ending %v; want resync_required then snapshot", len(types), types[max(0, len(types)-3):])
+	}
+	if len(types) > 1001+1 {
+		t.Fatalf("%d events before the resync; the queue holds at most 1000", len(types))
+	}
+}
+
+// A client that closes its end makes watch exit 2 (FR-018, analysis I3).
+func TestWatchClosedOutput(t *testing.T) {
+	bin := buildAIDev(t)
+	dir := watchFixture(t)
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read.Close()
+	cmd := exec.Command(bin, "watch", "--format", "json")
+	cmd.Dir, cmd.Env, cmd.Stdout = dir, watchEnv(t), write
+	done := make(chan error, 1)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	write.Close()
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 2 {
+			t.Fatalf("exit %v, want 2", err)
+		}
+	case <-time.After(10 * time.Second):
+		_ = cmd.Process.Kill()
+		t.Fatal("watch did not exit with its output closed")
 	}
 }
