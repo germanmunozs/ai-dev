@@ -12,13 +12,17 @@ import (
 	"testing"
 )
 
+// bytes, encoding/json, errors, path and workflow.RecordFileName serve only
+// ReadHistory, the read-only history reader of 006 Amendment A3 (Feature
+// 015); none of them can write.
 var gateImports = map[string]bool{
 	"io/fs": true, "strings": true, "time": true,
+	"bytes": true, "encoding/json": true, "errors": true, "path": true,
 	"github.com/germanmunozs/ai-dev/internal/workflow": true, "github.com/germanmunozs/ai-dev/internal/sdd": true,
 }
 
 var gateWorkflowSelectors = map[string]bool{
-	"EvaluateTransition": true, "FeatureDir": true, "Recognized": true,
+	"EvaluateTransition": true, "FeatureDir": true, "Recognized": true, "RecordFileName": true,
 	"State": true, "Outcome": true,
 	"Draft": true, "Specified": true, "Planned": true, "Tasked": true,
 	"Implemented": true, "Approved": true, "Abandoned": true,

@@ -30,6 +30,7 @@ An agent finishing successfully, an artifact existing or a transition being vali
    - [011 · Agent Detection and Role Configuration](#011--agent-detection-and-role-configuration)
    - [012 · Terminal Cockpit](#012--terminal-cockpit)
    - [014 · Neovim Integration](#014--neovim-integration)
+   - [015 · Project Event Watch](#015--project-event-watch)
 6. [Security model](#security-model)
 7. [Persistence](#persistence)
 8. [Development and quality](#development-and-quality)
@@ -56,6 +57,7 @@ An agent finishing successfully, an artifact existing or a transition being vali
 | 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implemented |
 | 012 Terminal Cockpit | `ai-dev tui` | Implemented |
 | 014 Neovim Integration | `ai-dev open`, Neovim plugin in `nvim/` | Implemented |
+| 015 Project Event Watch | `ai-dev watch` | Implemented |
 
 Each feature has its specification, plan, contracts, data model and tasks in [`specs/`](specs/).
 
@@ -165,6 +167,7 @@ Every command accepts `--format text|json`. Text is for humans; JSON is stable a
 | `ai-dev setup apply --agent A… --role ROLE=AGENT… [--replace]` | Writes the same configuration without prompting | Yes: `.ai-dev/agents.json` |
 | `ai-dev tui` | Interactive terminal cockpit (requires a TTY): feature state, environment, agents and repository, and launching the actions | Nothing by itself; each action runs its own command after it is confirmed |
 | `ai-dev open [--line N] [--column N] -- <path>` | Opens a project file at a line in Neovim: the parent Neovim inside one of its terminals, otherwise in the foreground | Nothing in the project |
+| `ai-dev watch [--feature ID]… [--once]` | Reports each change to the project as it happens: features' state, artifacts and next step, agents and environment (NDJSON with `--format json`) | No |
 
 `--help` and `-h` are recognized only right after the command: `ai-dev agent run claude-code --help` sends `--help` as the instruction, without showing the help.
 
@@ -296,6 +299,8 @@ internal/
   configstore/           011 — atomic writing of .ai-dev/agents.json
   cockpit/               012 — cockpit presentation (Bubble Tea), no authority or domain
   editor/                014 — path validation, $NVIM check and msgpack-RPC client of ai-dev open
+  watch/                 015 — event loop, comparison and queue of ai-dev watch; writes nothing
+  fswatch/               015 — kqueue (macOS) and inotify (Linux) adapters of ai-dev watch
   workflow/              004 — states, transition rules, record
   sdd/                   005 — next-step recommendation
   gate/ gatestore/       006 — human decisions and their atomic persistence
@@ -881,6 +886,38 @@ An unknown option or an invalid value is reported with a warning, and its defaul
 - **Troubleshooting:** `:checkhealth ai-dev` reports the Neovim and ai-dev versions and whether they are compatible. If `ai-dev open` reports `editor_refused`, `$NVIM` does not name a working Neovim socket of yours: run it from a terminal of the Neovim you want, or without `$NVIM`.
 - **Removal:** remove the specification and restart Neovim. Nothing remains, because the plugin defines its command, autocommands and mappings only in `setup()`.
 
+### 015 · Project Event Watch
+
+**`ai-dev watch [--format text|json] [--feature ID]… [--debounce D] [--heartbeat D] [--environment-interval D] [--once]`** observes the project and reports each change as it happens. It is read-only and runs until it is stopped. A graphical client, an editor or a script keeps it running instead of polling the other commands.
+
+- **The first event is a snapshot:** every feature with its state, artifacts and next step, the agents and the role assignment, and the environment checks. Its `state`, `next`, `setup` and `environment` objects are exactly what `workflow state`, `workflow next`, `setup show` and `doctor` print with `--format json`.
+- **Then one event for each result that changes,** after a debounce of `--debounce` (250 ms by default, 50 ms to 5 s) that starts at the first change:
+  - `workflow_state_changed`, `artifacts_changed` and `next_step_changed`, for a feature;
+  - `feature_added` and `feature_removed`, for a directory under `specs/`;
+  - `agents_config_changed`, when `.ai-dev/agents.json` or an agent's availability changes;
+  - `environment_changed`, with only the checks that changed, evaluated again every `--environment-interval` (60 s by default; `0` never);
+  - `heartbeat`, every `--heartbeat` (15 s by default).
+- **Events inform; they never approve.** `workflow_state_changed` reports the new state with the outcome of `workflow state`, never a Human Gate outcome. It carries the decision as recorded (`human_gate`) only when a new history entry appeared and leads to that state. A state changed by hand, by `git checkout` or by `git pull` carries `"human_gate": null`.
+- **Contract `ai-dev.watch/v1`:** one JSON object per line, with `schema_version`, `seq` (1, 2, 3… for each emitted event), `type`, `time` (UTC), `project` and `data`. New members and event types may be added within v1, and clients must ignore what they do not know. The complete contract is in [`specs/015-watch/contracts/watch.md`](specs/015-watch/contracts/watch.md).
+
+  ```json
+  {"schema_version":"ai-dev.watch/v1","seq":3,"type":"workflow_state_changed","time":"2026-11-26T10:02:08.120Z","project":"/Users/ana/dev/app","data":{"feature":"004-login","from":"implemented","to":"approved","outcome":"state_reported","state":{"feature_id":"004-login","state":"approved","terminal":true,"outcome":"state_reported"},"human_gate":{"decision":"approval","approver":"ana@example.com","from_state":"implemented","to_state":"approved","decided_at":"2026-11-25T14:32:07Z","reason":"Revisado"}}}
+  ```
+
+- **Recovery:** after `resync_required`, or after starting `watch` again, replace all the state you hold with the snapshot that follows. While the client does not read, at most 1,000 events wait; beyond that they are discarded, and once it reads again `resync_required` and a new snapshot follow.
+- **Detecting support:** `ai-dev watch --help` succeeds only in versions that include Feature 015 (`ai-dev version`). With older versions, clients keep polling.
+- **Ending:**
+
+  | Event or case | Exit code |
+  |---|---|
+  | `SIGINT` or `SIGTERM`: `watch_stopped` with `signal` (waiting at most 2 s for a client that does not read) | 0 |
+  | `--once`: the snapshot only, on any platform | 0 |
+  | `watch_stopped` with `project_gone` (the project directory was removed or moved) or `watch_unavailable` | 1 |
+  | `watch_stopped` with `internal_error`; standard output closed | 2 |
+
+- **Platforms and limits:** kqueue on macOS and inotify on Linux, through Go's standard library; other platforms report `watch_unavailable`. When Linux's `fs.inotify.max_user_watches` or `fs.inotify.max_user_instances`, or the open-file limit on macOS, is reached, `watch_stopped` names the limit and how to raise it.
+- **Read-only:** `watch` writes, locks and renames nothing, and the only process it starts is the doctor check's `git rev-parse --is-inside-work-tree`. Events carry metadata only (presence, size and modification time), never the content of an artifact. In text format, every name that comes from the project is quoted as in the other reports.
+
 ## Security model
 
 ```mermaid
@@ -909,6 +946,7 @@ flowchart TB
 - **Reports that are safe to paste:** the supplied values in the 004–007 text reports (identifier, approver, reason, target) go in double quotes, with `$`, backquotes and `!` escaped (004 FR-028, amendment 5). Pasting a report line into a shell runs or expands nothing it contains.
 - **Literal paths:** non-literal paths and symbolic links are refused. Each component is opened with `O_NOFOLLOW` and its identity is checked again after the read.
 - **Fail closed:** unsupported platforms or filesystems (tmpfs, remote, read-only) return a typed refusal and never an assumed partial success.
+- **Watching informs (015):** `ai-dev watch` cannot write state, which a structural test enforces, and none of its events carries a Human Gate outcome. A recorded decision is shown as recorded, and only for the change it caused.
 
 ---
 

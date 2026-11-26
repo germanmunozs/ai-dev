@@ -316,7 +316,11 @@ func checkRepositorySource(filename string, source any) []error {
 			findings = append(findings, fmt.Errorf("gatestore imported by %s", rel))
 		}
 		if importPath == "github.com/germanmunozs/ai-dev/internal/gate" {
-			allowed := strings.HasPrefix(rel, "internal/gatestore/") || rel == "internal/report/workflowgate.go" || rel == "internal/app/workflowgate.go" || rel == "internal/app/app.go"
+			// internal/watch/picture.go only calls gate.ReadHistory, the
+			// read-only reader of 006 Amendment A3; it holds no gate.Store
+			// (Feature 015, F015-FR-019).
+			allowed := strings.HasPrefix(rel, "internal/gatestore/") || rel == "internal/report/workflowgate.go" || rel == "internal/app/workflowgate.go" || rel == "internal/app/app.go" ||
+				rel == "internal/watch/picture.go"
 			if !allowed {
 				findings = append(findings, fmt.Errorf("gate imported by %s", rel))
 			}

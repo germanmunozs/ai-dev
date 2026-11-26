@@ -23,8 +23,8 @@ const workflowGroupUsage = "Usage: ai-dev workflow <state|transition|next|guide|
 const agentGroupUsage = "Usage: ai-dev agent <run|select> [options]"
 
 // topLevelUsage names every command group (F009-FR-005, F010-FR-010,
-// F014-FR-026).
-const topLevelUsage = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|open|version|help|completion> [options]"
+// F014-FR-026, F015-FR-023).
+const topLevelUsage = "Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|open|watch|version|help|completion> [options]"
 
 // Dependencies is the composition bundle for one CLI invocation. Supplying a
 // dependency grants no authority by itself: each command receives only the
@@ -98,6 +98,9 @@ func RunWithDependencies(ctx context.Context, args []string, deps Dependencies) 
 	}
 	if args[0] == "open" {
 		return RunOpen(ctx, args[1:], defaultOpenDependencies(deps), stdin, stdout, stderr)
+	}
+	if args[0] == "watch" {
+		return RunWatch(ctx, args[1:], Dependencies{Executor: executor, Root: root, Stdout: stdout, Stderr: stderr})
 	}
 	if args[0] == "agents" {
 		return RunAgentsList(args[1:], executor, stdout, stderr)

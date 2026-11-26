@@ -30,6 +30,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
    - [011 · Agent Detection and Role Configuration](#011--agent-detection-and-role-configuration)
    - [012 · Terminal Cockpit](#012--terminal-cockpit)
    - [014 · Neovim Integration](#014--neovim-integration)
+   - [015 · Project Event Watch](#015--project-event-watch)
 6. [Modelo de seguridad](#modelo-de-seguridad)
 7. [Persistencia](#persistencia)
 8. [Desarrollo y calidad](#desarrollo-y-calidad)
@@ -56,6 +57,7 @@ Que un agente termine con éxito, que exista un artefacto o que una transición 
 | 011 Agent Detection and Role Configuration | `ai-dev setup`, `ai-dev setup show`, `ai-dev setup apply` | Implementada |
 | 012 Terminal Cockpit | `ai-dev tui` | Implementada |
 | 014 Neovim Integration | `ai-dev open`, plugin de Neovim en `nvim/` | Implementada |
+| 015 Project Event Watch | `ai-dev watch` | Implementada |
 
 Cada feature tiene su especificación, plan, contratos, modelo de datos y tareas en [`specs/`](specs/).
 
@@ -165,6 +167,7 @@ Todos los comandos aceptan `--format text|json`. El texto es para humanos; el JS
 | `ai-dev setup apply --agent A… --role ROL=AGENTE… [--replace]` | Escribe la misma configuración sin preguntar | Sí: `.ai-dev/agents.json` |
 | `ai-dev tui` | Cockpit interactivo de terminal (requiere TTY): estado de las features, entorno, agentes y repositorio, y lanzamiento de las acciones | Nada por sí mismo; cada acción ejecuta su propio comando tras confirmarla |
 | `ai-dev open [--line N] [--column N] -- <ruta>` | Abre un archivo del proyecto en una línea en Neovim: en el Neovim padre dentro de una de sus terminales, si no en primer plano | Nada en el proyecto |
+| `ai-dev watch [--feature ID]… [--once]` | Informa de cada cambio del proyecto en cuanto ocurre: estado, artefactos y siguiente paso de los features, agentes y entorno (NDJSON con `--format json`) | No |
 
 `--help` y `-h` solo se reconocen justo después del comando: `ai-dev agent run claude-code --help` envía `--help` como instrucción, sin mostrar la ayuda.
 
@@ -296,6 +299,8 @@ internal/
   configstore/           011 — escritura atómica de .ai-dev/agents.json
   cockpit/               012 — presentación del cockpit (Bubble Tea), sin autoridad ni dominio
   editor/                014 — validación de rutas, comprobación de $NVIM y cliente msgpack-RPC de ai-dev open
+  watch/                 015 — bucle de eventos, comparación y cola de ai-dev watch; no escribe nada
+  fswatch/               015 — adaptadores kqueue (macOS) e inotify (Linux) de ai-dev watch
   workflow/              004 — estados, reglas de transición, registro
   sdd/                   005 — recomendación del siguiente paso
   gate/ gatestore/       006 — decisiones humanas y su persistencia atómica
@@ -881,6 +886,38 @@ Una opción desconocida o un valor no válido se avisa con una advertencia, y se
 - **Problemas:** `:checkhealth ai-dev` informa de las versiones de Neovim y de ai-dev y de si son compatibles. Si `ai-dev open` informa `editor_refused`, `$NVIM` no nombra un socket de Neovim tuyo que funcione: ejecútalo desde una terminal del Neovim que quieras, o sin `$NVIM`.
 - **Eliminación:** quita la especificación y reinicia Neovim. No queda nada, porque el plugin define su comando, autocomandos y mapeos solo en `setup()`.
 
+### 015 · Project Event Watch
+
+**`ai-dev watch [--format text|json] [--feature ID]… [--debounce D] [--heartbeat D] [--environment-interval D] [--once]`** observa el proyecto e informa de cada cambio en cuanto ocurre. Es de solo lectura y sigue en marcha hasta que se le detiene. Un cliente gráfico, un editor o un script lo mantiene en marcha en lugar de consultar los otros comandos cada cierto tiempo.
+
+- **El primer evento es una foto completa** (`snapshot`): cada feature con su estado, artefactos y siguiente paso, los agentes y la asignación de roles, y los checks del entorno. Sus objetos `state`, `next`, `setup` y `environment` son exactamente lo que imprimen `workflow state`, `workflow next`, `setup show` y `doctor` con `--format json`.
+- **Después, un evento por cada resultado que cambia,** tras un debounce de `--debounce` (250 ms por defecto, de 50 ms a 5 s) que empieza con el primer cambio:
+  - `workflow_state_changed`, `artifacts_changed` y `next_step_changed`, para un feature;
+  - `feature_added` y `feature_removed`, para un directorio de `specs/`;
+  - `agents_config_changed`, cuando cambia `.ai-dev/agents.json` o la disponibilidad de un agente;
+  - `environment_changed`, solo con los checks que cambiaron, evaluados de nuevo cada `--environment-interval` (60 s por defecto; `0` nunca);
+  - `heartbeat`, cada `--heartbeat` (15 s por defecto).
+- **Los eventos informan; nunca aprueban.** `workflow_state_changed` informa del nuevo estado con el resultado de `workflow state`, nunca con el de una Human Gate. Lleva la decisión tal como está registrada (`human_gate`) solo si apareció una entrada nueva en el historial y lleva a ese estado. Un estado cambiado a mano, con `git checkout` o con `git pull` lleva `"human_gate": null`.
+- **Contrato `ai-dev.watch/v1`:** un objeto JSON por línea, con `schema_version`, `seq` (1, 2, 3… por cada evento emitido), `type`, `time` (UTC), `project` y `data`. Dentro de v1 se pueden añadir miembros y tipos de evento nuevos, y los clientes deben ignorar lo que no conozcan. El contrato completo está en [`specs/015-watch/contracts/watch.md`](specs/015-watch/contracts/watch.md).
+
+  ```json
+  {"schema_version":"ai-dev.watch/v1","seq":3,"type":"workflow_state_changed","time":"2026-11-26T10:02:08.120Z","project":"/Users/ana/dev/app","data":{"feature":"004-login","from":"implemented","to":"approved","outcome":"state_reported","state":{"feature_id":"004-login","state":"approved","terminal":true,"outcome":"state_reported"},"human_gate":{"decision":"approval","approver":"ana@example.com","from_state":"implemented","to_state":"approved","decided_at":"2026-11-25T14:32:07Z","reason":"Revisado"}}}
+  ```
+
+- **Recuperación:** tras `resync_required`, o al arrancar `watch` de nuevo, sustituye todo el estado que tengas por la foto completa que llega a continuación. Mientras el cliente no lee, esperan como máximo 1.000 eventos; a partir de ahí se descartan, y cuando vuelve a leer llegan `resync_required` y una foto completa nueva.
+- **Detectar si está disponible:** `ai-dev watch --help` solo funciona en las versiones que incluyen la Feature 015 (`ai-dev version`). Con versiones anteriores, los clientes siguen consultando.
+- **Terminación:**
+
+  | Evento o caso | Código de salida |
+  |---|---|
+  | `SIGINT` o `SIGTERM`: `watch_stopped` con `signal` (espera como máximo 2 s a un cliente que no lee) | 0 |
+  | `--once`: solo la foto completa, en cualquier plataforma | 0 |
+  | `watch_stopped` con `project_gone` (el directorio del proyecto se borró o se movió) o `watch_unavailable` | 1 |
+  | `watch_stopped` con `internal_error`; salida estándar cerrada | 2 |
+
+- **Plataformas y límites:** kqueue en macOS e inotify en Linux, con la biblioteca estándar de Go; en otras plataformas responde `watch_unavailable`. Si se alcanza `fs.inotify.max_user_watches` o `fs.inotify.max_user_instances` en Linux, o el límite de archivos abiertos en macOS, `watch_stopped` nombra el límite y cómo ampliarlo.
+- **Solo lectura:** `watch` no escribe, bloquea ni renombra nada, y el único proceso que arranca es el `git rev-parse --is-inside-work-tree` del check de `doctor`. Los eventos solo llevan metadatos (presencia, tamaño y fecha de modificación), nunca el contenido de un artefacto. En formato texto, cada nombre que viene del proyecto va entrecomillado como en los demás informes.
+
 ## Modelo de seguridad
 
 ```mermaid
@@ -909,6 +946,7 @@ flowchart TB
 - **Informes que se pueden pegar sin riesgo:** los valores suministrados en los informes de texto de 004–007 (identificador, aprobador, motivo, destino) van entre comillas dobles, con `$`, las comillas invertidas y `!` escapados (004 FR-028, enmienda 5). Pegar una línea de informe en un shell no ejecuta ni expande nada de lo que contenga.
 - **Rutas literales:** se rechazan rutas no literales y enlaces simbólicos. Cada componente se abre con `O_NOFOLLOW` y se vuelve a comprobar su identidad tras la lectura.
 - **Fallo cerrado:** plataformas o filesystems no soportados (tmpfs, remotos, de solo lectura) devuelven un refusal tipado y nunca un éxito parcial supuesto.
+- **Vigilar solo informa (015):** `ai-dev watch` no puede escribir estado, cosa que impone un test estructural, y ninguno de sus eventos lleva el resultado de una Human Gate. Una decisión registrada se muestra tal como está registrada, y solo para el cambio que causó.
 
 ---
 

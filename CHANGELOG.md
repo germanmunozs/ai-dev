@@ -10,8 +10,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- **015 Project Event Watch:** `ai-dev watch [--format text|json] [--feature ID]… [--debounce D] [--heartbeat D] [--environment-interval D] [--once]` observes the project and reports each change as it happens, read-only.
+  - The first event is a snapshot whose objects are exactly the JSON of `workflow state`, `workflow next`, `setup show` and `doctor`. Then one event for each result that changes: feature state, artifacts and next step, features added and removed, agent configuration, environment checks, and heartbeats.
+  - Events are NDJSON in the versioned contract `ai-dev.watch/v1`. A state change carries the recorded Human Gate decision only when a new history entry leads to that state, and never a gate outcome.
+  - At most 1,000 events wait for a client that does not read; beyond that `resync_required` and a new snapshot follow.
+  - It uses kqueue on macOS and inotify on Linux, through the standard library, with no new dependency; other platforms report `watch_unavailable`. `--once` prints the snapshot alone on any platform.
+
 ### Changed
 
+- The top-level usage, the general help and shell completion list `watch`.
 - `scripts/install-dev.sh` marks development builds as `v0.3.1-dev+<commit>` instead of `v0.2.2-dev+<commit>`.
 - The help of `setup apply --role` lists the roles and the agents once each (`[values: ROLE: …; AGENT: …]`) instead of all 40 `ROLE=AGENT` pairs. Shell completion still offers every pair.
 

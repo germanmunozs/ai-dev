@@ -41,6 +41,12 @@
   - **F009-FR-003:** the general help lists `open`.
   - **F009-FR-005:** the top-level usage line names `open` too (F014-FR-026).
 
+### Session 2026-11-26 (amended by Feature 015, A2)
+
+- Feature 015 (`specs/015-watch/spec.md`), approved by the owner on 2026-11-26 ("si, apruebo la 015, haz el commit y ejecuta /speckit-plan"), amends this feature. This is a declared, unauthenticated assertion.
+  - **F009-FR-003:** the general help lists `watch`.
+  - **F009-FR-005:** the top-level usage line names `watch` too (F015-FR-023).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Know which build is running (Priority: P1)
