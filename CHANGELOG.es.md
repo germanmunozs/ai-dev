@@ -10,8 +10,17 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 
 ## [Unreleased]
 
+### Added
+
+- **015 Project Event Watch:** `ai-dev watch [--format text|json] [--feature ID]… [--debounce D] [--heartbeat D] [--environment-interval D] [--once]` observa el proyecto e informa de cada cambio en cuanto ocurre, sin escribir nada.
+  - El primer evento es una foto completa cuyos objetos son exactamente el JSON de `workflow state`, `workflow next`, `setup show` y `doctor`. Después, un evento por cada resultado que cambia: estado, artefactos y siguiente paso de un feature, features añadidos y eliminados, configuración de agentes, checks del entorno y heartbeats.
+  - Los eventos son NDJSON con el contrato versionado `ai-dev.watch/v1`. Un cambio de estado lleva la decisión registrada de una Human Gate solo si una entrada nueva del historial lleva a ese estado, y nunca el resultado de una Human Gate.
+  - Como máximo esperan 1.000 eventos a un cliente que no lee; a partir de ahí llegan `resync_required` y una foto completa nueva.
+  - Usa kqueue en macOS e inotify en Linux, con la biblioteca estándar y sin dependencias nuevas; otras plataformas responden `watch_unavailable`. `--once` imprime solo la foto completa en cualquier plataforma.
+
 ### Changed
 
+- La línea de uso general, la ayuda general y el completado de shell incluyen `watch`.
 - `scripts/install-dev.sh` marca las versiones de desarrollo como `v0.3.1-dev+<commit>` en lugar de `v0.2.2-dev+<commit>`.
 - La ayuda de `setup apply --role` enumera una vez los roles y los agentes (`[values: ROLE: …; AGENT: …]`) en lugar de los 40 pares `ROLE=AGENT`. El completado de shell sigue ofreciendo todos los pares.
 

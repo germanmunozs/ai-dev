@@ -33,6 +33,7 @@ Of particular interest are failures of the guarantees described in the [security
 - a partial success reported as success, instead of a typed refusal;
 - in the cockpit (`ai-dev tui`), an escape sequence, OSC or bidirectional control that reaches the terminal unescaped, or an action that runs without the review and explicit confirmation;
 - in Neovim (`ai-dev open` and the plugin in `nvim/`), a file name, selection or instruction that is expanded by Ex or by a shell, read as an option or split; a `$NVIM` endpoint that is not a socket of the user and is still used; text that reaches the screen unescaped; or an agent run or decision without the preview and explicit confirmation;
+- in `ai-dev watch`, a write, lock or rename in the project, or a process other than the doctor check's `git rev-parse`; an event that carries a Human Gate outcome, or presents a change without a recorded decision as one; the content of an artifact in an event; or, in text format, a name that reaches the terminal unescaped;
 - a vulnerability in a third-party dependency (Bubble Tea, Lip Gloss and their modules) that is reachable from ai-dev.
 
 Out of scope are the [known limitations](README.md#known-limitations) and the accepted residual risks documented in the specifications (for example REC-06, REC-07 and DUR-01 in [`specs/008-git-management`](specs/008-git-management/)).

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -195,9 +197,6 @@ func (p *watchProcess) next(t *testing.T, timeout time.Duration, types ...string
 				if line.Type == want {
 					return line
 				}
-			}
-			if line.Type != "heartbeat" {
-				t.Logf("skipping %s %s", line.Type, line.Data)
 			}
 		case <-deadline:
 			t.Fatalf("no %v within %v", types, timeout)
@@ -456,5 +455,255 @@ func TestWatchClosedOutput(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		_ = cmd.Process.Kill()
 		t.Fatal("watch did not exit with its output closed")
+	}
+}
+
+// writeFiles creates files under dir.
+func writeFiles(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for path, contents := range files {
+		full := filepath.Join(dir, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func implementedFeature(id string) map[string]string {
+	return map[string]string{
+		"specs/" + id + "/spec.md": "# spec\n", "specs/" + id + "/plan.md": "# plan\n", "specs/" + id + "/tasks.md": "# tasks\n",
+		"specs/" + id + "/workflow-state.json": `{"state":"implemented"}`,
+	}
+}
+
+// 95% of state changes reach the client within 1 s with the default
+// debounce (SC-001, analysis A1).
+func TestWatchLatency(t *testing.T) {
+	bin := buildAIDev(t)
+	dir := makeReadyFixture(t)
+	for i := range 20 {
+		writeFiles(t, dir, implementedFeature(fmt.Sprintf("%03d-gate", i)))
+	}
+	writeFiles(t, dir, map[string]string{"specs/100-edit/spec.md": "# spec\n", "specs/100-edit/workflow-state.json": `{"state":"specified"}`})
+	env := watchEnv(t)
+	p := startWatch(t, bin, dir, env)
+	p.next(t, 10*time.Second, "snapshot")
+
+	var latencies []time.Duration
+	edit := filepath.Join(dir, "specs", "100-edit", "workflow-state.json")
+	states := []string{"planned", "specified"}
+	for i := range 40 {
+		var feature string
+		if i%2 == 0 {
+			feature = fmt.Sprintf("%03d-gate", i/2)
+			if _, stderr, code := runIn(t, bin, dir, env, "workflow", "approve", "--approver", "a@example.com", feature, "approved"); code != 0 {
+				t.Fatalf("approve %s: %d %s", feature, code, stderr)
+			}
+		} else {
+			feature = "100-edit"
+			if err := os.WriteFile(edit, []byte(`{"state":"`+states[i/2%2]+`"}`), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		changed := time.Now()
+		for {
+			line := p.next(t, 5*time.Second, "workflow_state_changed")
+			if strings.Contains(string(line.Data), `"feature":"`+feature+`"`) {
+				latencies = append(latencies, time.Since(changed))
+				break
+			}
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	slices.Sort(latencies)
+	p50, p95 := latencies[len(latencies)/2], latencies[len(latencies)*95/100-1]
+	t.Logf("latency p50 %v, p95 %v, max %v", p50, p95, latencies[len(latencies)-1])
+	if p95 >= time.Second {
+		t.Fatalf("p95 latency %v, want under 1s", p95)
+	}
+}
+
+type treeEntry struct {
+	mode    os.FileMode
+	size    int64
+	modTime time.Time
+	sum     [32]byte
+}
+
+func snapshotTree(t *testing.T, dir string) map[string]treeEntry {
+	t.Helper()
+	tree := map[string]treeEntry{}
+	err := filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		e := treeEntry{mode: info.Mode(), size: info.Size(), modTime: info.ModTime()}
+		if info.Mode().IsRegular() {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			e.sum = sha256.Sum256(data)
+		}
+		rel, _ := filepath.Rel(dir, path)
+		tree[rel] = e
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tree
+}
+
+// watch writes nothing: outside the test's own subtree the project is
+// byte-identical after at least 50 changes (SC-003, F015-FR-019).
+func TestWatchWritesNothing(t *testing.T) {
+	bin := buildAIDev(t)
+	dir := watchFixture(t)
+	writeFiles(t, dir, map[string]string{".ai-dev/agents.json": "{"})
+	env := watchEnv(t)
+	before := snapshotTree(t, dir)
+	p := startWatch(t, bin, dir, env)
+	p.next(t, 10*time.Second, "snapshot")
+	changes := 0
+	for i := range 10 {
+		id := fmt.Sprintf("zz-%02d", i)
+		writeFiles(t, dir, implementedFeature(id))
+		changes += 4
+		if _, _, code := runIn(t, bin, dir, env, "workflow", "approve", "--approver", "a@example.com", id, "approved"); code != 0 {
+			t.Fatalf("approve %s failed", id)
+		}
+		changes++
+		if err := os.WriteFile(filepath.Join(dir, "specs", id, "spec.md"), []byte("# changed\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		changes++
+		time.Sleep(100 * time.Millisecond)
+	}
+	if changes < 50 {
+		t.Fatalf("only %d changes", changes)
+	}
+	time.Sleep(time.Second)
+	if code, last := p.stop(t, syscall.SIGTERM); code != 0 || last.Type != "watch_stopped" {
+		t.Fatalf("stop: %d %s", code, last.Type)
+	}
+	after := snapshotTree(t, dir)
+	for path, entry := range before {
+		if path == "specs" {
+			continue // its entries change with the test's own zz-* directories
+		}
+		if got, ok := after[path]; !ok || got != entry {
+			t.Errorf("%s changed: %+v -> %+v", path, entry, got)
+		}
+	}
+	for path := range after {
+		if _, ok := before[path]; !ok && path != "specs" && !strings.HasPrefix(path, filepath.Join("specs", "zz-")) {
+			t.Errorf("%s appeared outside the test's subtree", path)
+		}
+	}
+}
+
+// hostileStrings are names, approvers and reasons that try to reach the
+// terminal or a shell: escape and operating-system-command sequences, a
+// hyperlink, bidirectional overrides, newlines and shell syntax.
+func hostileStrings(t *testing.T) []string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "quote-vectors.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors []struct{ Input string }
+	if err := json.Unmarshal(data, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	out := []string{"\x1b[31mred\x1b[0m", "\x1b]8;;http://x\x07link\x1b]8;;\x07", "\x1b]52;c;cGF5bG9hZA==\x07", "\u202eevil\u2066x\u2069", "a\nb\rc", "$(touch pwned)`id`"}
+	for _, v := range vectors {
+		out = append(out, v.Input)
+	}
+	return out
+}
+
+// Hostile strings are JSON-encoded, and shown inert in text (SC-006,
+// F015-FR-022).
+func TestWatchHostileNames(t *testing.T) {
+	bin := buildAIDev(t)
+	for _, format := range []string{"json", "text"} {
+		t.Run(format, func(t *testing.T) {
+			dir := makeReadyFixture(t)
+			env := watchEnv(t)
+			var ids []string
+			for i, s := range hostileStrings(t) {
+				id := fmt.Sprintf("%02d-%s", i, s)
+				if strings.ContainsAny(id, "/\x00") || strings.TrimSpace(s) == "" {
+					continue
+				}
+				ids = append(ids, id)
+				writeFiles(t, dir, implementedFeature(id))
+			}
+			cmd := exec.Command(bin, "watch", "--format", format, "--environment-interval", "0")
+			cmd.Dir, cmd.Env = dir, env
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Start(); err != nil {
+				t.Fatal(err)
+			}
+			collected := make(chan []byte, 1)
+			go func() { data, _ := io.ReadAll(stdout); collected <- data }()
+			time.Sleep(time.Second)
+			strs := hostileStrings(t)
+			for i, id := range ids {
+				approver, reason := strs[i%len(strs)], strs[(i+1)%len(strs)]
+				// workflow approve refuses a blank approver or reason.
+				if strings.TrimSpace(approver) == "" {
+					approver = "a" + approver
+				}
+				if strings.TrimSpace(reason) == "" {
+					reason = "r" + reason
+				}
+				if _, stderr, code := runIn(t, bin, dir, env, "workflow", "approve", "--approver", approver, "--reason", reason, "--", id, "approved"); code != 0 {
+					t.Fatalf("approve %q approver %q reason %q: %d %s", id, approver, reason, code, stderr)
+				}
+			}
+			time.Sleep(2 * time.Second)
+			if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+				t.Fatal(err)
+			}
+			out := <-collected
+			_ = cmd.Wait()
+			lines := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
+			gates := strings.Count(string(out), "approval")
+			if gates == 0 {
+				t.Fatalf("no approval reported; output:\n%q", out)
+			}
+			if format == "json" {
+				for i, line := range lines {
+					var l struct {
+						SchemaVersion string `json:"schema_version"`
+						Seq           int64  `json:"seq"`
+					}
+					if err := json.Unmarshal([]byte(line), &l); err != nil || l.SchemaVersion != "ai-dev.watch/v1" || l.Seq != int64(i+1) {
+						t.Fatalf("line %d %q: %v %+v", i+1, line, err, l)
+					}
+				}
+				return
+			}
+			for i, b := range out {
+				if b < 0x20 && b != '\n' || b == 0x7f {
+					t.Fatalf("control byte %#x at %d in text output", b, i)
+				}
+			}
+			if strings.Contains(string(out), "\u202e") || strings.Contains(string(out), "\u2066") {
+				t.Fatal("bidirectional override reached the text output")
+			}
+		})
 	}
 }

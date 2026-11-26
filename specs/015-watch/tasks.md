@@ -305,19 +305,19 @@
 
 ## Phase 8: Polish and cross-cutting concerns
 
-- [ ] T039 [P] End-to-end test `TestWatchLatency` in `cmd/ai-dev/watch_e2e_test.go` (SC-001):
+- [X] T039 [P] End-to-end test `TestWatchLatency` in `cmd/ai-dev/watch_e2e_test.go` (SC-001):
   - 40 state changes, alternating Human Gate approvals on fresh fixture features and in-place edits of another feature's `state`, one every 300 ms (analysis A1).
   - Each latency runs from the end of the change (the `workflow approve` process exiting, or the write returning) to the matching `workflow_state_changed` line.
   - The 95th percentile is under 1 s. Log the percentiles.
-- [ ] T040 [P] End-to-end test `TestWatchWritesNothing` (SC-003, F015-FR-019):
+- [X] T040 [P] End-to-end test `TestWatchWritesNothing` (SC-003, F015-FR-019):
   - Before starting `watch`, record the project tree, every path with its mode, size, modification time and SHA-256.
   - Make at least 50 changes in a separate subtree, `specs/zz-*`, through the test.
   - Stop `watch`, and check that every recorded path outside that subtree is identical and that no new path appeared outside it.
-- [ ] T041 [P] End-to-end test `TestWatchHostileNames` (SC-006, F015-FR-022): feature directories, approvers and reasons taken from `testdata/quote-vectors.json` and hostile strings (escape, OSC, bidirectional overrides, newlines). Check that:
+- [X] T041 [P] End-to-end test `TestWatchHostileNames` (SC-006, F015-FR-022): feature directories, approvers and reasons taken from `testdata/quote-vectors.json` and hostile strings (escape, OSC, bidirectional overrides, newlines). Check that:
   - every JSON line parses, with schema `ai-dev.watch/v1` and consecutive `seq`;
   - no byte below 0x20 other than `\n`, and no ESC, reaches standard output in `text` format.
-- [ ] T042 [P] Add `FuzzReadHistory` to the fuzz step of `.github/workflows/ci.yml`: `go test -run '^$' -fuzz '^FuzzReadHistory$' -fuzztime 20s ./internal/gate`.
-- [ ] T043 [P] Documentation in `README.md` and `README.es.md`:
+- [X] T042 [P] Add `FuzzReadHistory` to the fuzz step of `.github/workflows/ci.yml`: `go test -run '^$' -fuzz '^FuzzReadHistory$' -fuzztime 20s ./internal/gate`.
+- [X] T043 [P] Documentation in `README.md` and `README.es.md`:
   - `ai-dev watch` and its options;
   - the event contract with the example of contracts/watch.md;
   - the compatibility rules;
@@ -327,7 +327,7 @@
   - that events inform but never approve.
 
   Also add `CHANGELOG.md` and `CHANGELOG.es.md` entries under `[Unreleased]`, and a `SECURITY.md` paragraph on the read-only boundary (F015-FR-024).
-- [ ] T044 Run the quality gates of plan.md and record each result here:
+- [X] T044 Run the quality gates of plan.md and record each result here:
   - `gofmt -l .`;
   - `go vet ./...` and `GOOS=linux go vet ./...`;
   - `go test -race ./...`;
@@ -337,6 +337,12 @@
   - `go.mod` and `go.sum` unchanged;
   - the cross-builds, and `CGO_ENABLED=0 go build ./cmd/ai-dev` for darwin and linux;
   - the regression suites with only T001's expectations changed (SC-008).
+  **Result (2026-11-26, macOS arm64, Go 1.27.4):**
+  - Passed: `gofmt -l .` empty; `go vet ./...` and `GOOS=linux go vet ./...` ok; `go test -race -timeout 30m ./...` exit 0, all 29 packages ok; `FuzzReadHistory` 20 s, no failure; `staticcheck ./...` ok for darwin and linux; `go.mod` and `go.sum` unchanged against `dev`; the cross-builds (darwin, linux, windows, freebsd) and `CGO_ENABLED=0 go build ./cmd/ai-dev` for darwin and linux ok; the regression suites changed only in T001's expectations, the routed-help test (T016) and the two 006 boundary allow lists (T003).
+  - Found on the way: staticcheck (ST1018) flagged literal bidirectional characters in `TestWatchHostileNames`; they are now escape sequences.
+  - Not run locally: `govulncheck` (not installed; it runs in CI's `static-analysis` job) and the Linux adapter tests (they run in CI's `gates` job on `ubuntu-latest`).
+  - Measured by the tests: SC-001 p95 latency 251 ms over 40 state changes, and 17,312 KB RSS with 1,100 features and a blocked client.
+
 - [ ] T045 Owner's manual check: quickstart.md steps 1–6, including SC-004 (under 0.5% CPU and under 30 MB with 100 features, measured with `ps`). Record the values, the date and the platform here.
 - [ ] T046 Independent review before the PR (constitution VIII), as in 012–014. Record here the implementing agent, the reviewing agent, the findings and their resolution, and update the governing artifacts for any deviation.
 
