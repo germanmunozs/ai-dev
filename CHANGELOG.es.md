@@ -13,6 +13,7 @@ Este archivo es la traducción de [`CHANGELOG.md`](CHANGELOG.md) y se mantiene e
 ### Changed
 
 - `scripts/install-dev.sh` marca las versiones de desarrollo como `v0.3.1-dev+<commit>` en lugar de `v0.2.2-dev+<commit>`.
+- La ayuda de `setup apply --role` enumera una vez los roles y los agentes (`[values: ROLE: …; AGENT: …]`) en lugar de los 40 pares `ROLE=AGENT`. El completado de shell sigue ofreciendo todos los pares.
 
 ## [0.3.0] - 2026-11-25
 

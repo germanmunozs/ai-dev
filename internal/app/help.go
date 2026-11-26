@@ -88,6 +88,9 @@ func writeCommandHelp(out *strings.Builder, spec commandSpec) {
 			label += " " + option.value
 		}
 		text := option.description + valuesNote(option.values)
+		if option.valuesHelp != "" {
+			text = option.description + " [values: " + option.valuesHelp + "]"
+		}
 		if option.repeatable {
 			text += " [repeatable]"
 		}

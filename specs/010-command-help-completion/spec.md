@@ -38,6 +38,14 @@
 
 - Feature 014 (`specs/014-neovim-integration/spec.md`), approved by the owner on 2026-11-24 ("si, apruebo la 014, haz el commit y ejecuta /speckit-plan"), amends F010-FR-010. This is a declared, unauthenticated assertion. Once Feature 014 is implemented, the top-level usage line is `Usage: ai-dev <doctor|agents|agent|workflow|init|git|setup|tui|open|version|help|completion> [options]`, and the catalog holds `open` (F014-FR-026).
 
+### Session 2026-11-25 (Amendment 2: compound values in help)
+
+- **Finding.** L5 of the Feature 013 review: the help of `setup apply --role` listed every `ROLE=AGENT` pair, 40 with eight agents, and the line grows by five values per agent added.
+- **Authority record.** German Munoz, repository owner, asked for this change on 2026-11-25 in the words "haz la ayuda compacta de --role". This is a declared, unauthenticated assertion.
+- Q: How does help state the allowed values of `--role`? → A: As the two fixed sets the pair is made of, once each: `[values: ROLE: <roles>; AGENT: <agents>]`, in role-list and catalog order. This clarifies F010-FR-002 ("its allowed values when they are fixed") for a value that combines two fixed sets; every other option keeps its full list.
+- Q: Does completion change? → A: No. Completion still offers every `ROLE=AGENT` pair (F010-FR-007, F011-FR-020).
+- No other help text, usage line, behavior or exit code changes.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Learn one command's options (Priority: P1)

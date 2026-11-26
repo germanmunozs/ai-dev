@@ -27,7 +27,8 @@ type optionSpec struct {
 	name        string
 	value       string // placeholder; empty for a boolean option
 	values      []string
-	file        bool // the value is a file or directory
+	valuesHelp  string // states values in help instead of listing them; completion keeps values
+	file        bool   // the value is a file or directory
 	repeatable  bool
 	description string
 }
@@ -92,6 +93,12 @@ func roleAgentPairs() []string {
 		}
 	}
 	return values
+}
+
+// roleAgentHelp states the ROLE=AGENT values in help as the roles and the
+// agents, once each, instead of every pair (Feature 010, Amendment 2).
+func roleAgentHelp() string {
+	return "ROLE: " + strings.Join(roleNames(), "|") + "; AGENT: " + strings.Join(catalogAgentValues(), "|")
 }
 
 func formatOption() optionSpec {
@@ -222,7 +229,7 @@ var catalog = []commandSpec{
 	{path: []string{"setup", "apply"}, description: "Write the project's agents and role assignment from options", usage: setupApplyUsage,
 		options: []optionSpec{
 			{name: "agent", value: "AGENT", values: agentValues, repeatable: true, description: "An agent the project works with"},
-			{name: "role", value: "ROLE=AGENT", values: roleAgentValues, repeatable: true, description: "The agent for one role; give all five"},
+			{name: "role", value: "ROLE=AGENT", values: roleAgentValues, valuesHelp: roleAgentHelp(), repeatable: true, description: "The agent for one role; give all five"},
 			boolOption("replace", "Replace an existing, different configuration"),
 			formatOption(),
 		},
